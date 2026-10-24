@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>Retroboat.Launcher</RootNamespace>
+    <AssemblyName>Retroboat</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Retroboat.Core\Retroboat.Core.csproj" />
+  </ItemGroup>
+
+</Project>

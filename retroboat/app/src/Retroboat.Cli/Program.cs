@@ -1,0 +1,368 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading;
+using Retroboat.Cloud;
+using Retroboat.Integrity;
+using Retroboat.Library;
+using Retroboat.Text;
+
+namespace Retroboat.Cli
+{
+    /// <summary>
+    /// Ferramenta de linha de comando para testar e operar a biblioteca do Retroboat.
+    /// </summary>
+    static class Program
+    {
+        const int ExitOk = 0;
+        const int ExitError = 1;
+        const int ExitUsage = 2;
+        const int ExitCorrupt = 3;
+        const int ExitCancelled = 130;
+
+        const string Usage =
+@"retroboat-cli: biblioteca de jogos do Retroboat
+
+Nuvem (pasta do Google Drive para computador):
+  retroboat-cli cloud where
+  retroboat-cli cloud ls [sistema]
+  retroboat-cli cloud verify [sistema | sistema/jogo] [--samples N] [--full]
+  retroboat-cli cloud install sistema/jogo --to <pasta de jogos> [--force]
+  retroboat-cli cloud uninstall sistema/jogo --to <pasta de jogos>
+
+Biblioteca isolada (RB-003):
+  retroboat-cli library apply --retrobat <pasta do RetroBat> [--roms <pasta de jogos>] [--dry-run] [--no-folders]
+
+Opções gerais:
+  --cloud <pasta>   usa esta pasta como a pasta do Retroboat na nuvem, em vez de detectar o Google Drive";
+
+        static readonly CancellationTokenSource Cancellation = new CancellationTokenSource();
+
+        static int Main(string[] args)
+        {
+            Console.OutputEncoding = Encoding.UTF8;
+            Console.CancelKeyPress += (s, e) =>
+            {
+                e.Cancel = true;
+                Cancellation.Cancel();
+            };
+
+            var options = new Options(args);
+            try
+            {
+                switch ((options.Positional(0) + " " + options.Positional(1)).Trim())
+                {
+                    case "cloud where": return CloudWhere(options);
+                    case "cloud ls": return CloudList(options);
+                    case "cloud verify": return CloudVerify(options);
+                    case "cloud install": return CloudInstall(options);
+                    case "cloud uninstall": return CloudUninstall(options);
+                    case "library apply": return LibraryApply(options);
+                    default:
+                        Console.WriteLine(Usage);
+                        return ExitUsage;
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                Console.WriteLine();
+                Console.WriteLine("Cancelado.");
+                return ExitCancelled;
+            }
+            catch (UsageException ex)
+            {
+                Console.Error.WriteLine(ex.Message);
+                return ExitUsage;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidOperationException)
+            {
+                Console.Error.WriteLine("Erro: " + ex.Message);
+                return ExitError;
+            }
+        }
+
+        static int CloudWhere(Options options)
+        {
+            var roots = CloudLocator.GetGoogleDriveRoots().ToList();
+            Console.WriteLine(roots.Count == 0
+                ? "Google Drive para computador: nenhuma unidade encontrada."
+                : "Google Drive para computador: " + string.Join(", ", roots));
+
+            var location = CloudLocator.Locate(options.Value("--cloud"));
+            if (location == null)
+            {
+                Console.WriteLine("Pasta do Retroboat na nuvem: não encontrada.");
+                return ExitError;
+            }
+
+            Console.WriteLine("Pasta do Retroboat: " + location.RetroboatPath + "  [" + location.Source + "]" + (location.Exists ? "" : "  (ainda não existe)"));
+            Console.WriteLine("Jogos:              " + location.GamesPath + (Directory.Exists(location.GamesPath) ? "" : "  (ainda não existe)"));
+            return location.Exists ? ExitOk : ExitError;
+        }
+
+        static int CloudList(Options options)
+        {
+            var library = OpenLibrary(options);
+            var system = options.Positional(2);
+            var games = library.GetGames(system);
+
+            if (games.Count == 0)
+            {
+                Console.WriteLine(system == null ? "Nenhum jogo em " + library.GamesPath : "Nenhum jogo em " + system + ".");
+                return ExitOk;
+            }
+
+            foreach (var group in games.GroupBy(g => g.System))
+            {
+                Console.WriteLine(string.Format(Format.Culture, "{0}  ({1} jogos, {2})", group.Key, group.Count(), Format.Bytes(group.Sum(g => g.Size))));
+                foreach (var game in group)
+                    Console.WriteLine("  " + Format.Bytes(game.Size).PadLeft(9) + "  " + game.Name + (game.IsDirectory ? "\\" : ""));
+            }
+
+            Console.WriteLine(string.Format(Format.Culture, "Total: {0} jogos, {1}", games.Count, Format.Bytes(games.Sum(g => g.Size))));
+            return ExitOk;
+        }
+
+        static int CloudVerify(Options options)
+        {
+            var library = OpenLibrary(options);
+            var target = options.Positional(2);
+            var games = SelectGames(library, target);
+            int samples = options.IntValue("--samples", IntegrityChecker.DefaultSamples);
+            bool full = options.Flag("--full");
+
+            int corrupt = 0, suspicious = 0;
+            foreach (var game in games)
+            {
+                Cancellation.Token.ThrowIfCancellationRequested();
+
+                foreach (var file in FilesOf(game))
+                {
+                    var label = game.Id + (game.IsDirectory ? "\\" + file.Substring(game.FullPath.Length).TrimStart('\\') : "");
+                    var quick = IntegrityChecker.QuickCheck(file, samples);
+                    Console.WriteLine(Describe(quick).PadRight(14) + label + (quick.Detail != null ? "  (" + quick.Detail + ")" : ""));
+
+                    if (quick.IsCorrupt)
+                        corrupt++;
+                    else if (quick.Status == IntegrityStatus.SignatureMissing || quick.Status == IntegrityStatus.Unreadable)
+                        suspicious++;
+
+                    if (full && !quick.IsCorrupt)
+                    {
+                        var progress = new ConsoleProgress();
+                        var hashes = IntegrityChecker.FullCheck(file, progress, Cancellation.Token);
+                        progress.End();
+                        Console.WriteLine("              sha1 " + hashes.Sha1 + "  crc32 " + hashes.Crc32 + (hashes.AllZero ? "  TODO ZERADO" : ""));
+                        if (hashes.AllZero)
+                            corrupt++;
+                    }
+                }
+            }
+
+            Console.WriteLine(string.Format(Format.Culture, "{0} jogos verificados: {1} corrompidos, {2} suspeitos.", games.Count, corrupt, suspicious));
+            return corrupt > 0 ? ExitCorrupt : ExitOk;
+        }
+
+        static int CloudInstall(Options options)
+        {
+            var library = OpenLibrary(options);
+            var game = FindGame(library, options.Positional(2));
+            var romsRoot = options.Required("--to");
+
+            Console.WriteLine("Instalando " + game.Id + " (" + Format.Bytes(game.Size) + ") em " + Path.Combine(romsRoot, game.System));
+            WarnAboutDriveCache(romsRoot, game.Size);
+
+            var progress = new ConsoleProgress();
+            var result = new GameInstaller().Install(game, romsRoot, progress, Cancellation.Token, options.Flag("--force"));
+            progress.End();
+
+            switch (result.Outcome)
+            {
+                case InstallOutcome.Installed:
+                    Console.WriteLine("Instalado: " + result.Destination + (result.BytesResumed > 0 ? "  (retomado de " + Format.Bytes(result.BytesResumed) + ")" : ""));
+                    break;
+                case InstallOutcome.AlreadyInstalled:
+                    Console.WriteLine("Já estava instalado: " + result.Destination);
+                    break;
+                case InstallOutcome.Cancelled:
+                    Console.WriteLine("Cancelado. Rode o mesmo comando para continuar de onde parou.");
+                    return ExitCancelled;
+                case InstallOutcome.InsufficientSpace:
+                    Console.Error.WriteLine("Espaço insuficiente: " + result.Error);
+                    return ExitError;
+                default:
+                    Console.Error.WriteLine("Falhou: " + result.Error + ". Rode de novo para continuar de onde parou.");
+                    return ExitError;
+            }
+
+            if (result.Integrity != null && result.Integrity.IsCorrupt)
+            {
+                Console.Error.WriteLine("ATENÇÃO: a cópia está " + Describe(result.Integrity).ToLowerInvariant() + " (" + result.Integrity.Detail + "). O arquivo na nuvem está danificado.");
+                return ExitCorrupt;
+            }
+
+            return ExitOk;
+        }
+
+        static int CloudUninstall(Options options)
+        {
+            var library = OpenLibrary(options);
+            var game = FindGame(library, options.Positional(2));
+            var removed = GameInstaller.Uninstall(game, options.Required("--to"));
+            Console.WriteLine(removed ? "Cópia local removida; o jogo continua na nuvem." : "Não havia cópia local.");
+            return ExitOk;
+        }
+
+        static int LibraryApply(Options options)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            var romsRoot = options.Value("--roms") ?? install.DefaultRomsPath;
+            bool dryRun = options.Flag("--dry-run");
+
+            var result = new IsolatedLibrary(install).Apply(romsRoot, dryRun, !options.Flag("--no-folders"));
+
+            Console.WriteLine((dryRun ? "[simulação] " : "") + "Pasta de jogos: " + Path.GetFullPath(romsRoot) + "  (" + result.SystemsMapped + " sistemas)");
+            if (result.OverlayWritten) Console.WriteLine("  overlay es_systems_retroboat.cfg gravado");
+            if (result.OverlayRemoved) Console.WriteLine("  overlay es_systems_retroboat.cfg removido (pasta padrão)");
+            if (result.LauncherConfigUpdated) Console.WriteLine("  emulatorLauncher.cfg atualizado (roms antes: " + (result.PreviousRomsValue ?? "padrão") + ")");
+            if (result.FoldersCreated > 0) Console.WriteLine("  " + result.FoldersCreated + " pastas de sistema criadas");
+            if (result.GamelistsCreated > 0) Console.WriteLine("  " + result.GamelistsCreated + " gamelists vazios criados em .emulationstation\\gamelists");
+            if (result.GamelistsMoved.Count > 0) Console.WriteLine("  gamelists movidos para .emulationstation\\gamelists: " + string.Join(", ", result.GamelistsMoved));
+            if (!result.HasChanges) Console.WriteLine("  nada a mudar");
+
+            foreach (var warning in result.Warnings)
+                Console.WriteLine("  AVISO: " + warning);
+
+            return ExitOk;
+        }
+
+        static CloudLibrary OpenLibrary(Options options)
+        {
+            var location = CloudLocator.Locate(options.Value("--cloud"));
+            if (location == null)
+                throw new InvalidOperationException("Google Drive para computador não encontrado. Instale e entre na sua conta, ou use --cloud <pasta>.");
+
+            if (!Directory.Exists(location.GamesPath))
+                throw new InvalidOperationException("Pasta de jogos não encontrada: " + location.GamesPath);
+
+            return new CloudLibrary(location.GamesPath);
+        }
+
+        static List<CloudGame> SelectGames(CloudLibrary library, string target)
+        {
+            if (string.IsNullOrEmpty(target))
+                return library.GetGames().ToList();
+
+            if (target.IndexOf('/') >= 0 || target.IndexOf('\\') >= 0)
+                return new List<CloudGame> { FindGame(library, target) };
+
+            return library.GetGames(target).ToList();
+        }
+
+        static CloudGame FindGame(CloudLibrary library, string id)
+        {
+            if (string.IsNullOrEmpty(id))
+                throw new UsageException("Informe o jogo como sistema/nome, ex.: ps2/\"Jogo (USA).iso\"");
+
+            return library.Find(id) ?? throw new InvalidOperationException("Jogo não encontrado na nuvem: " + id);
+        }
+
+        static IEnumerable<string> FilesOf(CloudGame game)
+        {
+            return game.IsDirectory
+                ? Directory.EnumerateFiles(game.FullPath, "*", SearchOption.AllDirectories).OrderBy(f => f, StringComparer.OrdinalIgnoreCase)
+                : new[] { game.FullPath };
+        }
+
+        static string Describe(IntegrityResult result)
+        {
+            switch (result.Status)
+            {
+                case IntegrityStatus.Ok: return "OK " + result.Format;
+                case IntegrityStatus.Unverified: return "NÃO VERIFICADO";
+                case IntegrityStatus.SignatureMissing: return "SUSPEITO";
+                case IntegrityStatus.Zeroed: return "ZERADO";
+                case IntegrityStatus.Empty: return "VAZIO";
+                default: return "ILEGÍVEL";
+            }
+        }
+
+        /// <summary>
+        /// O Drive para computador guarda o que é lido num cache local (por padrão no C:), então
+        /// instalar no mesmo disco ocupa o espaço do jogo duas vezes até o cache ser liberado.
+        /// </summary>
+        static void WarnAboutDriveCache(string romsRoot, long size)
+        {
+            try
+            {
+                var cacheRoot = Path.GetPathRoot(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+                var targetRoot = Path.GetPathRoot(Path.GetFullPath(romsRoot));
+                if (!string.Equals(cacheRoot, targetRoot, StringComparison.OrdinalIgnoreCase))
+                    return;
+
+                var free = new DriveInfo(targetRoot).AvailableFreeSpace;
+                if (free < size * 2 + GameInstaller.FreeSpaceMargin)
+                    Console.WriteLine("Aviso: o cache do Google Drive também fica em " + targetRoot + ". Durante a instalação o jogo pode ocupar o dobro do espaço (" + Format.Bytes(free) + " livres).");
+            }
+            catch (IOException) { }
+            catch (ArgumentException) { }
+        }
+
+        sealed class UsageException : Exception
+        {
+            public UsageException(string message) : base(message) { }
+        }
+
+        sealed class Options
+        {
+            static readonly HashSet<string> ValueOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "--cloud", "--to", "--retrobat", "--roms", "--samples" };
+
+            readonly List<string> _positional = new List<string>();
+            readonly Dictionary<string, string> _values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            readonly HashSet<string> _flags = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            public Options(string[] args)
+            {
+                for (int i = 0; i < args.Length; i++)
+                {
+                    var arg = args[i];
+                    if (ValueOptions.Contains(arg))
+                    {
+                        if (i + 1 >= args.Length)
+                            throw new UsageException("Falta o valor de " + arg);
+
+                        _values[arg] = args[++i];
+                    }
+                    else if (arg.StartsWith("--", StringComparison.Ordinal))
+                    {
+                        _flags.Add(arg);
+                    }
+                    else
+                    {
+                        _positional.Add(arg);
+                    }
+                }
+            }
+
+            public string Positional(int index) => index < _positional.Count ? _positional[index] : null;
+            public string Value(string name) => _values.TryGetValue(name, out var value) ? value : null;
+            public bool Flag(string name) => _flags.Contains(name);
+
+            public string Required(string name) => Value(name) ?? throw new UsageException("Falta a opção " + name);
+
+            public int IntValue(string name, int fallback)
+            {
+                var value = Value(name);
+                if (value == null)
+                    return fallback;
+
+                if (int.TryParse(value, out var number) && number > 0)
+                    return number;
+
+                throw new UsageException(name + " precisa ser um número positivo");
+            }
+        }
+    }
+}

@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Retroboat.Cli</RootNamespace>
+    <AssemblyName>retroboat-cli</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Retroboat.Core\Retroboat.Core.csproj" />
+  </ItemGroup>
+
+</Project>
