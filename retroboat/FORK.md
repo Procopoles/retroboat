@@ -100,6 +100,8 @@ prazo só o que é realmente nosso.
    linha alterada leva `RETROBOAT RB-NNN` para ser achada na hora do conflito.
 4. **Uma mudança = um branch = um ID.** Branch `rb/NNN-descricao`; cada commit leva o trailer
    `Retroboat-Patch: RB-NNN` (é isso que permite ao `upstream-check.sh` dizer qual patch é afetado).
+   O trailer precisa estar no último parágrafo da mensagem, junto de outros trailers como
+   `Co-Authored-By`, sem linha em branco entre eles; senão o git não o reconhece.
    Uma mudança isolada também é fácil de reverter quando o upstream corrigir do jeito dele.
 5. **Não editar `CHANGELOG.md` nem `README.md` do upstream.** O nosso histórico fica em
    `retroboat/CHANGELOG.md`.
