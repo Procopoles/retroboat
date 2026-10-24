@@ -1,0 +1,2 @@
+# Scripts bash precisam de LF mesmo com core.autocrlf=true; com CRLF o Git Bash falha com "\r: command not found".
+*.sh text eol=lf
