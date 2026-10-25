@@ -123,8 +123,9 @@ namespace Retroboat.Tests
             using (var pcs = new TempDir())
             {
                 cloud.WriteFile(@"jogos\ps2\" + Game, TempDir.RandomBytes(1000));
+                // Entrada antiga de outro PC: a deste PC (só o nome) fica mais nova e não pode esconder o gênero.
                 cloud.WriteText(@"midia\ps2\metadados\PC-A.xml",
-                    "<retroboatMedia><game key=\"" + Game + "\" updated=\"2026-10-25T10:00:00Z\"><name>Nome da Nuvem</name><genre>Ação</genre></game></retroboatMedia>");
+                    "<retroboatMedia><game key=\"" + Game + "\" updated=\"2020-01-01T00:00:00Z\"><name>Nome da Nuvem</name><genre>Ação</genre></game></retroboatMedia>");
 
                 var b = Install(pcs, "B");
                 SyncLibrary(b, cloud);

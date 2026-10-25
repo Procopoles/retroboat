@@ -17,6 +17,9 @@ namespace Retroboat.Media
         /// <summary>Manuais e revistas em PDF também podem ser grandes.</summary>
         public bool Manuals { get; set; }
 
+        /// <summary>Buscar capas automáticas (<see cref="AutoMedia"/>) para jogos sem imagem.</summary>
+        public bool Automatic { get; set; }
+
         public bool Allows(MediaKind kind) => kind == MediaKind.Image || (kind == MediaKind.Video && Videos) || (kind == MediaKind.Manual && Manuals);
     }
 
@@ -35,7 +38,7 @@ namespace Retroboat.Media
     ///
     /// Na nuvem, por sistema: midia\&lt;pasta&gt;\metadados\&lt;PC&gt;.xml (o que cada PC sabe de cada jogo; cada PC
     /// só grava o seu) e midia\&lt;pasta&gt;\imagens|videos|manuais (arquivos com o nome que o scraper do ES dá).
-    /// Na leitura, vale a entrada mais recente de cada jogo. No PC, a nuvem só preenche o que está vazio:
+    /// Na leitura, cada campo vale o da entrada mais recente que o tem. No PC, a nuvem só preenche o que está vazio:
     /// nada que o usuário ou o scraper local escreveu é trocado.
     /// </summary>
     public sealed class CloudMediaSync
@@ -272,23 +275,32 @@ namespace Retroboat.Media
             public Dictionary<string, string> Fields = new Dictionary<string, string>(StringComparer.Ordinal);
         }
 
+        /// <summary>
+        /// O que a nuvem sabe de cada jogo, juntando os arquivos de todos os PCs campo a campo: cada campo
+        /// vale o da entrada mais recente que o tem. Assim, um PC que só renomeou o jogo não esconde a
+        /// descrição e a capa que outro PC enviou.
+        /// </summary>
         static Dictionary<string, MediaEntry> ReadWinners(string metadataDir)
         {
             var winners = new Dictionary<string, MediaEntry>(StringComparer.OrdinalIgnoreCase);
             if (!Directory.Exists(metadataDir))
                 return winners;
 
+            var all = new List<MediaEntry>();
             foreach (var file in Directory.GetFiles(metadataDir, "*.xml"))
             {
-                Dictionary<string, MediaEntry> entries;
-                try { entries = ReadEntries(file); }
-                catch (System.Xml.XmlException) { continue; } // Arquivo de outro PC no meio do envio pelo Drive.
+                try { all.AddRange(ReadEntries(file).Values); }
+                catch (System.Xml.XmlException) { } // Arquivo de outro PC no meio do envio pelo Drive.
+            }
 
-                foreach (var entry in entries.Values)
-                {
-                    if (!winners.TryGetValue(entry.Key, out var current) || entry.Updated > current.Updated)
-                        winners[entry.Key] = entry;
-                }
+            foreach (var entry in all.OrderBy(e => e.Updated))
+            {
+                if (!winners.TryGetValue(entry.Key, out var merged))
+                    winners[entry.Key] = merged = new MediaEntry { Key = entry.Key };
+
+                merged.Updated = entry.Updated;
+                foreach (var field in entry.Fields)
+                    merged.Fields[field.Key] = field.Value;
             }
 
             return winners;

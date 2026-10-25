@@ -27,6 +27,9 @@ namespace Retroboat.Settings
         /// <summary>Baixar também manuais e revistas (PDF) dos jogos da nuvem.</summary>
         public bool CloudManuals { get; set; }
 
+        /// <summary>Capas automáticas (thumbnails do libretro) para jogos sem imagem. Ligado por padrão.</summary>
+        public bool AutoMedia { get; set; } = true;
+
         public static string GetPath(RetroBatInstall install) => Path.Combine(install.RetroboatDataPath, FileName);
 
         public static RetroboatSettings Load(string path)
@@ -37,7 +40,8 @@ namespace Retroboat.Settings
                 RomsPath = Get(ini, "Library", "RomsPath"),
                 CloudPath = Get(ini, "Cloud", "Path"),
                 CloudVideos = Get(ini, "Cloud", "Videos") == "1",
-                CloudManuals = Get(ini, "Cloud", "Manuals") == "1"
+                CloudManuals = Get(ini, "Cloud", "Manuals") == "1",
+                AutoMedia = Get(ini, "Media", "Automatic") != "0"
             };
         }
 
@@ -57,7 +61,11 @@ namespace Retroboat.Settings
                 .AppendLine("Path=" + (CloudPath ?? ""))
                 .AppendLine("; Capas e descrições dos jogos da nuvem sempre vêm. 1 = baixar também vídeos / manuais.")
                 .AppendLine("Videos=" + (CloudVideos ? "1" : "0"))
-                .AppendLine("Manuals=" + (CloudManuals ? "1" : "0"));
+                .AppendLine("Manuals=" + (CloudManuals ? "1" : "0"))
+                .AppendLine()
+                .AppendLine("[Media]")
+                .AppendLine("; 1 = capa, tela e título automáticos (libretro) para jogos sem imagem. 0 = desligado.")
+                .AppendLine("Automatic=" + (AutoMedia ? "1" : "0"));
 
             File.WriteAllText(path, text.ToString(), new UTF8Encoding(false));
         }

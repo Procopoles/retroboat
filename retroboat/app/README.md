@@ -75,4 +75,13 @@ Path=
 Videos=0
 ; 1 = baixar também manuais e revistas (PDF).
 Manuals=0
+
+[Media]
+; 1 = capa, tela e título automáticos (thumbnails do libretro) para jogos sem imagem.
+Automatic=1
 ```
+
+As capas automáticas não precisam de conta: o lançador procura o nome do arquivo (padrão
+No-Intro/Redump) nos thumbnails do libretro, guarda a lista de nomes de cada sistema por uma semana
+em `retroboat\cache\libretro` e envia as imagens para o Drive. Descrição e vídeo vêm do scraper do
+ES, que precisa de uma conta gratuita no ScreenScraper (menu Procurar mídias de jogo, aba Contas).

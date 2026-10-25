@@ -19,7 +19,7 @@ namespace Retroboat.Launcher
 
             var label = new Label
             {
-                Text = "Sincronizando com a nuvem (BIOS e biblioteca)...",
+                Text = "Sincronizando com a nuvem (BIOS, biblioteca e capas)...",
                 AutoSize = true,
                 Location = new Point(16, 18)
             };

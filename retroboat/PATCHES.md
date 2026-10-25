@@ -138,6 +138,17 @@ o histórico.
   `[Cloud] Videos=1` / `Manuals=1` no `retroboat.ini`.
 - **Validado em 25/10/2026** com o ES real: a capa movida para `.emulationstation\media` aparece
   (API `/systems/ps2/games/<id>/media/image`) e o ES mantém o caminho `~/...` ao salvar o gamelist.
+- **Capas automáticas (25/10/2026):** o scraper do ES não funciona sem conta no ScreenScraper (a
+  API responde 403 "Erreur de login" e o ES cancela tudo). Agora o lançador busca sozinho, para
+  todo jogo da biblioteca sem imagem, capa, tela do jogo e tela de título nos thumbnails do
+  libretro (`Media\AutoMedia`, `LibretroThumbnails`, `ThumbnailIndex`), sem conta nem chave, e envia
+  para o Drive na mesma abertura. Os nomes são casados com o padrão No-Intro/Redump, aceitando
+  "_" no lugar de ",", "The" no fim, região GoodTools e título sem subtítulo; achou os 26 jogos
+  de PS2 do Drive (77 imagens em 24 s na primeira vez; depois só o que faltar). Desliga com
+  `[Media] Automatic=0`. Descrição e vídeo continuam vindo do scraper do ES, com conta no
+  ScreenScraper.
+- **Correção:** a nuvem juntava os PCs por jogo inteiro (a entrada mais nova vencia). Um PC que só
+  tinha o nome escondia a descrição e a capa enviadas por outro. Agora junta campo a campo.
 - **Risco semântico médio:** depende da lista de campos de mídia do gamelist (`MetaData.cpp`) e de
   o ES resolver `~/` a partir da pasta dele. Campo de mídia novo no upstream fica fora da nuvem sem
   conflito de merge; os dois pontos entram na lista de vigilância.

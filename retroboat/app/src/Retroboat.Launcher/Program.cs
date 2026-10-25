@@ -138,7 +138,7 @@ namespace Retroboat.Launcher
             {
                 try
                 {
-                    var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals };
+                    var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
                     report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media);
                 }
                 catch (Exception ex) { error = ex; }
@@ -182,6 +182,13 @@ namespace Retroboat.Launcher
 
             if (report.Relocation != null && report.Relocation.FilesMoved > 0)
                 Log.Info("Mídia movida para fora da pasta de jogos: " + report.Relocation.FilesMoved + " arquivo(s) (" + string.Join(", ", report.Relocation.Systems) + ")");
+
+            if (report.AutoMedia != null)
+            {
+                Log.Info(string.Format("Capas automáticas (libretro): {0} jogo(s), {1} imagem(ns) baixada(s)", report.AutoMedia.GamesFilled, report.AutoMedia.FilesDownloaded));
+                foreach (var game in report.AutoMedia.NotFound) Log.Info("Capa automática não encontrada: " + game);
+                foreach (var problem in report.AutoMedia.Errors) Log.Warn("Capas automáticas: " + problem);
+            }
 
             if (report.Media != null)
             {

@@ -15,6 +15,7 @@ namespace Retroboat.Cloud
         public CloudLibrarySyncResult Library { get; set; }
         public MediaRelocationResult Relocation { get; set; }
         public CloudMediaSyncResult Media { get; set; }
+        public AutoMediaResult AutoMedia { get; set; }
         public IReadOnlyList<BiosReport> BiosStatus { get; set; } = new List<BiosReport>();
 
         /// <summary>Frases curtas para a interface (notificação do ES, janela do lançador).</summary>
@@ -30,7 +31,8 @@ namespace Retroboat.Cloud
     /// </summary>
     public static class StartupSync
     {
-        public static StartupSyncReport Run(RetroBatInstall install, string configuredCloudPath, string romsPath, CloudMediaOptions mediaOptions = null)
+        public static StartupSyncReport Run(RetroBatInstall install, string configuredCloudPath, string romsPath, CloudMediaOptions mediaOptions = null,
+                                            IThumbnailSource thumbnails = null)
         {
             var report = new StartupSyncReport { Cloud = CloudLocator.Locate(configuredCloudPath) };
             var localBios = Path.Combine(install.Root, "bios");
@@ -81,6 +83,28 @@ namespace Retroboat.Cloud
                     {
                         report.Messages.Add("Atenção: problema ao sincronizar capas e descrições. Detalhes no log do Retroboat.");
                         report.HasWarnings = true;
+                    }
+                }
+            }
+
+            // Capas automáticas para o que nem este PC nem a nuvem têm. O que vier vai para o Drive na hora.
+            if (mediaOptions != null && mediaOptions.Automatic && !string.IsNullOrEmpty(romsPath))
+            {
+                var source = thumbnails ?? new LibretroThumbnails(Path.Combine(install.RetroboatDataPath, "cache", "libretro"));
+                report.AutoMedia = new AutoMedia(install, romsPath, source).Apply();
+                if (report.AutoMedia.GamesFilled > 0)
+                {
+                    report.Messages.Add("Capas automáticas: " + report.AutoMedia.GamesFilled + " jogo(s)");
+                    if (report.Cloud != null && report.Cloud.Exists)
+                    {
+                        var shared = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();
+                        report.Media = report.Media ?? shared;
+                        if (report.Media != shared)
+                        {
+                            report.Media.GamesShared += shared.GamesShared;
+                            report.Media.FilesUploaded += shared.FilesUploaded;
+                            report.Media.Errors.AddRange(shared.Errors);
+                        }
                     }
                 }
             }
