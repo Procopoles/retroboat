@@ -21,6 +21,12 @@ namespace Retroboat.Settings
         /// <summary>Pasta do Retroboat na nuvem. Vazio = detectar o Google Drive para computador.</summary>
         public string CloudPath { get; set; }
 
+        /// <summary>Baixar também os vídeos dos jogos da nuvem (as imagens sempre vêm).</summary>
+        public bool CloudVideos { get; set; }
+
+        /// <summary>Baixar também manuais e revistas (PDF) dos jogos da nuvem.</summary>
+        public bool CloudManuals { get; set; }
+
         public static string GetPath(RetroBatInstall install) => Path.Combine(install.RetroboatDataPath, FileName);
 
         public static RetroboatSettings Load(string path)
@@ -29,7 +35,9 @@ namespace Retroboat.Settings
             return new RetroboatSettings
             {
                 RomsPath = Get(ini, "Library", "RomsPath"),
-                CloudPath = Get(ini, "Cloud", "Path")
+                CloudPath = Get(ini, "Cloud", "Path"),
+                CloudVideos = Get(ini, "Cloud", "Videos") == "1",
+                CloudManuals = Get(ini, "Cloud", "Manuals") == "1"
             };
         }
 
@@ -46,7 +54,10 @@ namespace Retroboat.Settings
                 .AppendLine()
                 .AppendLine("[Cloud]")
                 .AppendLine("; Pasta do Retroboat na nuvem. Vazio = detectar o Google Drive para computador.")
-                .AppendLine("Path=" + (CloudPath ?? ""));
+                .AppendLine("Path=" + (CloudPath ?? ""))
+                .AppendLine("; Capas e descrições dos jogos da nuvem sempre vêm. 1 = baixar também vídeos / manuais.")
+                .AppendLine("Videos=" + (CloudVideos ? "1" : "0"))
+                .AppendLine("Manuals=" + (CloudManuals ? "1" : "0"));
 
             File.WriteAllText(path, text.ToString(), new UTF8Encoding(false));
         }

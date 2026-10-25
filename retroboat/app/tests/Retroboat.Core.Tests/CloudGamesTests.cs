@@ -192,7 +192,7 @@ namespace Retroboat.Tests
         }
 
         [Fact]
-        public void Description_written_by_the_user_is_never_replaced()
+        public void Description_written_by_the_user_stays_below_the_status_line()
         {
             using (var retrobat = new TempDir())
             {
@@ -200,7 +200,9 @@ namespace Retroboat.Tests
 
                 CloudLibrarySync.UpdateGamelist(path, new[] { new CloudIndexEntry { LocalName = "A.iso", State = CloudGameState.Cloud, CloudSize = 1000 } });
 
-                Assert.Contains("Minha descrição", File.ReadAllText(path));
+                var desc = (string)XDocument.Load(path).Root.Element("game").Element("desc");
+                Assert.StartsWith(CloudLibrarySync.CloudDescriptionPrefix, desc);
+                Assert.EndsWith("Minha descrição", desc);
             }
         }
 

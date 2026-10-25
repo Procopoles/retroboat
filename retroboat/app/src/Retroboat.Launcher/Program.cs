@@ -136,7 +136,11 @@ namespace Retroboat.Launcher
 
             var worker = new Thread(() =>
             {
-                try { report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath); }
+                try
+                {
+                    var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals };
+                    report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media);
+                }
                 catch (Exception ex) { error = ex; }
             }) { IsBackground = true };
 
@@ -174,6 +178,16 @@ namespace Retroboat.Launcher
                 foreach (var file in report.Bios.Downloaded) Log.Info("BIOS baixada: " + file);
                 foreach (var file in report.Bios.Uploaded) Log.Info("BIOS enviada: " + file);
                 foreach (var problem in report.Bios.Errors) Log.Warn("BIOS: " + problem);
+            }
+
+            if (report.Relocation != null && report.Relocation.FilesMoved > 0)
+                Log.Info("Mídia movida para fora da pasta de jogos: " + report.Relocation.FilesMoved + " arquivo(s) (" + string.Join(", ", report.Relocation.Systems) + ")");
+
+            if (report.Media != null)
+            {
+                Log.Info(string.Format("Capas e descrições: {0} jogo(s) enviados ({1} arquivos), {2} recebidos ({3} arquivos)",
+                    report.Media.GamesShared, report.Media.FilesUploaded, report.Media.GamesFilled, report.Media.FilesDownloaded));
+                foreach (var problem in report.Media.Errors) Log.Warn("Mídia: " + problem);
             }
 
             if (report.Library != null)

@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Retroboat.Bios;
 using Retroboat.Library;
+using Retroboat.Media;
 
 namespace Retroboat.Cloud
 {
@@ -12,6 +13,8 @@ namespace Retroboat.Cloud
         public CloudLocation Cloud { get; set; }
         public BiosSyncResult Bios { get; set; }
         public CloudLibrarySyncResult Library { get; set; }
+        public MediaRelocationResult Relocation { get; set; }
+        public CloudMediaSyncResult Media { get; set; }
         public IReadOnlyList<BiosReport> BiosStatus { get; set; } = new List<BiosReport>();
 
         /// <summary>Frases curtas para a interface (notificação do ES, janela do lançador).</summary>
@@ -27,10 +30,14 @@ namespace Retroboat.Cloud
     /// </summary>
     public static class StartupSync
     {
-        public static StartupSyncReport Run(RetroBatInstall install, string configuredCloudPath, string romsPath)
+        public static StartupSyncReport Run(RetroBatInstall install, string configuredCloudPath, string romsPath, CloudMediaOptions mediaOptions = null)
         {
             var report = new StartupSyncReport { Cloud = CloudLocator.Locate(configuredCloudPath) };
             var localBios = Path.Combine(install.Root, "bios");
+
+            // Mídia que o scraper do ES gravou dentro da pasta de jogos vai para .emulationstation\media (item 1c).
+            if (!string.IsNullOrEmpty(romsPath))
+                report.Relocation = new MediaRelocator(install).Apply(romsPath);
 
             if (report.Cloud == null || !report.Cloud.Exists)
             {
@@ -58,6 +65,22 @@ namespace Retroboat.Cloud
                                             (library.Corrupt > 0 ? ", " + library.Corrupt + " corrompido(s)" : ""));
                         if (library.Corrupt > 0)
                             report.HasWarnings = true;
+                    }
+
+                    report.Media = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();
+                    var media = report.Media;
+                    if (media.GamesFilled > 0 || media.GamesShared > 0)
+                    {
+                        var parts = new List<string>();
+                        if (media.GamesFilled > 0) parts.Add(media.GamesFilled + " jogo(s) recebidos");
+                        if (media.GamesShared > 0) parts.Add(media.GamesShared + " enviado(s)");
+                        report.Messages.Add("Capas e descrições da nuvem: " + string.Join(", ", parts));
+                    }
+
+                    if (media.Errors.Count > 0)
+                    {
+                        report.Messages.Add("Atenção: problema ao sincronizar capas e descrições. Detalhes no log do Retroboat.");
+                        report.HasWarnings = true;
                     }
                 }
             }

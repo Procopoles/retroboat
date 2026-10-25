@@ -60,3 +60,19 @@ argumentos. Se a preparação falhar, o RetroBat abre mesmo assim com a configur
 
 Argumentos próprios: `--setup` (escolher a pasta de novo), `--no-launch` (só preparar) e
 `--retrobat <pasta>`. Log em `<RetroBat>\retroboat\logs\launcher.log`.
+
+Antes de abrir o RetroBat, o lançador também sincroniza com a nuvem: BIOS, a biblioteca (jogos da
+nuvem como marcadores) e o conteúdo dos jogos. A mídia que o scraper do ES grava na pasta de jogos
+vai para `.emulationstation\media\<sistema>`. Nome, descrição, capas e demais metadados que um PC
+tem e os outros não vão para `retroboat\midia\<sistema>` no Drive. Nos outros PCs, eles preenchem
+só os campos vazios. Imagens sempre vêm; vídeos e manuais são opcionais:
+
+```ini
+[Cloud]
+; Vazio = detectar o Google Drive para computador.
+Path=
+; 1 = baixar também os vídeos dos jogos.
+Videos=0
+; 1 = baixar também manuais e revistas (PDF).
+Manuals=0
+```

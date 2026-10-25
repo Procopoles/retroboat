@@ -28,8 +28,8 @@ namespace Retroboat.Cloud
     /// </summary>
     public sealed class CloudLibrarySync
     {
-        public const string CloudDescriptionPrefix = "Na nuvem ·";
-        public const string CorruptDescriptionPrefix = "Corrompido na nuvem:";
+        public const string CloudDescriptionPrefix = GameDescription.CloudPrefix;
+        public const string CorruptDescriptionPrefix = GameDescription.CorruptPrefix;
 
         readonly RetroBatInstall _install;
         readonly string _romsRoot;
@@ -129,27 +129,29 @@ namespace Retroboat.Cloud
 
             foreach (var entry in entries)
             {
-                var game = doc.Root.Elements("game").FirstOrDefault(g => SamePath((string)g.Element("path"), entry.LocalName));
+                var game = FindGame(doc, entry.LocalName);
                 var current = (string)game?.Element("desc");
-                bool ours = string.IsNullOrEmpty(current) || current.StartsWith(CloudDescriptionPrefix, StringComparison.Ordinal) || current.StartsWith(CorruptDescriptionPrefix, StringComparison.Ordinal);
+                var body = GameDescription.WithoutStatus(current);
 
-                string description = null;
+                string status = null;
                 if (entry.State == CloudGameState.Cloud)
-                    description = CloudDescriptionPrefix + " " + Format.Bytes(entry.CloudSize) + " · baixa na primeira vez que você jogar.";
+                    status = CloudDescriptionPrefix + " " + Format.Bytes(entry.CloudSize) + " · baixa na primeira vez que você jogar.";
                 else if (entry.State == CloudGameState.Corrupt)
-                    description = CorruptDescriptionPrefix + " " + (entry.Problem ?? "o arquivo no Drive está danificado") + ". Substitua o arquivo no Drive para poder jogar.";
+                    status = CorruptDescriptionPrefix + " " + (entry.Problem ?? "o arquivo no Drive está danificado") + ". Substitua o arquivo no Drive para poder jogar.";
 
-                if (description == null)
+                if (status == null)
                 {
-                    // Instalado: tira só a descrição que o Retroboat colocou.
-                    if (game != null && ours && current != null)
-                        game.Element("desc").Remove();
+                    // Instalado: tira só a linha de status; o resto da descrição fica.
+                    if (game != null && GameDescription.HasStatus(current))
+                    {
+                        if (body.Length == 0)
+                            game.Element("desc").Remove();
+                        else
+                            game.SetElementValue("desc", body);
+                    }
 
                     continue;
                 }
-
-                if (!ours)
-                    continue; // O usuário (ou o scraper) escreveu uma descrição: não sobrescreve.
 
                 if (game == null)
                 {
@@ -159,7 +161,7 @@ namespace Retroboat.Cloud
                     doc.Root.Add(game);
                 }
 
-                game.SetElementValue("desc", description);
+                game.SetElementValue("desc", GameDescription.WithStatus(status, body));
             }
 
             if (doc.ToString() == before)
@@ -183,6 +185,12 @@ namespace Retroboat.Cloud
             }
 
             return map;
+        }
+
+        /// <summary>O &lt;game&gt; do gamelist cujo &lt;path&gt; é "./&lt;nome local&gt;".</summary>
+        public static XElement FindGame(XDocument gamelist, string localName)
+        {
+            return gamelist.Root.Elements("game").FirstOrDefault(g => SamePath((string)g.Element("path"), localName));
         }
 
         static bool SamePath(string gamelistPath, string localName)
