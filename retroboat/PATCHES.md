@@ -11,7 +11,7 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-002 | ES ignora todos os overlays seguintes quando um `es_systems_*.cfg` é inválido | ES (Batocera) | C1 | média | baixo | sim | candidato |
 | RB-003 | Biblioteca isolada: pasta de jogos escolhida pelo usuário, gamelists e mídia fora dela | retrobat (+ componente novo) | C0 | — | nenhum (semântico: baixo) | não | em andamento |
 | RB-004 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar (integração C0 com o ES) | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
-| RB-005 | Perfil e configurações na nuvem: chaves portáveis, controles, metadados, estatísticas | retroboat-cloud | C0 | — | nenhum (semântico: médio) | não | candidato |
+| RB-005 | Perfil e configurações na nuvem: chaves portáveis, controles, metadados, estatísticas | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
 | RB-006 | Base da nuvem: provedor de pasta (Google Drive para computador, NAS), verificação de integridade, lançador, `retroboat-launch` | retroboat/app | C0 | — | nenhum | não | em andamento |
 | RB-007 | ExoDOS cria atalhos em `retrobat\roms` ignorando a chave `roms=` | emulatorlauncher | C1 | média | baixo | sim | candidato |
 | RB-008 | Opção para o `retrobat.exe` esperar um `AppLauncher` terminar antes de abrir o ES | retrobat-executable | C1 | média | baixo | sim | candidato |
@@ -116,6 +116,27 @@ o histórico.
   - Depende de o ES aceitar arquivo vazio como jogo, o que foi verificado no ES de 22/10/2026.
   - Se o upstream passar a validar o tamanho das ROMs, os marcadores somem da lista sem conflito de merge.
   - Os três pontos entram na lista de vigilância.
+
+## RB-005 — Contas do ES na nuvem (primeira parte do perfil)
+
+- **Onde:** `retroboat/app` (`Accounts\AccountSync`, `Accounts\EsSettings`, `Cloud\StartupSync`).
+  Nada no upstream.
+- **Como funciona:** os logins que o ES guarda no `es_settings.cfg` (ScreenScraper, IGDB,
+  RetroAchievements) vão para `retroboat\contas\<PC>.xml` no Drive. Ao abrir, um PC sem login
+  recebe o da nuvem; um login digitado ou trocado no ES vai para a nuvem e chega aos outros PCs na
+  próxima abertura deles. Usuário e senha de cada serviço viajam juntos. Para saber de que lado
+  veio a diferença, cada PC guarda só o hash do que sincronizou por último
+  (`retroboat\contas-sync.xml`). Com o ES aberto, não sincroniza, porque o ES regrava o
+  `es_settings.cfg` ao sair.
+- **Segurança:** os valores vão em Base64 no Drive, só para não aparecerem na pré-visualização e na
+  busca. Não é criptografia: quem tem acesso à pasta do Drive consegue ler, assim como o
+  `es_settings.cfg` já guarda a senha em texto puro no PC. Uma criptografia de verdade precisaria de
+  uma chave que o usuário digita em cada PC.
+- **Validado em 25/10/2026** com o ES real: o lançador gravou o login no `es_settings.cfg`, o ES
+  abriu sem erro e o login continuou lá depois de fechar.
+- **Risco semântico baixo:** depende dos nomes das chaves no `es_settings.cfg`
+  (`GuiScraperStart::loadAccountsPage`, `GuiRetroAchievementsSettings`). Chave renomeada no
+  upstream deixa de sincronizar sem conflito de merge; os dois arquivos entram na lista de vigilância.
 
 ## RB-013 — BIOS na nuvem
 

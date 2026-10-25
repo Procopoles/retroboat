@@ -21,6 +21,9 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   `.emulationstation\media`. Vídeos e manuais são opcionais (`[Cloud] Videos` e `Manuals` no
   `retroboat.ini`). Jogos sem imagem ganham capa, tela e título automáticos (thumbnails do
   libretro, sem conta), que vão para o Drive na mesma hora (`[Media] Automatic`).
+- RB-005 (contas): os logins do ES (ScreenScraper, IGDB, RetroAchievements) vão para o Drive
+  (`retroboat\contas`). Um PC sem login recebe o da nuvem ao abrir; uma troca de login chega aos
+  outros PCs.
 - RB-014: o tema padrão passa a ser o nosso fork do Carbon (`build.ini: theme_path`), que mostra
   o status do jogo no cabeçalho de todas as visões: "Na nuvem · BAIXAR" ou "Instalado · JOGAR".
 

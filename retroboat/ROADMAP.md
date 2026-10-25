@@ -15,7 +15,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
 | M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES e download ao jogar |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | não iniciado |
-| M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | não iniciado |
+| M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES (ScreenScraper, IGDB, RetroAchievements) prontas |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; falta o RB-010 |
 
 M0 e M1 podem andar em paralelo. Código em [app/](app/README.md).

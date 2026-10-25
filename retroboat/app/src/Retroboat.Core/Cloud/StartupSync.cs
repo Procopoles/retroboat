@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Retroboat.Accounts;
 using Retroboat.Bios;
 using Retroboat.Library;
 using Retroboat.Media;
@@ -16,6 +17,7 @@ namespace Retroboat.Cloud
         public MediaRelocationResult Relocation { get; set; }
         public CloudMediaSyncResult Media { get; set; }
         public AutoMediaResult AutoMedia { get; set; }
+        public AccountSyncResult Accounts { get; set; }
         public IReadOnlyList<BiosReport> BiosStatus { get; set; } = new List<BiosReport>();
 
         /// <summary>Frases curtas para a interface (notificação do ES, janela do lançador).</summary>
@@ -55,6 +57,25 @@ namespace Retroboat.Cloud
                 {
                     report.Messages.Add("Atenção: " + report.Bios.Errors.Count + " problema(s) ao sincronizar BIOS. Detalhes no log do Retroboat.");
                     report.HasWarnings = true;
+                }
+
+                // Logins do ES (ScreenScraper, IGDB, RetroAchievements): quem não tem login recebe o da nuvem.
+                // Com o ES aberto, não: ele regrava o es_settings.cfg ao sair e desfaria a troca.
+                if (System.Diagnostics.Process.GetProcessesByName("emulationstation").Length == 0)
+                {
+                    try
+                    {
+                        report.Accounts = new AccountSync(install, report.Cloud.RetroboatPath).Apply();
+                        if (report.Accounts.Received.Count > 0)
+                            report.Messages.Add("Contas da nuvem: " + string.Join(", ", report.Accounts.Received) + " neste PC");
+                        if (report.Accounts.Sent.Count > 0)
+                            report.Messages.Add("Contas enviadas para a nuvem: " + string.Join(", ", report.Accounts.Sent));
+                    }
+                    catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException || ex is FormatException)
+                    {
+                        report.Messages.Add("Atenção: não foi possível sincronizar as contas (" + ex.Message + ").");
+                        report.HasWarnings = true;
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(romsPath) && Directory.Exists(report.Cloud.GamesPath))
