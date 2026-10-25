@@ -16,7 +16,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 | M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES e download ao jogar |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | não iniciado |
 | M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | não iniciado |
-| M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | não iniciado |
+| M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; falta o RB-010 |
 
 M0 e M1 podem andar em paralelo. Código em [app/](app/README.md).
 
@@ -58,8 +58,43 @@ jogos de PS2. Plano e pré-requisitos (jogos válidos, BIOS do PS2, RetroBat ins
   - retorno na janela do lançador e por notificação no ES;
   - testado no Drive real: a BIOS de PS2 enviada estava zerada e foi barrada com aviso.
 - **Falta no M0/M1:**
-  - atalho e instalador apontando para o `Retroboat.exe`;
-  - mídia do scraper fora da pasta de jogos (1c).
+  - atalho e instalador apontando para o `Retroboat.exe`.
+
+### Primeiros ajustes de UI estilo Steam (adiantados da etapa 2)
+
+Desenho e decisão em [design/conteudo-e-ui-steam.md](design/conteudo-e-ui-steam.md):
+
+- **Conteúdo na nuvem (RB-015):** sem mudar o upstream.
+- **Lista esmaecida, ícone de nuvem e "BAIXAR" na ajuda (RB-010):** mudança nativa no ES, que
+  funciona em qualquer tema.
+- **Status Baixar/Jogar nos detalhes (RB-014):** no tema Retroboat, derivado do Carbon.
+
+Depende do fork e do build do ES (RB-011).
+
+### Estado em 25/10/2026
+
+- **Conteúdo na nuvem (RB-015), pronto e testado** (71 testes automáticos):
+  - a mídia que o scraper grava na pasta de jogos vai para `.emulationstation\media` (fecha o 1c);
+  - nome, descrição, capa e demais campos de um PC aparecem nos outros antes do download;
+  - vídeos e manuais só com `[Cloud] Videos=1` / `Manuals=1` no `retroboat.ini`;
+  - validado com o ES real: a capa movida aparece e o ES mantém o caminho `~/...` ao salvar.
+- **Build do ES (RB-011), pronto:**
+  - fork [Procopoles/retroboat-emulationstation](https://github.com/Procopoles/retroboat-emulationstation)
+    (clone em `..\retroboat-emulationstation`), com workflow do GitHub Actions e script de build
+    que gera o mesmo pacote do RetroBat oficial;
+  - cada push no `master` compila em cerca de 5 minutos e publica no release `continuous-master`;
+    o primeiro (`42.2026.1025.0456-retroboat-8592101`) tem os mesmos arquivos do oficial e abre o
+    RetroBat com o Carbon;
+  - compilado também aqui com o Visual Studio 2026, o que exigiu uma correção de uma linha (RB-016);
+  - **falta:** o build oficial traz credenciais de API compiladas (ScreenScraper, TheGamesDB, HfsDB,
+    RetroAchievements). Precisamos das nossas, como *secrets* do fork, antes de trocar o ES do
+    `build.ini`.
+- **Tema (RB-014), primeira versão:** no fork
+  [Procopoles/es-theme-carbon](https://github.com/Procopoles/es-theme-carbon) (clone em
+  `..\es-theme-carbon`), o cabeçalho mostra "Na nuvem · BAIXAR" (azul) ou "Instalado · JOGAR"
+  (verde) para o jogo selecionado, em todas as visões do Carbon. Testado com o nosso ES nas visões
+  Icons e detailed. O `build.ini` já usa o fork (`theme_path`), então o próximo build do
+  RetroBuild sai com ele.
 
 ## Etapa 2: redesign visual e de UX
 

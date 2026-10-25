@@ -17,9 +17,12 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-008 | Opção para o `retrobat.exe` esperar um `AppLauncher` terminar antes de abrir o ES | retrobat-executable | C1 | média | baixo | sim | candidato |
 | RB-009 | Saves e memory cards na nuvem: sync por jogo, conflito, offline, snapshots | retroboat-cloud | C0 | — | nenhum (semântico: médio) | não | candidato |
 | RB-010 | Interface nativa de nuvem no ES: status, instalar/desinstalar, tela de downloads | ES (Batocera) | C2 | ALTA/média | alto | talvez (só se genérico) | candidato |
-| RB-011 | Build Windows do ES no nosso fork (GitHub Actions) | ES (Batocera) | C0 | — | nenhum | não | candidato |
+| RB-011 | Build Windows do ES no nosso fork (GitHub Actions) | ES (Batocera) | C0 | — | nenhum | não | em andamento |
 | RB-012 | Sistema Ghostship cadastrado com o nome "starship" (nome duplicado no `es_systems.cfg`) | retrobat | C1 | ALTA | médio | sim | candidato |
 | RB-013 | BIOS na nuvem: organizar, sincronizar e mostrar status (lançador + notificação no ES) | retroboat/app | C0 | — | nenhum (semântico: baixo) | não | em andamento |
+| RB-014 | Tema Retroboat (fork do Carbon): status Baixar/Jogar nos detalhes; base do tema Steam | es-theme-carbon (fork) + retrobat (`build.ini`) | C1 no tema e no `build.ini` | baixa (a linha `theme_path`) | baixo | não | em andamento |
+| RB-015 | Conteúdo dos jogos na nuvem: metadados e mídia compartilhados, mídia fora da pasta de jogos | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
+| RB-016 | ES não compila com o Visual Studio 2026 (MSVC 14.50): falta `#include <chrono>` em `Log.cpp` | ES (Batocera) | C1 | média | baixo | sim | em andamento |
 
 ---
 
@@ -122,6 +125,76 @@ o histórico.
   `Pcsx2.Generator.cs` (`SetupConfigurationQT`). Se o upstream mudar essa lista ou a pasta
   `bios\pcsx2\bios`, o status fica errado sem conflito de merge. Esse trecho entra na lista de
   vigilância.
+
+## RB-015 — Conteúdo dos jogos na nuvem
+
+- **Onde:** `retroboat/app` (`Media\GameMedia`, `MediaRelocator`, `CloudMediaSync`,
+  `Cloud\GameDescription`, `StartupSync`). Nada no upstream.
+- **Desenho:** seção 1 de [design/conteudo-e-ui-steam.md](design/conteudo-e-ui-steam.md).
+- **Como funciona:** ao abrir, o lançador move a mídia que o scraper gravou na pasta de jogos para
+  `.emulationstation\media\<sistema>` (caminhos `~/...` no gamelist), envia para
+  `retroboat\midia\<sistema>` no Drive os metadados e a mídia que este PC tem e os outros não, e
+  preenche nos outros PCs só os campos vazios. Imagens sempre; vídeos e manuais com
+  `[Cloud] Videos=1` / `Manuals=1` no `retroboat.ini`.
+- **Validado em 25/10/2026** com o ES real: a capa movida para `.emulationstation\media` aparece
+  (API `/systems/ps2/games/<id>/media/image`) e o ES mantém o caminho `~/...` ao salvar o gamelist.
+- **Risco semântico médio:** depende da lista de campos de mídia do gamelist (`MetaData.cpp`) e de
+  o ES resolver `~/` a partir da pasta dele. Campo de mídia novo no upstream fica fora da nuvem sem
+  conflito de merge; os dois pontos entram na lista de vigilância.
+
+## RB-011 — Build Windows do ES no nosso fork
+
+- **Onde:** fork [Procopoles/retroboat-emulationstation](https://github.com/Procopoles/retroboat-emulationstation)
+  (de `batocera-linux/batocera-emulationstation`), arquivos novos
+  `.github/workflows/retroboat-windows.yml` e `retroboat/build-windows.ps1`. Clone local em
+  `..\retroboat-emulationstation`, ao lado deste repositório.
+- **Como funciona:** compila x64 Release com `-DRETROBAT=ON`, monta `EmulationStation-Win64.zip`
+  com o mesmo conteúdo do zip oficial (executável, DLLs de `win32-dependencies`, plugins do VLC,
+  `resources` com as traduções, `version.info`) e publica no release `continuous-master`, que é o
+  formato que o RetroBuild baixa. Para usar: `build.ini: emulationstation_url` apontando para o
+  release do fork.
+- **Validado em 25/10/2026**, no build local (Visual Studio 2026 Build Tools) e no GitHub Actions
+  (run 40163435118, cerca de 5 minutos): o pacote tem os mesmos 346 arquivos do oficial (só falta
+  o `main_test.exe`, binário de teste) e o executável abre o RetroBat com o Carbon. O release
+  `continuous-master` do fork já tem `EmulationStation-Win64.zip` e `version.info`.
+- **Atenção, credenciais de API:** o ES oficial compila credenciais de desenvolvedor no executável
+  (ScreenScraper, TheGamesDB, HfsDB, RetroAchievements). Sem elas, o nosso build não tem esses
+  scrapers nem o menu do RetroAchievements. Precisamos das nossas, como *secrets* do fork; a lista
+  está em `retroboat/README.md` do fork. Enquanto não houver, o `build.ini` deve continuar
+  apontando para o ES oficial.
+- **Risco:** nenhum de merge (arquivos novos). O CMake baixa as dependências de
+  `batocera-emulationstation-win32-dependencies` na versão mais recente; se elas mudarem de
+  estrutura, o empacotamento falha no CI, sem efeito silencioso.
+
+## RB-016 — ES não compila com o Visual Studio 2026
+
+- **Onde:** `es-core/src/Log.cpp` (5 alterações/ano, calor média), ES do Batocera.
+- **Problema:** `Log::stream()` usa `std::chrono::system_clock` sem incluir `<chrono>`. Compilava
+  porque outro cabeçalho da STL o trazia; no MSVC 14.50 não traz mais, e o build para em `es-core`.
+- **Correção:** `#include <chrono>` (1 linha). **Upstreamável:** sim, é o caminho recomendado.
+- **Classificação:** C1, calor média, risco baixo. Some quando o upstream absorver.
+
+## RB-014 — Status Baixar/Jogar no tema
+
+- **Onde:** fork [Procopoles/es-theme-carbon](https://github.com/Procopoles/es-theme-carbon) (de `RetroBat-Official/es-theme-carbon`). Arquivo novo
+  `retroboat/status.xml` e uma linha de include no fim do `theme.xml` (calor baixa: nenhuma
+  alteração no último ano). Clone local em `..\es-theme-carbon`.
+- **Como funciona:** no cabeçalho, à direita, o jogo selecionado mostra "☁ Na nuvem" com o botão
+  azul "BAIXAR", "✓ Instalado" com o botão verde "JOGAR", ou "Corrompido na nuvem" em vermelho. O
+  cabeçalho é igual em todas as visões de jogos do Carbon, então um arquivo cobre Icons, Tiles,
+  Boxes, Content, detailed e gamecarousel. O status vem da primeira linha da descrição, que o
+  lançador escreve (`GameDescription`).
+- **Validado em 25/10/2026** com o nosso build do ES nas visões Icons e detailed.
+- **Risco semântico baixo:** depende do prefixo da descrição ("Na nuvem", "Corrompido na nuvem").
+  Mudar esses textos em `GameDescription` exige mudar o tema junto. Com o RB-010, o tema passa a
+  usar `{game:cloud}` e essa dependência some.
+- **Entrada no build (25/10/2026):** `build.ini: theme_path` aponta para o fork (C1, 1 linha).
+  O `build.ini` é quente (31 alterações/ano), mas quase sempre em `retrobat_version` e `branch`;
+  a linha `theme_path` não muda desde o primeiro commit. O RetroBuild clona para a pasta
+  `es-theme-carbon`, então quem já usa o Carbon não perde a configuração.
+- **Risco semântico:** o fork precisa acompanhar o Carbon oficial. Se ficar parado, o RetroBat
+  sai com um tema velho sem conflito de merge. A rotina de sincronização do FORK.md vale para
+  ele também (`upstream-check.sh -C ../es-theme-carbon -b master`).
 
 ## RB-007 — ExoDOS ignora a pasta de jogos configurada (candidato)
 
