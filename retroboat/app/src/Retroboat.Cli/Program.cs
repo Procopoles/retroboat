@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using Retroboat.Bios;
 using Retroboat.Cloud;
 using Retroboat.Integrity;
 using Retroboat.Library;
@@ -31,6 +32,11 @@ Nuvem (pasta do Google Drive para computador):
   retroboat-cli cloud verify [sistema | sistema/jogo] [--samples N] [--full]
   retroboat-cli cloud install sistema/jogo --to <pasta de jogos> [--force]
   retroboat-cli cloud uninstall sistema/jogo --to <pasta de jogos>
+
+BIOS na nuvem (pasta bios\ dentro da pasta do Retroboat no Drive):
+  retroboat-cli bios status --retrobat <pasta do RetroBat>
+  retroboat-cli bios sync --retrobat <pasta do RetroBat> [--dry-run]
+  retroboat-cli bios organize [--dry-run]
 
 Biblioteca isolada (RB-003):
   retroboat-cli library apply --retrobat <pasta do RetroBat> [--roms <pasta de jogos>] [--dry-run] [--no-folders]
@@ -60,6 +66,9 @@ Opções gerais:
                     case "cloud install": return CloudInstall(options);
                     case "cloud uninstall": return CloudUninstall(options);
                     case "library apply": return LibraryApply(options);
+                    case "bios status": return BiosStatusCommand(options);
+                    case "bios sync": return BiosSyncCommand(options, organizeOnly: false);
+                    case "bios organize": return BiosSyncCommand(options, organizeOnly: true);
                     default:
                         Console.WriteLine(Usage);
                         return ExitUsage;
@@ -144,20 +153,22 @@ Opções gerais:
                     var quick = IntegrityChecker.QuickCheck(file, samples);
                     Console.WriteLine(Describe(quick).PadRight(14) + label + (quick.Detail != null ? "  (" + quick.Detail + ")" : ""));
 
-                    if (quick.IsCorrupt)
-                        corrupt++;
-                    else if (quick.Status == IntegrityStatus.SignatureMissing || quick.Status == IntegrityStatus.Unreadable)
-                        suspicious++;
-
-                    if (full && !quick.IsCorrupt)
+                    bool isCorrupt = quick.IsCorrupt;
+                    if (full && quick.Status != IntegrityStatus.Empty && quick.Status != IntegrityStatus.Unreadable)
                     {
+                        // A leitura completa decide: a amostragem só olha alguns pontos do arquivo.
                         var progress = new ConsoleProgress();
                         var hashes = IntegrityChecker.FullCheck(file, progress, Cancellation.Token);
                         progress.End();
-                        Console.WriteLine("              sha1 " + hashes.Sha1 + "  crc32 " + hashes.Crc32 + (hashes.AllZero ? "  TODO ZERADO" : ""));
-                        if (hashes.AllZero)
-                            corrupt++;
+                        Console.WriteLine("              sha1 " + hashes.Sha1 + "  crc32 " + hashes.Crc32 +
+                            (hashes.AllZero ? "  TODO ZERADO (leitura completa)" : quick.Status == IntegrityStatus.Zeroed ? "  NÃO está todo zerado (leitura completa)" : ""));
+                        isCorrupt = hashes.AllZero;
                     }
+
+                    if (isCorrupt)
+                        corrupt++;
+                    else if (quick.Status == IntegrityStatus.SignatureMissing || quick.Status == IntegrityStatus.Unreadable)
+                        suspicious++;
                 }
             }
 
@@ -236,6 +247,43 @@ Opções gerais:
                 Console.WriteLine("  AVISO: " + warning);
 
             return ExitOk;
+        }
+
+        static int BiosStatusCommand(Options options)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            int problems = 0;
+            foreach (var report in BiosStatus.Check(Path.Combine(install.Root, "bios")))
+            {
+                Console.WriteLine((report.State == BiosState.Ok ? "OK      " : "ATENÇÃO ") + report.Summary);
+                if (report.State != BiosState.Ok)
+                    problems++;
+            }
+
+            return problems > 0 ? ExitCorrupt : ExitOk;
+        }
+
+        static int BiosSyncCommand(Options options, bool organizeOnly)
+        {
+            var location = CloudLocator.Locate(options.Value("--cloud"));
+            if (location == null || !location.Exists)
+                throw new InvalidOperationException("Pasta do Retroboat na nuvem não encontrada. Use --cloud <pasta>.");
+
+            bool dryRun = options.Flag("--dry-run");
+            var localBios = organizeOnly ? "" : Path.Combine(new RetroBatInstall(options.Required("--retrobat")).Root, "bios");
+            var sync = new BiosSync(location.RetroboatPath, localBios);
+            var result = organizeOnly ? sync.Organize(dryRun) : sync.Sync(dryRun);
+
+            string prefix = dryRun ? "[simulação] " : "";
+            foreach (var file in result.Organized) Console.WriteLine(prefix + "organizado no Drive: bios\\" + file);
+            foreach (var file in result.Downloaded) Console.WriteLine(prefix + "baixado:  bios\\" + file);
+            foreach (var file in result.Uploaded) Console.WriteLine(prefix + "enviado:  bios\\" + file);
+            foreach (var file in result.SkippedCorrupt) Console.WriteLine("ZERADO, não copiado: bios\\" + file);
+            foreach (var error in result.Errors) Console.WriteLine("ERRO: " + error);
+            if (!organizeOnly)
+                Console.WriteLine(result.Unchanged + " arquivo(s) já em dia.");
+
+            return result.Errors.Count > 0 ? ExitError : result.SkippedCorrupt.Count > 0 ? ExitCorrupt : ExitOk;
         }
 
         static CloudLibrary OpenLibrary(Options options)

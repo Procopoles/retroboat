@@ -15,4 +15,9 @@
     <ProjectReference Include="..\..\src\Retroboat.Core\Retroboat.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Para criar ZIPs de teste. -->
+    <Reference Include="System.IO.Compression" />
+  </ItemGroup>
+
 </Project>

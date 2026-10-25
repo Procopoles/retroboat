@@ -10,10 +10,11 @@ namespace Retroboat.Library
 {
     public sealed class SystemFolder
     {
-        public SystemFolder(string name, string folder)
+        public SystemFolder(string name, string folder, string command = null)
         {
             Name = name;
             Folder = folder;
+            Command = command;
         }
 
         /// <summary>Nome do sistema no ES (ex.: "gw").</summary>
@@ -21,6 +22,35 @@ namespace Retroboat.Library
 
         /// <summary>Pasta relativa à pasta de jogos (ex.: "gameandwatch"). Nem sempre é igual ao nome.</summary>
         public string Folder { get; }
+
+        /// <summary>Comando original do es_systems.cfg para abrir um jogo do sistema.</summary>
+        public string Command { get; }
+    }
+
+    /// <summary>
+    /// Coloca o retroboat-launch na frente do comando dos sistemas que têm jogos na nuvem, para baixar o
+    /// jogo antes de o emulatorLauncher abri-lo.
+    /// </summary>
+    public sealed class CommandWrapper
+    {
+        public CommandWrapper(string launcherPath, IEnumerable<string> systemFolders)
+        {
+            LauncherPath = launcherPath;
+            SystemFolders = new HashSet<string>(systemFolders, StringComparer.OrdinalIgnoreCase);
+        }
+
+        /// <summary>Caminho como o ES entende, ex.: %HOME%\..\retroboat\retroboat-launch.exe.</summary>
+        public string LauncherPath { get; }
+        public ISet<string> SystemFolders { get; }
+
+        public string Wrap(SystemFolder system)
+        {
+            if (string.IsNullOrWhiteSpace(system.Command) || !SystemFolders.Contains(system.Folder))
+                return null;
+
+            var quoted = "\"" + LauncherPath + "\"";
+            return system.Command.TrimStart().StartsWith(quoted, StringComparison.OrdinalIgnoreCase) ? system.Command : quoted + " " + system.Command.Trim();
+        }
     }
 
     public sealed class ApplyResult
@@ -43,7 +73,8 @@ namespace Retroboat.Library
     /// sem mudar nenhum arquivo do RetroBat. Usa só pontos de extensão que já existem:
     /// <list type="bullet">
     /// <item>es_systems_retroboat.cfg: o ES mescla es_systems_*.cfg por cima do es_systems.cfg;
-    /// o overlay só troca o &lt;path&gt; de cada sistema.</item>
+    /// o overlay só troca o &lt;path&gt; de cada sistema e, nos sistemas com jogos na nuvem, o
+    /// &lt;command&gt; (com o retroboat-launch na frente).</item>
     /// <item>roms= no emulatorLauncher.cfg: muda a pasta de jogos para todos os geradores.</item>
     /// <item>.emulationstation\gamelists\&lt;sistema&gt;\gamelist.xml: o ES lê e grava ali quando a pasta
     /// de jogos não tem gamelist.xml.</item>
@@ -69,7 +100,7 @@ namespace Retroboat.Library
 
         public string OverlayPath => Path.Combine(_install.UserEmulationStationPath, OverlayFileName);
 
-        public ApplyResult Apply(string romsRoot, bool dryRun = false, bool createFolders = true)
+        public ApplyResult Apply(string romsRoot, bool dryRun = false, bool createFolders = true, CommandWrapper wrapper = null)
         {
             var systemsConfig = _install.SystemsConfigPath;
             if (systemsConfig == null)
@@ -83,7 +114,7 @@ namespace Retroboat.Library
             var overlaySystems = WithoutDuplicateNames(systems, romsRoot, isDefault, result);
             result.SystemsMapped = overlaySystems.Count;
 
-            ApplyOverlay(overlaySystems, romsRoot, isDefault, dryRun, result);
+            ApplyOverlay(overlaySystems, romsRoot, isDefault, wrapper, dryRun, result);
             ApplyLauncherConfig(romsRoot, isDefault, dryRun, result);
             ApplyFoldersAndGamelists(overlaySystems, romsRoot, dryRun, createFolders, result);
             CheckOtherOverlays(result);
@@ -106,7 +137,7 @@ namespace Retroboat.Library
 
                 var folder = path.Substring(RomsPrefix.Length).Trim('\\');
                 if (folder.Length > 0)
-                    systems.Add(new SystemFolder(name, folder));
+                    systems.Add(new SystemFolder(name, folder, ((string)system.Element("command"))?.Trim()));
             }
 
             return systems;
@@ -132,16 +163,34 @@ namespace Retroboat.Library
             return systems.GroupBy(s => s.Name, StringComparer.Ordinal).Select(g => g.First()).ToList();
         }
 
-        public static string BuildOverlay(IEnumerable<SystemFolder> systems, string romsRoot)
+        /// <summary>
+        /// Overlay só com o que muda em cada sistema: o &lt;path&gt; (se a pasta de jogos não for a padrão) e o
+        /// &lt;command&gt; (se o sistema tem jogos na nuvem). Sistemas sem mudança ficam de fora. Retorna null
+        /// quando não há nada a mudar.
+        /// </summary>
+        public static string BuildOverlay(IEnumerable<SystemFolder> systems, string romsRoot, bool includePaths = true, CommandWrapper wrapper = null)
         {
-            var root = new XElement("systemList",
-                systems.Select(s => new XElement("system",
-                    new XElement("name", s.Name),
-                    new XElement("path", Path.Combine(romsRoot, s.Folder)))));
+            var elements = new List<XElement>();
+            foreach (var system in systems)
+            {
+                var command = wrapper?.Wrap(system);
+                if (!includePaths && command == null)
+                    continue;
+
+                elements.Add(new XElement("system",
+                    new XElement("name", system.Name),
+                    includePaths ? new XElement("path", Path.Combine(romsRoot, system.Folder)) : null,
+                    command != null ? new XElement("command", command) : null));
+            }
+
+            if (elements.Count == 0)
+                return null;
+
+            var root = new XElement("systemList", elements);
 
             var doc = new XDocument(
                 new XDeclaration("1.0", "UTF-8", null),
-                new XComment(" Gerado pelo Retroboat (RB-003). Não edite: é recriado a cada início. "),
+                new XComment(" Gerado pelo Retroboat (RB-003, RB-004). Não edite: é recriado a cada início. "),
                 root);
 
             var settings = new XmlWriterSettings { Indent = true, IndentChars = "  ", Encoding = Utf8NoBom, NewLineChars = "\r\n" };
@@ -154,9 +203,10 @@ namespace Retroboat.Library
             }
         }
 
-        void ApplyOverlay(List<SystemFolder> systems, string romsRoot, bool isDefault, bool dryRun, ApplyResult result)
+        void ApplyOverlay(List<SystemFolder> systems, string romsRoot, bool isDefault, CommandWrapper wrapper, bool dryRun, ApplyResult result)
         {
-            if (isDefault)
+            var content = BuildOverlay(systems, romsRoot, includePaths: !isDefault, wrapper);
+            if (content == null)
             {
                 if (File.Exists(OverlayPath))
                 {
@@ -167,8 +217,6 @@ namespace Retroboat.Library
 
                 return;
             }
-
-            var content = BuildOverlay(systems, romsRoot);
             if (File.Exists(OverlayPath) && File.ReadAllText(OverlayPath, Encoding.UTF8) == content)
                 return;
 

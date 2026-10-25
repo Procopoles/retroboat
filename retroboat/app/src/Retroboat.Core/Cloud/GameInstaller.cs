@@ -48,8 +48,34 @@ namespace Retroboat.Cloud
 
         public int BufferSize { get; set; } = 4 << 20;
 
+        /// <summary>
+        /// Nome do jogo na pasta de jogos local. Um ZIP com um único disco dentro (ex.: um ISO de PS2) é
+        /// extraído na instalação, então o nome local é o do disco. O emulatorLauncher descompactaria o ZIP
+        /// inteiro a cada partida.
+        /// </summary>
+        public static string GetLocalName(CloudGame game) => FindDiscImageInZip(game)?.FileName ?? game.Name;
+
+        static ZipEntryInfo FindDiscImageInZip(CloudGame game)
+        {
+            if (game.IsDirectory || !game.Name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                return null;
+
+            try
+            {
+                return ZipCatalog.GetSingleDiscImage(ZipCatalog.Read(game.FullPath));
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException || ex is UnauthorizedAccessException)
+            {
+                return null;
+            }
+        }
+
         public InstallResult Install(CloudGame game, string romsRoot, IProgress<TransferProgress> progress = null, CancellationToken cancellationToken = default, bool force = false)
         {
+            var discImage = FindDiscImageInZip(game);
+            if (discImage != null)
+                return InstallFromZip(game, discImage, romsRoot, progress, cancellationToken, force);
+
             var destination = Path.Combine(romsRoot, game.System, game.Name);
             var result = new InstallResult { Destination = destination };
 
@@ -111,10 +137,110 @@ namespace Retroboat.Cloud
             return result;
         }
 
+        /// <summary>
+        /// Extrai o disco de dentro do ZIP direto da pasta da nuvem para a pasta de jogos, sem guardar o ZIP:
+        /// uma passada só e nada de espaço em dobro. Confere o CRC-32 do ZIP no fim. Uma extração
+        /// interrompida recomeça do início na próxima vez (o deflate não permite continuar no meio).
+        /// </summary>
+        InstallResult InstallFromZip(CloudGame game, ZipEntryInfo entry, string romsRoot, IProgress<TransferProgress> progress, CancellationToken cancellationToken, bool force)
+        {
+            var destination = Path.Combine(romsRoot, game.System, entry.FileName);
+            var part = destination + PartSuffix;
+            var result = new InstallResult { Destination = destination, BytesTotal = entry.UncompressedSize };
+
+            try
+            {
+                var existing = new FileInfo(destination);
+                if (!force && existing.Exists && existing.Length == entry.UncompressedSize)
+                {
+                    result.Outcome = InstallOutcome.AlreadyInstalled;
+                    result.Integrity = IntegrityChecker.QuickCheck(destination);
+                    return result;
+                }
+
+                long free = GetFreeSpace(romsRoot);
+                if (free >= 0 && free < entry.UncompressedSize + FreeSpaceMargin)
+                {
+                    result.Outcome = InstallOutcome.InsufficientSpace;
+                    result.Error = "faltam " + Text.Format.Bytes(entry.UncompressedSize + FreeSpaceMargin - free) + " livres em " + Path.GetPathRoot(Path.GetFullPath(romsRoot));
+                    return result;
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(destination));
+                var meter = new RateMeter(entry.UncompressedSize);
+                var crc = new Crc32();
+                var buffer = new byte[BufferSize];
+                long done = 0;
+
+                using (var source = new FileStream(game.FullPath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete, 1, FileOptions.SequentialScan))
+                {
+                    source.Seek(ZipCatalog.GetDataOffset(source, entry), SeekOrigin.Begin);
+                    using (var data = entry.Method == 8 ? (Stream)new System.IO.Compression.DeflateStream(source, System.IO.Compression.CompressionMode.Decompress, true) : source)
+                    using (var target = new FileStream(part, FileMode.Create, FileAccess.Write, FileShare.None, 1, FileOptions.SequentialScan))
+                    {
+                        long remaining = entry.UncompressedSize;
+                        while (remaining > 0)
+                        {
+                            int read = data.Read(buffer, 0, (int)Math.Min(buffer.Length, remaining));
+                            if (read == 0)
+                                break;
+
+                            target.Write(buffer, 0, read);
+                            crc.Append(buffer, 0, read);
+                            done += read;
+                            remaining -= read;
+                            meter.Report(progress, entry.FileName, done);
+                            cancellationToken.ThrowIfCancellationRequested();
+                        }
+
+                        target.Flush(true);
+                    }
+                }
+
+                meter.Report(progress, entry.FileName, done, force: true);
+                if (done != entry.UncompressedSize || crc.Value != entry.Crc32)
+                {
+                    File.Delete(part);
+                    result.Outcome = InstallOutcome.Failed;
+                    result.Error = "o conteúdo extraído não confere com o ZIP (CRC-32 " + crc.Value.ToString("x8") + ", esperado " + entry.Crc32.ToString("x8") + "): o arquivo na nuvem está danificado";
+                    return result;
+                }
+
+                if (File.Exists(destination))
+                    File.Delete(destination);
+
+                File.Move(part, destination);
+                File.SetLastWriteTimeUtc(destination, game.LastWriteTimeUtc);
+                result.BytesCopied = done;
+                result.Outcome = InstallOutcome.Installed;
+                result.Integrity = IntegrityChecker.QuickCheck(destination);
+            }
+            catch (OperationCanceledException)
+            {
+                TryDelete(part);
+                result.Outcome = InstallOutcome.Cancelled;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidDataException)
+            {
+                TryDelete(part);
+                result.Outcome = InstallOutcome.Failed;
+                result.Error = ex.Message;
+            }
+
+            return result;
+        }
+
+        static void TryDelete(string path)
+        {
+            try { if (File.Exists(path)) File.Delete(path); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
         /// <summary>Apaga a cópia local (e cópias parciais). O jogo continua na nuvem.</summary>
         public static bool Uninstall(CloudGame game, string romsRoot)
         {
-            var destination = Path.Combine(romsRoot, game.System, game.Name);
+            var destination = Path.Combine(romsRoot, game.System, GetLocalName(game));
             bool removed = false;
 
             if (game.IsDirectory)
