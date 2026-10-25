@@ -91,10 +91,10 @@ Depende do fork e do build do ES (RB-011).
     `build.ini`.
 - **Tema (RB-014), primeira versão:** no fork
   [Procopoles/es-theme-carbon](https://github.com/Procopoles/es-theme-carbon) (clone em
-  `..\es-theme-carbon`), o cabeçalho mostra "Na nuvem · BAIXAR" (azul) ou "Instalado · JOGAR"
-  (verde) para o jogo selecionado, em todas as visões do Carbon. Testado com o nosso ES nas visões
-  Icons e detailed. O `build.ini` já usa o fork (`theme_path`), então o próximo build do
-  RetroBuild sai com ele.
+  `..\es-theme-carbon`), no [design system do Retroboat](design/design-system-steam.md) (base:
+  Steam Big Picture): barra com JOGAR/BAIXAR e status na seção do jogo, ícone de status nas
+  visões em grade, só o ícone de nuvem no cabeçalho. O `build.ini` já usa o fork
+  (`theme_path`); os commits do tema estão só no clone local até a publicação no fim das etapas.
 
 ## Etapa 2: redesign visual e de UX
 

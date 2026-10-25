@@ -113,13 +113,14 @@ compartilhados entre PCs pelo Drive, vídeos e manuais opcionais. Validado com o
 
 **Fork do Carbon (RB-014): primeira versão, em `..\es-theme-carbon`.**
 
-- O status fica no cabeçalho, à direita: "☁ Na nuvem" + botão azul "BAIXAR", "✓ Instalado" + botão
-  verde "JOGAR", ou "Corrompido na nuvem" em vermelho.
-- O cabeçalho é o mesmo em todas as visões de jogos do Carbon, então um arquivo
-  (`retroboat/status.xml`) cobre Icons, Tiles, Boxes, Content, detailed e gamecarousel. O
-  `theme.xml` ganha uma linha.
-- O status vem da primeira linha da descrição. Quando o RB-010 criar `{game:cloud}`, o tema troca
-  para essa variável.
+- **Segunda versão (25/10/2026):** o status saiu do cabeçalho e foi para a seção do jogo, seguindo
+  o [design system](design-system-steam.md) com base no Steam Big Picture. Na visão detalhada, uma
+  barra de ação abaixo da mídia tem o botão JOGAR ou BAIXAR com legenda + valor. Nas visões em
+  grade, um ícone de status fica na faixa de informações. O cabeçalho só tem o ícone global de
+  nuvem.
+- Um arquivo (`retroboat/status.xml`) cobre todas as visões; o `theme.xml` ganha uma linha.
+- O status vem do tamanho do arquivo (marcador de 0 bytes), porque o scraper troca a descrição.
+  Quando o RB-010 criar `{game:cloud}`, o tema troca para essa variável.
 - Testado com o nosso ES nas visões Icons (a padrão do PS2) e detailed.
 
 **Próximos passos:**

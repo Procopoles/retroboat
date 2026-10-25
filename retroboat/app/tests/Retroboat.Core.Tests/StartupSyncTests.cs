@@ -27,6 +27,22 @@ namespace Retroboat.Tests
         }
 
         [Fact]
+        public void The_theme_knows_whether_the_cloud_is_connected()
+        {
+            using (var cloud = new TempDir())
+            using (var retrobat = new TempDir())
+            {
+                var install = new RetroBatInstall(retrobat.Path);
+
+                StartupSync.Run(install, cloud.Path, retrobat.Combine("roms"));
+                Assert.True(System.IO.File.Exists(CloudStatusFile.ConnectedPath(install)));
+
+                StartupSync.Run(install, retrobat.Combine("nuvem-que-nao-existe"), retrobat.Combine("roms"));
+                Assert.False(System.IO.File.Exists(CloudStatusFile.ConnectedPath(install)));
+            }
+        }
+
+        [Fact]
         public void Valid_bios_is_downloaded_and_reported_ok()
         {
             using (var cloud = new TempDir())

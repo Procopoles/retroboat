@@ -211,15 +211,23 @@ o histórico.
 - **Onde:** fork [Procopoles/es-theme-carbon](https://github.com/Procopoles/es-theme-carbon) (de `RetroBat-Official/es-theme-carbon`). Arquivo novo
   `retroboat/status.xml` e uma linha de include no fim do `theme.xml` (calor baixa: nenhuma
   alteração no último ano). Clone local em `..\es-theme-carbon`.
-- **Como funciona:** no cabeçalho, à direita, o jogo selecionado mostra "☁ Na nuvem" com o botão
-  azul "BAIXAR", "✓ Instalado" com o botão verde "JOGAR", ou "Corrompido na nuvem" em vermelho. O
-  cabeçalho é igual em todas as visões de jogos do Carbon, então um arquivo cobre Icons, Tiles,
-  Boxes, Content, detailed e gamecarousel. O status vem da primeira linha da descrição, que o
-  lançador escreve (`GameDescription`).
-- **Validado em 25/10/2026** com o nosso build do ES nas visões Icons e detailed.
-- **Risco semântico baixo:** depende do prefixo da descrição ("Na nuvem", "Corrompido na nuvem").
-  Mudar esses textos em `GameDescription` exige mudar o tema junto. Com o RB-010, o tema passa a
-  usar `{game:cloud}` e essa dependência some.
+- **Como funciona (25/10/2026, segunda versão):** segue o
+  [design system do Retroboat](design/design-system-steam.md), com base no Steam Big Picture.
+  - Visão detalhada: barra de ação abaixo da mídia, com JOGAR (verde), BAIXAR (azul) ou
+    INDISPONÍVEL (cinza) e o status em legenda + valor.
+  - Visões em grade e carrossel: ícone de status na faixa de informações do jogo.
+  - Cabeçalho: só o ícone global de nuvem. O lançador cria
+    `retroboat\estado\nuvem-conectada` (`Cloud\CloudStatusFile`) quando acha o Drive.
+  - A primeira versão punha o status no cabeçalho, onde outros itens o cobriam (ex.: o aviso
+    "Procurando mídias" do scraper).
+- **De onde vem o status:** do tamanho do arquivo (marcador de 0 bytes = na nuvem). A primeira
+  versão lia a descrição, e o scraper do ES a troca: um jogo da nuvem aparecia como instalado.
+  "Corrompido" ainda vem da descrição.
+- **Validado em 25/10/2026** com o ES real nas visões Icons e detailed: jogo instalado (JOGAR,
+  check verde) e da nuvem (BAIXAR), ícone de nuvem aceso com o Drive conectado.
+- **Risco semântico baixo:** depende do marcador de 0 bytes, do prefixo "Corrompido na nuvem"
+  e do caminho `retroboat\estado` a partir da pasta do tema. Com o RB-010, o tema passa a usar
+  `{game:cloud}`.
 - **Entrada no build (25/10/2026):** `build.ini: theme_path` aponta para o fork (C1, 1 linha).
   O `build.ini` é quente (31 alterações/ano), mas quase sempre em `retrobat_version` e `branch`;
   a linha `theme_path` não muda desde o primeiro commit. O RetroBuild clona para a pasta

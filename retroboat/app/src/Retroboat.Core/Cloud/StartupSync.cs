@@ -39,6 +39,9 @@ namespace Retroboat.Cloud
             var report = new StartupSyncReport { Cloud = CloudLocator.Locate(configuredCloudPath) };
             var localBios = Path.Combine(install.Root, "bios");
 
+            // Ícone de nuvem do cabeçalho do tema.
+            CloudStatusFile.Write(install, report.Cloud != null && report.Cloud.Exists);
+
             // Mídia que o scraper do ES gravou dentro da pasta de jogos vai para .emulationstation\media (item 1c).
             if (!string.IsNullOrEmpty(romsPath))
                 report.Relocation = new MediaRelocator(install).Apply(romsPath);

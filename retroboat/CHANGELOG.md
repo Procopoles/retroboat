@@ -24,8 +24,11 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-005 (contas): os logins do ES (ScreenScraper, IGDB, RetroAchievements) vão para o Drive
   (`retroboat\contas`). Um PC sem login recebe o da nuvem ao abrir; uma troca de login chega aos
   outros PCs.
-- RB-014: o tema padrão passa a ser o nosso fork do Carbon (`build.ini: theme_path`), que mostra
-  o status do jogo no cabeçalho de todas as visões: "Na nuvem · BAIXAR" ou "Instalado · JOGAR".
+- RB-014: o tema padrão passa a ser o nosso fork do Carbon (`build.ini: theme_path`), no design da
+  Steam (Big Picture): botão JOGAR ou BAIXAR com o status na seção do jogo, ícone de status nas
+  visões em grade e ícone global de nuvem no cabeçalho.
+- Design system do Retroboat (`design/design-system-steam.md`), com base no Steam Big Picture e
+  nos tokens do próprio cliente Steam.
 
 ### Nos forks (ainda não usados pelo build)
 
