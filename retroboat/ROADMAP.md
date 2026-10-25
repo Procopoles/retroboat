@@ -13,12 +13,16 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 |---|---|---|---|
 | M0 | Fundações: build, provedor de pasta sobre o Google Drive para computador, verificação de integridade | RB-006 | base pronta; falta empacotar no build |
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
-| M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | não iniciado |
+| M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES e download ao jogar |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | não iniciado |
 | M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | não iniciado |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | não iniciado |
 
 M0 e M1 podem andar em paralelo. Código em [app/](app/README.md).
+
+**Testes com PS2 primeiro** (decisão de 24/10/2026). Todos os marcos são validados primeiro com
+jogos de PS2. Plano e pré-requisitos (jogos válidos, BIOS do PS2, RetroBat instalado) na
+[seção 9 do cloud-first](design/cloud-first.md#9-testes-com-ps2-primeiro).
 
 ### Estado em 24/10/2026
 
@@ -33,8 +37,27 @@ M0 e M1 podem andar em paralelo. Código em [app/](app/README.md).
   - o gamelist movido foi usado, com nome e favorito preservados;
   - um favorito alterado pela API foi gravado, ao sair, em `.emulationstation\gamelists\snes`;
   - nenhum arquivo além dos jogos foi criado ou alterado na pasta de jogos.
+- **Build da nossa versão:** o RetroBuild (opção 1) gera `build\`, e o
+  `retroboat/tools/package-app.sh` coloca o Retroboat em `build\retroboat\`.
+- **Biblioteca na nuvem, fase 1 (RB-004):**
+  - todo jogo do Drive aparece no ES como marcador, com "Na nuvem · 3,0 GB · baixa na primeira vez
+    que você jogar" na descrição;
+  - ao abrir, o `retroboat-launch` baixa o jogo numa tela cheia com progresso (B ou Esc cancela) e só
+    então chama o emulador;
+  - um ZIP com um disco dentro é extraído uma vez, direto do Drive, com conferência de CRC;
+  - jogo zerado na nuvem é marcado como corrompido e explicado no ES;
+  - testado no Drive real:
+    - os 23 jogos de PS2 viraram marcadores em 3 s e o ES real listou todos com a descrição;
+    - o Clock Tower 3 foi extraído do ZIP (4,29 GB, CRC ok) em 74 s;
+    - na abertura seguinte, o jogo passou a "instalado" e a descrição saiu.
+  - **Ainda não testado na tela:** a janela de download do `retroboat-launch` (só pelos testes
+    automáticos do instalador). Falta abrir um jogo da nuvem pelo ES; isso precisa da BIOS do PS2
+    para o jogo abrir depois do download.
+- **BIOS na nuvem (RB-013, adiantado do M4):**
+  - organização, sincronização nos dois sentidos e status validado pelo conteúdo;
+  - retorno na janela do lançador e por notificação no ES;
+  - testado no Drive real: a BIOS de PS2 enviada estava zerada e foi barrada com aviso.
 - **Falta no M0/M1:**
-  - empacotar o `Retroboat.exe` e o CLI no build do RetroBat;
   - atalho e instalador apontando para o `Retroboat.exe`;
   - mídia do scraper fora da pasta de jogos (1c).
 

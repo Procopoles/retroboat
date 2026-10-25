@@ -10,7 +10,7 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-001 | Pasta `retroboat/` com guia, registro e scripts de sincronização | retrobat | C0 | — | nenhum | não | em andamento |
 | RB-002 | ES ignora todos os overlays seguintes quando um `es_systems_*.cfg` é inválido | ES (Batocera) | C1 | média | baixo | sim | candidato |
 | RB-003 | Biblioteca isolada: pasta de jogos escolhida pelo usuário, gamelists e mídia fora dela | retrobat (+ componente novo) | C0 | — | nenhum (semântico: baixo) | não | em andamento |
-| RB-004 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar (integração C0 com o ES) | retroboat-cloud | C0 | — | nenhum | não | candidato |
+| RB-004 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar (integração C0 com o ES) | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
 | RB-005 | Perfil e configurações na nuvem: chaves portáveis, controles, metadados, estatísticas | retroboat-cloud | C0 | — | nenhum (semântico: médio) | não | candidato |
 | RB-006 | Base da nuvem: provedor de pasta (Google Drive para computador, NAS), verificação de integridade, lançador, `retroboat-launch` | retroboat/app | C0 | — | nenhum | não | em andamento |
 | RB-007 | ExoDOS cria atalhos em `retrobat\roms` ignorando a chave `roms=` | emulatorlauncher | C1 | média | baixo | sim | candidato |
@@ -19,6 +19,7 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-010 | Interface nativa de nuvem no ES: status, instalar/desinstalar, tela de downloads | ES (Batocera) | C2 | ALTA/média | alto | talvez (só se genérico) | candidato |
 | RB-011 | Build Windows do ES no nosso fork (GitHub Actions) | ES (Batocera) | C0 | — | nenhum | não | candidato |
 | RB-012 | Sistema Ghostship cadastrado com o nome "starship" (nome duplicado no `es_systems.cfg`) | retrobat | C1 | ALTA | médio | sim | candidato |
+| RB-013 | BIOS na nuvem: organizar, sincronizar e mostrar status (lançador + notificação no ES) | retroboat/app | C0 | — | nenhum (semântico: baixo) | não | em andamento |
 
 ---
 
@@ -72,6 +73,10 @@ transporte o app Google Drive para computador (sem API e sem login nosso). Resum
 - **RB-009 (saves e memory cards):** C0. Risco semântico médio: se o upstream mudar onde um
   emulador grava os saves, a regra correspondente no catálogo de saves fica errada sem conflito de
   merge. O `upstream-check.sh` deve alertar quando um gerador mudar caminhos de `saves`.
+  Memory cards do PS2 funcionam como no console: cartões com nome, escolhidos por slot e por jogo,
+  colocados nos arquivos fixos `Mcd001.ps2`/`Mcd002.ps2` que o emulatorLauncher configura no PCSX2.
+  Isso depende do bloco de memory cards de `Pcsx2.Generator.cs` (`SetupConfigurationQT`), que
+  entra na lista de vigilância.
 - **RB-010 (ES nativo):** C2 em arquivos quentes do ES (`FileData.cpp`, `GuiGameOptions.cpp`,
   bindings de tema). Só começa depois do RB-011. Lê a API local do `retroboat-cloud`, então a
   lógica de nuvem continua fora do ES.
@@ -94,6 +99,29 @@ o histórico.
   RB-003 detecta, avisa e deixa o Starship na pasta padrão.
 - **Correção:** trocar o `<name>` para `ghostship` (1 linha). **Caminho recomendado:** PR no
   upstream. Editar aqui seria C1 no arquivo mais quente do repositório.
+
+## RB-004 — Biblioteca na nuvem (fase 1)
+
+- **Onde:** `retroboat/app` (`Cloud\CloudLibrarySync`, `CloudIndex`, `OnDemandInstaller`,
+  `ZipCatalog`, projeto `Retroboat.Launch`). No RetroBat, só o overlay gerado
+  `es_systems_retroboat.cfg`, que agora também troca o `<command>` dos sistemas com jogos na nuvem.
+- **Como funciona:** marcador vazio com o nome final do jogo + descrição no gamelist local.
+  `retroboat-launch` na frente do emulatorLauncher baixa o jogo quando o `-rom` é um marcador.
+- **Risco semântico médio:**
+  - Depende do formato do `<command>` do `es_systems.cfg`: o comando original é envolvido como está,
+    e o `-rom` é procurado nos argumentos.
+  - Depende de o ES aceitar arquivo vazio como jogo, o que foi verificado no ES de 22/10/2026.
+  - Se o upstream passar a validar o tamanho das ROMs, os marcadores somem da lista sem conflito de merge.
+  - Os três pontos entram na lista de vigilância.
+
+## RB-013 — BIOS na nuvem
+
+- **Onde:** `retroboat/app` (`Bios\`, `Cloud\StartupSync`, `Es\EsApi`, lançador). Nada no upstream.
+- **Desenho:** seção 4b do [cloud-first](design/cloud-first.md).
+- **Risco semântico baixo:** o catálogo de BIOS copia a lista de nomes e a ordem de busca do
+  `Pcsx2.Generator.cs` (`SetupConfigurationQT`). Se o upstream mudar essa lista ou a pasta
+  `bios\pcsx2\bios`, o status fica errado sem conflito de merge. Esse trecho entra na lista de
+  vigilância.
 
 ## RB-007 — ExoDOS ignora a pasta de jogos configurada (candidato)
 

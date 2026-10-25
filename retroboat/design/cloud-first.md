@@ -14,7 +14,7 @@ sincronizados antes e depois de cada sessão.
 |---|---|
 | **Jogos** | A biblioteca mostra todos os jogos da nuvem, instalados ou não. Cada jogo tem um status (☁ na nuvem · ⬇ baixando 42% · ✔ instalado · ⚠ corrompido). Dá para instalar sob demanda ou em fila em segundo plano, pausar e retomar (inclusive depois de reiniciar o PC), desinstalar só a cópia local, ver o espaço usado e verificar a integridade. A verificação rápida lê alguns setores sem baixar o jogo e acha arquivos zerados; a completa compara o hash com bases conhecidas (Redump/No-Intro). |
 | **Saves e save states** | Sincronizados por jogo: puxa antes de abrir e envia ao fechar. Se os dois lados mudaram, aparece um diálogo de conflito ("Este PC: hoje 14:32 · Nuvem: ontem 22:10, PC-SALA"). Funciona offline e sincroniza quando a conexão volta. Guarda um histórico de versões. |
-| **Memory cards** | PS2 e GameCube usam cartões em pasta, com um arquivo por jogo, então a sincronização é por jogo. Cartões "inteiros" (um arquivo para vários jogos) sincronizam como unidade, com trava. |
+| **Memory cards** | No PS2, como no console: o usuário tem quantos cartões quiser, usa cada um para vários jogos e escolhe qual vai em cada slot. O cartão escolhido é sincronizado com o Drive sempre (antes de jogar, a cada gravação e ao sair), com trava para não ser usado em dois PCs ao mesmo tempo (seção 9). GameCube (GCI) e PS1 (DuckStation) já usam um arquivo por jogo no padrão do RetroBat. |
 | **Configurações** | Opções do ES e dos emuladores (só as portáveis), controles, coleções, metadados, favoritos e tempo jogado (somado entre PCs, não sobrescrito). |
 | **Perfil e PCs** | Lista de PCs e aviso de "perfil em uso no PC-SALA". A conta é a do Google Drive para computador instalado no PC. |
 | **PC novo** | Instala o Google Drive para computador e o Retroboat, e está tudo lá: a biblioteca aparece inteira, e cada jogo baixa na primeira vez que for jogado. |
@@ -66,6 +66,7 @@ distribuir junto conteúdo protegido. O desenho assume que cada pessoa usa a pr�
 ```
 G:\Meu Drive\retroboat\
   jogos\<sistema>\<arquivos do jogo>         ← a biblioteca: você coloca os jogos aqui
+  bios\<mesma estrutura de <RetroBat>\bios>  ← suas BIOS (ex.: bios\pcsx2\bios\scph39001.bin)
   .retroboat\                                ← dados do app (não mexer à mão)
     saves\<sistema>\<jogo>\<data>-<PC>.zip   ← versões imutáveis dos saves
     indices\<PC>.json                        ← o que cada PC já enviou (cada PC grava só o seu)
@@ -119,7 +120,7 @@ famílias de geradores apontam para lá. Isso facilita, mas há armadilhas:
 |---|---|---|---|
 | RetroArch (libretro, a maioria dos sistemas) | `saves\<sistema>\<rom>.srm`, `.state*` | **por jogo** (pelo nome da ROM) | — |
 | DuckStation (PS1) | `saves\<sistema>\duckstation\memcards` | por jogo (padrão do RetroBat: um cartão por título) | a opção `duckstation_memcardtype` pode trocar para cartão compartilhado |
-| PCSX2 (PS2) | `saves\ps2\pcsx2\memcards\Mcdf01.ps2` (cartão em pasta) | por jogo (subpasta) | cartões `.ps2` inteiros: por unidade, com trava |
+| PCSX2 (PS2) | `saves\ps2\pcsx2\memcards\` | depende da opção `pcsx2_slot1_memory`. Padrão: **um cartão só para todos os jogos** (`Mcd001.ps2`, 8 MB). `game`: um cartão por jogo (`<nome da ROM>.ps2`). `folder`: cartão em pasta (`Mcdf01.ps2`) | o cartão é um arquivo só: sincroniza inteiro, com trava. O Retroboat gerencia cartões com nome escolhidos pelo usuário (ver seção 9) |
 | Dolphin (GC/Wii) | `saves\<gamecube\|wii>\dolphin-emu\User` | GameCube: pasta GCI, um arquivo por jogo (padrão do RetroBat); Wii: NAND por título | a opção `dolphin_slotA` troca para cartão inteiro; a NAND inclui configuração do sistema (`SYSCONF`) |
 | PPSSPP (PSP) | `saves\psp` (`PSP\SAVEDATA`) | por jogo (pasta por ID) | — |
 | RPCS3 (PS3) | `saves\ps3\rpcs3` (raiz do emulador) | por jogo (`savedata`) | **contém jogos instalados, updates e DLC**: sincronizar só `savedata` |
@@ -139,6 +140,65 @@ catálogo cresce sem tocar no motor.
 
 **Segurança dos saves:** antes de sobrescrever qualquer save local, o motor guarda um snapshot
 local. Save é dado insubstituível, então um bug de sincronização não pode apagar progresso.
+
+## 4a. Biblioteca na nuvem, fase 1 (RB-004, implementada em 25/10/2026)
+
+- **Marcadores:** a cada início, o lançador lista `retroboat\jogos` no Drive (só metadados) e cria, na
+  pasta de jogos local, um arquivo vazio com o nome que cada jogo terá quando instalado. Um ZIP com
+  um único disco dentro aparece com o nome do disco, lido no diretório central do ZIP sem baixá-lo.
+- **Descrição no gamelist local:**
+  - "Na nuvem · 3,0 GB · baixa na primeira vez que você jogar.", que sai quando o jogo é instalado;
+  - "Corrompido na nuvem: …" quando o arquivo do Drive não presta;
+  - uma descrição escrita pelo usuário ou pelo scraper nunca é trocada.
+- **Índice local** (`<RetroBat>\retroboat\biblioteca-nuvem.xml`): estado de cada jogo (na nuvem,
+  instalado, corrompido). Se o arquivo mudar no Drive, o estado é refeito.
+- **Download ao jogar:** o overlay troca o `<command>` dos sistemas que têm jogos na nuvem por
+  `"%HOME%\..\retroboat\retroboat-launch.exe" <comando original>`. Se o `-rom` é um marcador, o
+  `retroboat-launch` mostra uma tela cheia com progresso, feita para controle (B ou Esc cancela e
+  volta ao ES), instala e só então chama o emulatorLauncher. Jogos já instalados passam direto.
+- **ZIP:** o disco é extraído direto do Drive para a pasta de jogos, numa passada, sem guardar o ZIP.
+  No fim, o CRC-32 é conferido. Uma extração interrompida recomeça do início.
+- **Ainda não tem:** fila em segundo plano, desinstalar pelo ES, selo visual na lista (fica para o M5)
+  e verificação dos jogos em segundo plano. Hoje, um jogo zerado só é descoberto quando alguém tenta
+  jogá-lo.
+
+## 4b. BIOS na nuvem (RB-013, implementado em 25/10/2026)
+
+As BIOS ficam em `retroboat\bios\` no Drive, com a mesma estrutura de `<RetroBat>\bios`. A cada
+início, o lançador:
+
+1. **Organiza:** BIOS conhecidas soltas na raiz da pasta do Retroboat ou de `bios\` vão para a pasta
+   que o emulador usa (ex.: `bios\pcsx2\bios`), junto com os arquivos que as acompanham (`.MEC`,
+   `.NVM`).
+2. **Baixa** o que falta ou mudou neste PC.
+3. **Envia** as BIOS conhecidas que só existem neste PC. O pacote de BIOS livres do RetroBat não é
+   enviado, porque já vem em toda instalação.
+
+Se um arquivo estiver nos dois lados e diferente, vence o mais novo. Um arquivo zerado nunca é
+copiado e nunca substitui um bom.
+
+**Status de BIOS.** Para cada sistema que tem jogos, o Retroboat confere o arquivo que o emulador
+**vai usar** (na mesma ordem de nomes do emulatorLauncher) e valida o conteúdo. No PS2, ele lê o
+ROMDIR/ROMVER e mostra versão e região. O resultado pode ser:
+
+- ok (com versão e região);
+- sem BIOS;
+- corrompida;
+- válida com nome que o emulador não procura (e qual nome usar).
+
+O "Verificar BIOS" nativo do ES não serve para isso. Ele usa um catálogo embutido no
+`batocera-systems.exe` que, para PS2, só conhece `ps2-0230a-20080220.bin`, e acusaria falta mesmo com
+uma BIOS SCPH válida.
+
+**Retorno na interface:**
+
+- Janela "Sincronizando com a nuvem" no lançador, mostrada só se a sincronização passar de 0,4 s.
+- Notificação no ES (API local `/notify`) quando ele termina de abrir. Exemplos:
+  - "Nuvem: BIOS sincronizadas (1 baixada)" e "PlayStation 2: BIOS ok (v1.60, EUA)";
+  - "Atenção: PlayStation 2: a BIOS do Drive (…) está zerada".
+- `retroboat-cli bios status | sync | organize` e o log do lançador.
+
+A tela nativa de status dentro do ES fica para o M5.
 
 ## 5. Configurações: o que viaja e o que fica
 
@@ -182,25 +242,104 @@ M1 e M0 são independentes e podem andar juntos. A biblioteca na nuvem (M2) vem 
 
 ## 8. Estado da biblioteca e pré-requisitos
 
-**A biblioteca do Drive hoje não tem nenhum jogo válido** (verificado em 24/10/2026):
+**A biblioteca do Drive ainda não tem nenhum jogo válido** (verificado em 24/10/2026 com
+`retroboat-cli cloud verify`):
 
 - A estrutura já segue o formato do RetroBat: `G:\Meu Drive\retroboat\jogos\ps2\`. Os nomes de
   sistema precisam continuar iguais aos do RetroBat (`ps2`, `psx`, `snes`...).
-- O registro `registro-transferencia-ps2-2026-10-24.json` lista 44 ISOs de PS2 (122 GB) vindos de
-  `C:\Stuffs\recuperacao_nvme`. Os 44 foram marcados como "conteúdo integralmente zerado", devolvidos
-  à origem e removidos do Drive.
-- Mesmo assim, **2 deles continuam no Drive**: "187 - Ride or Die" e "Ben 10 - Protector of Earth".
-  Amostrei 2 KB no início, no meio e no fim de cada um: são só zeros, e falta até a assinatura de
-  ISO no setor 16. O registro diz que foram removidos, mas não foram. Não apaguei nada.
+- Há 9 ISOs de PS2 (18,3 GB), **todos zerados**. Todos fazem parte dos 44 ISOs (122 GB) listados
+  em `registro-transferencia-ps2-2026-10-24.json`, vindos de `C:\Stuffs\recuperacao_nvme`, que o
+  registro dá como "conteúdo integralmente zerado" e "removido do Drive".
+- A remoção não chegou ao Drive, e a pasta de origem vem perdendo arquivos: estava com 44 e agora
+  tem 33. Algum processo ainda mexe nesses arquivos. Não apaguei nada.
 - Os nomes vieram com `_` no lugar de `,` (ex.: `(Europe_ Australia)`), herdado da recuperação.
   Isso atrapalha um pouco o scraper por nome.
 
-Pré-requisitos:
+Pré-requisitos que faltam: jogos válidos e a BIOS do PS2 (seção 9) e um RetroBat instalado para
+testes. A pasta `C:\RetroBat` existe, mas está vazia. O Google Drive para computador (`G:\`) e o
+.NET SDK já estão prontos.
 
-1. **Google Drive para computador:** já instalado e funcionando (`G:\`). Não precisa de projeto no
-   Google Cloud.
-2. **Jogos válidos na biblioteca** para testar o M2 de verdade: pelo menos alguns por sistema, de
-   preferência de sistemas diferentes (um de cartucho, um de CD, um de PS2).
-3. **Autorização para instalar o .NET SDK** nesta máquina (hoje não há SDK nem Visual Studio).
-4. **Um RetroBat instalado para testes.** A pasta `C:\RetroBat` existe, mas está vazia. Dá para
-   instalar a versão oficial ou gerar uma pelo nosso build.
+## 9. Testes com PS2 primeiro
+
+Decisão (24/10/2026): todos os testes começam com jogos de PS2. É um bom caso difícil:
+
+- **Downloads grandes:** 1 a 4 GB por jogo, entre 3 e 8 minutos a 6–9 MB/s, a velocidade medida no
+  Drive deste PC. É onde a experiência de download precisa ser boa.
+- **Memory card:** um cartão serve a vários jogos, como no console, e precisa estar sempre
+  sincronizado.
+
+O que cada marco testa com PS2:
+
+| Marco | Teste com PS2 |
+|---|---|
+| M1 | `D:\Jogos\ps2` (ou a pasta escolhida) aparece no ES e o PCSX2 abre o jogo de lá |
+| M2 | Jogo só na nuvem aparece no ES, baixa com progresso, abre no PCSX2; desinstalar e reinstalar retoma |
+| M3 | Salvar no "Cartão 1" no PC A e continuar no PC B; dois jogos no mesmo cartão; cartão em uso em outro PC; save state também |
+| M4 | Opções do PCSX2 (resolução interna, widescreen) escolhidas no ES chegam ao outro PC |
+
+**Memory cards como no console** (decisão de 24/10/2026):
+
+- **Cartões com nome.** O usuário cria quantos cartões quiser ("Cartão 1", "Cartão do Pedro"...) e
+  usa cada um para vários jogos.
+- **Escolha de slot.** Há um padrão global para o slot 1 e o slot 2, que pode ser trocado por jogo.
+  No começo, um "Cartão 1" no slot 1, como um PS2 recém-comprado.
+- **Na nuvem:** cada cartão é um arquivo de 8 MB em `.retroboat\memcards\`, salvo em versões
+  imutáveis como os saves.
+
+Como funciona sem mexer no upstream (camada C0):
+
+- **Emulador:** o emulatorLauncher sempre configura o PCSX2 com os arquivos fixos `Mcd001.ps2`
+  (slot 1) e `Mcd002.ps2` (slot 2), em `saves\ps2\pcsx2\memcards\`, quando `pcsx2_slot1_memory` está
+  no padrão. Antes de abrir o jogo, o `retroboat-launch` coloca nesses arquivos os cartões escolhidos
+  para aquele jogo. Depois, devolve cada cartão ao seu lugar.
+- **Sincronização "sempre":**
+  - antes de jogar: puxa a versão mais nova de cada cartão escolhido;
+  - durante o jogo: a cada gravação do PCSX2 no cartão, envia uma versão nova poucos segundos depois
+    que ele termina de gravar, então uma queda de energia não perde o save;
+  - ao fechar o jogo: envia de novo e libera a trava.
+- **Trava:** o cartão fica "em uso no PC-SALA" enquanto alguém joga com ele, como um cartão físico
+  que só pode estar num console por vez. Abrir o mesmo cartão em outro PC mostra o aviso, com opção
+  de esperar ou assumir.
+- **Offline e conflito:** dá para jogar offline. Se o mesmo cartão mudou nos dois lados, o Retroboat
+  pergunta qual versão manter; a outra fica no histórico. Juntar saves de jogos diferentes do mesmo
+  cartão automaticamente exige ler o sistema de arquivos do memory card do PS2. É possível, mas fica
+  para depois do M3.
+- **Primeiro uso:** o `Mcd001.ps2` e o `Mcd002.ps2` que já existirem são importados como "Cartão 1" e
+  "Cartão 2". Nada se perde.
+
+A validar no M3:
+
+- **Menu do ES:** a escolha de cartões no menu de opções do jogo pode usar um `es_features_retroboat.cfg`
+  gerado a cada início com a lista de cartões. Falta confirmar como o ES mescla um segundo bloco
+  `<emulator name="pcsx2">`. A alternativa é a tela de cartões no próprio Retroboat.
+- **Outros modos do RetroBat:** se o usuário escolher `game` ou `folder` no ES, o Retroboat
+  sincroniza esses arquivos sem a camada de cartões.
+- **Núcleo libretro:** o `pcsx2` libretro grava em outro lugar. Começamos pelo PCSX2 standalone, o
+  primeiro da lista do RetroBat para PS2.
+
+**Formato recomendado: CHD.** O PCSX2 e o RetroBat aceitam `.chd`. Converter os ISOs com o
+`chdman` (`createdvd`) reduz tamanho e tempo de download sem perda; quanto, varia de jogo para
+jogo. A verificação rápida do Retroboat reconhece CHD pela assinatura.
+
+**ZIP na nuvem: extrair uma vez, na instalação.** O primeiro jogo válido da biblioteca (Clock Tower 3,
+24/10/2026) é um `.zip` de 3,04 GB com um ISO de 4,29 GB dentro. O RetroBat abre `.zip` de PS2, mas o
+emulatorLauncher monta ou descompacta o arquivo a cada vez que o jogo abre (`TryUnZipGameIfNeeded`):
+são 4 GB de trabalho por partida. A instalação do Retroboat deve descompactar uma vez, como o Steam
+faz, e guardar o ISO (ou CHD) na pasta de jogos local. Outro ponto: com a opção `decompressedfolders=keep`,
+o emulatorLauncher descompacta em `<pasta de jogos>\.uncompressed`, ou seja, escreve dentro da pasta
+de jogos. Isso não acontece no padrão do RetroBat, mas entra na lista de vigilância da RB-003.
+
+**Identificar o jogo sem baixar.** Todo disco de PS2 tem um `SYSTEM.CNF` com o serial do jogo
+(ex.: `SLUS-20312`). Lendo poucos setores do ISO pela pasta do Drive, o Retroboat pode mostrar o
+serial antes do download. O serial dá o jogo exato para metadados e para casar com o banco do Redump.
+Para ISO isso é viável; para CHD exige descompactar um trecho.
+
+**Pré-requisitos (seus):**
+
+1. **Jogos de PS2 válidos**, dumps dos seus discos. Comece com 3 ou 4, de preferência um pequeno
+   (até 1 GB), para os testes rodarem rápido.
+2. **BIOS do PS2**, dump do seu console, em `<RetroBat>\bios\pcsx2\bios\`. Sem ela o emulatorLauncher
+   não abre o PCSX2 ("No BIOS found in bios/pcsx2/bios folder"). Os nomes aceitos estão na lista
+   do `Pcsx2.Generator.cs` (ex.: `SCPH-70012_BIOS_V12_USA_200.BIN`, `scph39001.bin`).
+3. **Um RetroBat instalado** para os testes de ponta a ponta. Quando o PCSX2 não está instalado,
+   o emulatorLauncher se oferece para baixá-lo na primeira vez que um jogo de PS2 é aberto.
