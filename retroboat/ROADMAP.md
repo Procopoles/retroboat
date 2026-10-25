@@ -14,7 +14,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 | M0 | Fundações: build, provedor de pasta sobre o Google Drive para computador, verificação de integridade | RB-006 | base pronta; falta empacotar no build |
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
 | M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES e download ao jogar |
-| M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | não iniciado |
+| M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); outros saves não iniciados |
 | M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES (ScreenScraper, IGDB, RetroAchievements) prontas |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; falta o RB-010 |
 
@@ -107,7 +107,23 @@ Depende do fork e do build do ES (RB-011).
   consertada neste teste).
 - **Falta testar:** abrir o jogo baixado no PCSX2 pelo ES (o PCSX2 ainda não está instalado na
   build; o emulatorLauncher se oferece para baixá-lo na primeira vez).
-- **Memory cards (M3) e configurações por jogo (M4) ainda não existem no código.**
+- **Configurações por jogo (M4) ainda não existem no código.** Os memory cards (M3) vieram logo
+  depois, na seção abaixo.
+
+### Memory cards do PS2 na nuvem (25/10/2026)
+
+- **Decisão:** o emulador gerencia os cartões (criar, escolher o slot, apagar, um cartão por jogo).
+  O Retroboat não troca nada de lugar: sincroniza todos os cartões da pasta que o emulatorLauncher
+  configura no PCSX2, e toda gravação vai para a nuvem. Substitui a ideia de 24/10 de cartões com
+  nome gerenciados pelo Retroboat.
+- **Pronto e testado** (111 testes automáticos, mais o teste no Drive real com um script no lugar do
+  PCSX2 e um segundo PC simulado):
+  - cada save vai para a nuvem em até ~6 s;
+  - trava entre PCs, espera da versão que está chegando e tela de conflito, todas usáveis pelo controle;
+  - histórico de versões na nuvem e cópias locais antes de substituir;
+  - envio, ao abrir o Retroboat, do que ficou de uma partida offline.
+- **Falta:** testar com o PCSX2 de verdade (instalar o PCSX2 pela primeira abertura de um jogo de
+  PS2 no ES e salvar num jogo); cartões em pasta (`folder`); save states; outros emuladores.
 
 ## Etapa 2: redesign visual e de UX
 
@@ -116,3 +132,11 @@ desenho será onde cada mudança visual mora:
 
 - **tema novo:** C0, sem conflito com o upstream;
 - **mudança de comportamento no ES:** C1 a C3, no fork do ES.
+
+## Melhorias a definir
+
+Ideias aceitas que ainda precisam de desenho antes de entrar num marco.
+
+| Item | O quê | Por quê | Origem |
+|---|---|---|---|
+| Backup da nuvem | Backup automático dos arquivos que são a fonte da verdade na nuvem (memory cards, saves, configurações, contas, BIOS e metadados), guardado também no Drive, para recuperar se algo acontecer com eles | A nuvem é a fonte da verdade: um arquivo apagado, zerado ou sobrescrito por engano lá chega a todos os PCs. O histórico de versões dos memory cards (M3) ajuda, mas não substitui um backup | pedido de 25/10/2026; formato, frequência, retenção e restauração a definir |

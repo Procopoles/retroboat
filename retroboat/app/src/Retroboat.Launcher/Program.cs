@@ -9,6 +9,7 @@ using Retroboat.Cloud;
 using Retroboat.Es;
 using Retroboat.Library;
 using Retroboat.Logging;
+using Retroboat.Saves;
 using Retroboat.Settings;
 
 namespace Retroboat.Launcher
@@ -89,15 +90,16 @@ namespace Retroboat.Launcher
         }
 
         /// <summary>
-        /// Sistemas com jogos na nuvem abrem pelo retroboat-launch, que baixa o jogo antes do emulador.
-        /// O caminho é relativo a %HOME% (a pasta do ES), para o RetroBat continuar portátil.
+        /// Sistemas com jogos na nuvem abrem pelo retroboat-launch, que baixa o jogo antes do emulador; os
+        /// que têm saves sincronizados (PS2), sempre, mesmo sem o Drive, para os memory cards acompanharem a
+        /// partida. O caminho é relativo a %HOME% (a pasta do ES), para o RetroBat continuar portátil.
         /// </summary>
         static CommandWrapper CreateCommandWrapper(RetroBatInstall install, RetroboatSettings settings)
         {
             var exeDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
             if (!File.Exists(Path.Combine(exeDir, "retroboat-launch.exe")))
             {
-                Log.Warn("retroboat-launch.exe não encontrado ao lado do Retroboat.exe: jogos da nuvem não serão baixados ao jogar.");
+                Log.Warn("retroboat-launch.exe não encontrado ao lado do Retroboat.exe: jogos da nuvem não serão baixados ao jogar e os memory cards só sincronizam ao abrir o Retroboat.");
                 return null;
             }
 
@@ -109,20 +111,19 @@ namespace Retroboat.Launcher
             else
                 launcherPath = Path.Combine(exeDir, "retroboat-launch.exe");
 
+            var systems = new HashSet<string>(SaveRules.Systems, StringComparer.OrdinalIgnoreCase);
             try
             {
                 var cloud = CloudLocator.Locate(settings.CloudPath);
-                if (cloud == null || !Directory.Exists(cloud.GamesPath))
-                    return null;
-
-                var systems = new CloudLibrary(cloud.GamesPath).GetGames().Select(g => g.System).Distinct().ToList();
-                return systems.Count > 0 ? new CommandWrapper(launcherPath, systems) : null;
+                if (cloud != null && Directory.Exists(cloud.GamesPath))
+                    systems.UnionWith(new CloudLibrary(cloud.GamesPath).GetGames().Select(g => g.System));
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
                 Log.Warn("Não foi possível listar a biblioteca na nuvem: " + ex.Message);
-                return null;
             }
+
+            return new CommandWrapper(launcherPath, systems);
         }
 
         /// <summary>
@@ -195,6 +196,17 @@ namespace Retroboat.Launcher
                 Log.Info(string.Format("Capas e descrições: {0} jogo(s) enviados ({1} arquivos), {2} recebidos ({3} arquivos)",
                     report.Media.GamesShared, report.Media.FilesUploaded, report.Media.GamesFilled, report.Media.FilesDownloaded));
                 foreach (var problem in report.Media.Errors) Log.Warn("Mídia: " + problem);
+            }
+
+            if (report.Saves != null)
+            {
+                foreach (var item in report.Saves.Uploaded) Log.Info("Memory card enviado (sessão anterior): " + item);
+                foreach (var item in report.Saves.Downloaded) Log.Info("Memory card baixado: " + item);
+                foreach (var item in report.Saves.DeletedLocal) Log.Info("Memory card apagado em outro PC, apagado aqui (cópia no histórico): " + item);
+                foreach (var item in report.Saves.Conflicts) Log.Warn("Memory card com conflito, decidir ao abrir um jogo: " + item);
+                foreach (var item in report.Saves.Waiting) Log.Info("Memory card aguardando a versão de outro PC: " + item);
+                foreach (var item in report.Saves.Skipped) Log.Warn("Memory card não sincronizado: " + item);
+                foreach (var problem in report.Saves.Errors) Log.Warn("Memory cards: " + problem);
             }
 
             if (report.Library != null)

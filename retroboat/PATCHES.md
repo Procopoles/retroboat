@@ -15,7 +15,7 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-006 | Base da nuvem: provedor de pasta (Google Drive para computador, NAS), verificação de integridade, lançador, `retroboat-launch` | retroboat/app | C0 | — | nenhum | não | em andamento |
 | RB-007 | ExoDOS cria atalhos em `retrobat\roms` ignorando a chave `roms=` | emulatorlauncher | C1 | média | baixo | sim | candidato |
 | RB-008 | Opção para o `retrobat.exe` esperar um `AppLauncher` terminar antes de abrir o ES | retrobat-executable | C1 | média | baixo | sim | candidato |
-| RB-009 | Saves e memory cards na nuvem: sync por jogo, conflito, offline, snapshots | retroboat-cloud | C0 | — | nenhum (semântico: médio) | não | candidato |
+| RB-009 | Saves e memory cards na nuvem: sync por jogo, conflito, offline, snapshots | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
 | RB-010 | Interface nativa de nuvem no ES: status, instalar/desinstalar, tela de downloads | ES (Batocera) | C2 | ALTA/média | alto | talvez (só se genérico) | candidato |
 | RB-011 | Build Windows do ES no nosso fork (GitHub Actions) | ES (Batocera) | C0 | — | nenhum | não | em andamento |
 | RB-012 | Sistema Ghostship cadastrado com o nome "starship" (nome duplicado no `es_systems.cfg`) | retrobat | C1 | ALTA | médio | sim | candidato |
@@ -76,10 +76,8 @@ transporte o app Google Drive para computador (sem API e sem login nosso). Resum
 - **RB-009 (saves e memory cards):** C0. Risco semântico médio: se o upstream mudar onde um
   emulador grava os saves, a regra correspondente no catálogo de saves fica errada sem conflito de
   merge. O `upstream-check.sh` deve alertar quando um gerador mudar caminhos de `saves`.
-  Memory cards do PS2 funcionam como no console: cartões com nome, escolhidos por slot e por jogo,
-  colocados nos arquivos fixos `Mcd001.ps2`/`Mcd002.ps2` que o emulatorLauncher configura no PCSX2.
-  Isso depende do bloco de memory cards de `Pcsx2.Generator.cs` (`SetupConfigurationQT`), que
-  entra na lista de vigilância.
+  Memory cards do PS2: o emulador gerencia os cartões e o Retroboat sincroniza todos os da pasta que
+  o emulatorLauncher configura (decisão de 25/10/2026; detalhes na seção RB-009 abaixo).
 - **RB-010 (ES nativo):** C2 em arquivos quentes do ES (`FileData.cpp`, `GuiGameOptions.cpp`,
   bindings de tema). Só começa depois do RB-011. Lê a API local do `retroboat-cloud`, então a
   lógica de nuvem continua fora do ES.
@@ -158,6 +156,36 @@ o histórico.
 - **Correção (25/10/2026):** uma BIOS zerada na nuvem com o mesmo nome, tamanho e data da cópia boa
   do PC (o caso da recuperação de disco) era tratada como igual e nunca era consertada. Agora a
   cópia zerada, de qualquer lado, é substituída pela boa do outro lado, mesmo que pareça mais nova.
+
+## RB-009 — Memory cards do PS2 na nuvem (primeira parte dos saves)
+
+- **Onde:** `retroboat/app` (`Saves\SaveRules`, `SaveSync`, `SaveSession`; `Retroboat.Launch`:
+  `SaveFlow`, `ChoiceForm`; `Cloud\StartupSync`; comandos `saves` do CLI). Nada no upstream.
+- **Desenho:** seção 9 do [cloud-first](design/cloud-first.md), "Memory cards: o emulador gerencia,
+  o Retroboat sincroniza".
+- **Como funciona:** o PCSX2 cria, escolhe e grava os cartões. O Retroboat sincroniza todo `*.ps2`
+  de `saves\ps2\pcsx2\memcards` com `retroboat\saves\ps2\pcsx2\memcards` no Drive, em versões
+  imutáveis comprimidas, uma por gravação. O `retroboat-launch` cuida de cada partida:
+  - antes: trava de outro PC, versão que ainda está chegando e conflito, cada um com sua tela;
+  - durante: envia cada gravação 3 s depois que o emulador para de gravar;
+  - depois: envia o que faltar e libera a trava.
+  O `Retroboat.exe` envia, ao abrir, o que ficou de uma partida offline. O comando do PS2 passa
+  sempre pelo `retroboat-launch`, mesmo sem jogos na nuvem.
+- **Testado em 25/10/2026** no Drive real, com um script no lugar do PCSX2 (que ainda não está
+  instalado na build) e um segundo PC simulado (`retroboat-cli saves ... --pc PC-SALA`):
+  - um cartão criado durante o jogo subiu 5 s depois, e cada save subiu em até 6 s;
+  - as gravações feitas logo antes de fechar subiram ao fechar;
+  - cada versão de um cartão de 8 MB ficou com cerca de 73 KB no Drive;
+  - a tela de trava apareceu e fechou sozinha quando o outro PC terminou;
+  - na tela de conflito, a escolha da versão da nuvem trouxe o save do outro PC e guardou o deste
+    em `conflitos\`;
+  - uma partida offline foi enviada pelo `Retroboat.exe` na abertura seguinte.
+- **Falta testar com o PCSX2 de verdade:** ver se ele segura o arquivo do cartão aberto durante o
+  jogo. Se segurar, os envios durante o jogo falham e tudo vai ao fechar.
+- **Risco semântico médio:** depende do bloco "Memory cards management" de `Pcsx2.Generator.cs`
+  (pasta `saves\ps2\pcsx2\memcards`, extensão `.ps2`, `Slot1_Filename`/`Slot2_Filename` no
+  `PCSX2.ini`) e da chave `saves=` do `emulatorLauncher.cfg`. Mudança ali deixa de sincronizar sem
+  conflito de merge; os dois pontos entram na lista de vigilância.
 
 ## RB-015 — Conteúdo dos jogos na nuvem
 

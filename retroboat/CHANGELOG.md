@@ -27,6 +27,12 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-014: o tema padrão passa a ser o nosso fork do Carbon (`build.ini: theme_path`), no design da
   Steam (Big Picture): botão JOGAR ou BAIXAR com o status na seção do jogo, ícone de status nas
   visões em grade e ícone global de nuvem no cabeçalho.
+- RB-009 (memory cards do PS2): todo cartão que o PCSX2 usa vai para a nuvem
+  (`retroboat\saves\ps2\pcsx2\memcards`). O cartão mais novo é puxado antes do jogo, cada
+  gravação é enviada segundos depois e o resto ao fechar. Um cartão mudado em dois PCs abre uma tela
+  para escolher qual manter, e a outra versão fica guardada. Um cartão em uso em outro PC mostra um
+  aviso. Cada gravação fica no histórico do Drive e, antes de substituir um cartão, uma cópia fica
+  em `retroboat\historico`. Comandos `retroboat-cli saves status | sync | history`.
 - Design system do Retroboat (`design/design-system-steam.md`), com base no Steam Big Picture e
   nos tokens do próprio cliente Steam.
 

@@ -10,11 +10,12 @@ namespace Retroboat.Launch
 {
     /// <summary>
     /// retroboat-launch.exe: fica na frente do emulatorLauncher no &lt;command&gt; dos sistemas que têm
-    /// jogos na nuvem (overlay es_systems_retroboat.cfg). Uso: retroboat-launch "&lt;programa&gt;" &lt;argumentos&gt;.
+    /// jogos ou saves na nuvem (overlay es_systems_retroboat.cfg). Uso: retroboat-launch "&lt;programa&gt;" &lt;argumentos&gt;.
     ///
-    /// Se o -rom é um marcador de jogo que só está na nuvem, baixa o jogo com uma tela de progresso e
-    /// depois abre o programa. Em qualquer outro caso, abre o programa na hora, com os mesmos argumentos.
-    /// Devolve ao ES o código de saída do programa.
+    /// Se o -rom é um marcador de jogo que só está na nuvem, baixa o jogo com uma tela de progresso. Se o
+    /// sistema tem saves sincronizados (memory cards do PCSX2), puxa os da nuvem antes, envia cada gravação
+    /// durante o jogo e o que faltar no fim (SaveFlow). Depois abre o programa com os mesmos argumentos e
+    /// devolve ao ES o código de saída dele.
     /// </summary>
     static class Program
     {
@@ -33,11 +34,21 @@ namespace Retroboat.Launch
             if (install != null)
                 Log.Init(Path.Combine(install.RetroboatDataPath, "logs", "launch.log"));
 
+            Application.EnableVisualStyles();
+
             var rom = CommandLine.GetOption(args, "-rom");
             if (install != null && rom != null && !InstallIfInCloud(install, rom))
                 return 1; // Download cancelado ou com erro: volta para o ES sem abrir o emulador.
 
-            return Run(target, targetArguments);
+            // Memory cards: puxa antes, envia cada gravação durante o jogo e o que faltar no fim.
+            var saves = install != null ? SaveFlow.Before(install, args, rom) : null;
+            if (saves == null)
+                return Run(target, targetArguments);
+
+            if (saves.Cancelled)
+                return 1;
+
+            return saves.During(() => Run(target, targetArguments));
         }
 
         /// <returns>false se o jogo precisava ser baixado e não foi.</returns>
@@ -51,7 +62,6 @@ namespace Retroboat.Launch
                     return true;
 
                 Log.Info("Baixando da nuvem antes de abrir: " + entry.System + "/" + entry.CloudName);
-                Application.EnableVisualStyles();
                 using (var form = new DownloadForm(installer, entry))
                 {
                     Application.Run(form);

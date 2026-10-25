@@ -8,6 +8,7 @@ using Retroboat.Bios;
 using Retroboat.Cloud;
 using Retroboat.Integrity;
 using Retroboat.Library;
+using Retroboat.Saves;
 using Retroboat.Text;
 
 namespace Retroboat.Cli
@@ -37,6 +38,12 @@ BIOS na nuvem (pasta bios\ dentro da pasta do Retroboat no Drive):
   retroboat-cli bios status --retrobat <pasta do RetroBat>
   retroboat-cli bios sync --retrobat <pasta do RetroBat> [--dry-run]
   retroboat-cli bios organize [--dry-run]
+
+Memory cards na nuvem (retroboat\saves no Drive; o emulador gerencia os cartões):
+  retroboat-cli saves status --retrobat <pasta do RetroBat> [--pc NOME]
+  retroboat-cli saves sync --retrobat <pasta do RetroBat> [--pc NOME] [--keep local|cloud]
+  retroboat-cli saves history <cartão> --retrobat <pasta do RetroBat>
+  retroboat-cli saves lock|unlock --retrobat <pasta do RetroBat> [--pc NOME] [--game NOME]   (para testes)
 
 Biblioteca isolada (RB-003):
   retroboat-cli library apply --retrobat <pasta do RetroBat> [--roms <pasta de jogos>] [--dry-run] [--no-folders]
@@ -69,6 +76,11 @@ Opções gerais:
                     case "bios status": return BiosStatusCommand(options);
                     case "bios sync": return BiosSyncCommand(options, organizeOnly: false);
                     case "bios organize": return BiosSyncCommand(options, organizeOnly: true);
+                    case "saves status": return SavesStatus(options);
+                    case "saves sync": return SavesSync(options);
+                    case "saves history": return SavesHistory(options);
+                    case "saves lock": return SavesLock(options, locked: true);
+                    case "saves unlock": return SavesLock(options, locked: false);
                     default:
                         Console.WriteLine(Usage);
                         return ExitUsage;
@@ -249,6 +261,97 @@ Opções gerais:
             return ExitOk;
         }
 
+        static IEnumerable<SaveSync> OpenSaves(Options options)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            var location = CloudLocator.Locate(options.Value("--cloud"));
+            if (location == null || !location.Exists)
+                throw new InvalidOperationException("Pasta do Retroboat na nuvem não encontrada. Use --cloud <pasta>.");
+
+            var savesPath = SaveRules.GetSavesPath(install);
+            return SaveRules.All.Select(rule => new SaveSync(savesPath, install.RetroboatDataPath, location.RetroboatPath, rule, options.Value("--pc"))).ToList();
+        }
+
+        static int SavesStatus(Options options)
+        {
+            foreach (var sync in OpenSaves(options))
+            {
+                Console.WriteLine(sync.Rule.DisplayName + " (" + sync.PcName + "): " + sync.LocalFolder);
+                Console.WriteLine("  nuvem: " + sync.CloudFolder);
+                var other = sync.FindActiveLock();
+                if (other != null)
+                    Console.WriteLine("  EM USO no " + other.Pc + " desde " + other.SinceUtc.ToLocalTime().ToString("dd/MM HH:mm") + (string.IsNullOrEmpty(other.Game) ? "" : " (" + other.Game + ")"));
+
+                foreach (var plan in sync.Plan())
+                {
+                    Console.WriteLine(string.Format("  {0,-14} {1}{2}{3}", plan.Action, plan.Name,
+                        plan.Cloud != null ? "   nuvem: " + plan.Cloud.TimeUtc.ToLocalTime().ToString("dd/MM HH:mm:ss") + " " + plan.Cloud.Pc + (plan.Cloud.Deleted ? " (apagado)" : "") : "   (não está na nuvem)",
+                        plan.WaitingFor != null ? "   aguardando " + plan.WaitingFor : ""));
+                }
+
+                foreach (var item in sync.UnsupportedItems())
+                    Console.WriteLine("  não sincronizado: " + item);
+            }
+
+            return ExitOk;
+        }
+
+        static int SavesSync(Options options)
+        {
+            var keep = options.Value("--keep");
+            ConflictChoice? choice = keep == null ? (ConflictChoice?)null
+                : keep == "local" ? ConflictChoice.KeepLocal
+                : keep == "cloud" ? ConflictChoice.KeepCloud
+                : throw new UsageException("--keep aceita local ou cloud");
+
+            int problems = 0;
+            foreach (var sync in OpenSaves(options))
+            {
+                var result = sync.Sync(p => choice);
+                foreach (var item in result.Uploaded) Console.WriteLine("enviado:  " + item);
+                foreach (var item in result.Downloaded) Console.WriteLine("baixado:  " + item);
+                foreach (var item in result.DeletedLocal) Console.WriteLine("apagado aqui (apagado em outro PC): " + item);
+                foreach (var item in result.DeletedInCloud) Console.WriteLine("apagado na nuvem: " + item);
+                foreach (var item in result.Conflicts) Console.WriteLine("CONFLITO (use --keep local|cloud): " + item);
+                foreach (var item in result.Waiting) Console.WriteLine("aguardando a versão de outro PC: " + item);
+                foreach (var item in result.Skipped) Console.WriteLine("não sincronizado: " + item);
+                foreach (var error in result.Errors) Console.WriteLine("ERRO: " + error);
+                problems += result.Conflicts.Count + result.Errors.Count;
+            }
+
+            return problems > 0 ? ExitError : ExitOk;
+        }
+
+        static int SavesHistory(Options options)
+        {
+            var name = options.Positional(2) ?? throw new UsageException("Informe o cartão, ex.: Mcd001.ps2");
+            foreach (var sync in OpenSaves(options))
+            {
+                foreach (var version in sync.History(name))
+                {
+                    var size = version.Deleted ? "apagado" : Format.Bytes(new FileInfo(version.Path).Length) + " comprimido";
+                    Console.WriteLine(version.TimeUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") + "  " + version.Pc + "  " + size + "  " + version.Id);
+                }
+            }
+
+            return ExitOk;
+        }
+
+        static int SavesLock(Options options, bool locked)
+        {
+            foreach (var sync in OpenSaves(options))
+            {
+                if (locked)
+                    sync.Lock(options.Value("--game") ?? "teste");
+                else
+                    sync.Unlock();
+
+                Console.WriteLine((locked ? "Trava" : "Sem trava") + " para " + sync.PcName + " em " + sync.CloudFolder);
+            }
+
+            return ExitOk;
+        }
+
         static int BiosStatusCommand(Options options)
         {
             var install = new RetroBatInstall(options.Required("--retrobat"));
@@ -365,7 +468,7 @@ Opções gerais:
 
         sealed class Options
         {
-            static readonly HashSet<string> ValueOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "--cloud", "--to", "--retrobat", "--roms", "--samples" };
+            static readonly HashSet<string> ValueOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "--cloud", "--to", "--retrobat", "--roms", "--samples", "--pc", "--keep", "--game" };
 
             readonly List<string> _positional = new List<string>();
             readonly Dictionary<string, string> _values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

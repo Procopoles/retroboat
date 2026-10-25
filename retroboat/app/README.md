@@ -47,7 +47,13 @@ retroboat-cli library apply --retrobat <pasta> [--roms <pasta>] [--dry-run]
 retroboat-cli bios status --retrobat <pasta>              BIOS que cada emulador vai usar, validada pelo conteúdo
 retroboat-cli bios sync --retrobat <pasta> [--dry-run]    organiza, baixa e envia BIOS (retroboat\bios no Drive)
 retroboat-cli bios organize [--dry-run]                   só organiza as BIOS soltas no Drive
+retroboat-cli saves status --retrobat <pasta>             memory cards: o que mudou aqui, na nuvem ou nos dois
+retroboat-cli saves sync --retrobat <pasta> [--keep local|cloud]   sincroniza (conflitos só com --keep)
+retroboat-cli saves history <cartão> --retrobat <pasta>   versões do cartão na nuvem
 ```
+
+`--pc NOME` nos comandos `saves` faz a pasta valer como outro PC, para testar dois PCs numa máquina só.
+`saves lock` e `saves unlock` existem só para testar a trava.
 
 Códigos de saída: 0 ok, 1 erro, 2 uso incorreto, 3 jogo corrompido encontrado, 130 cancelado.
 
@@ -86,3 +92,20 @@ As capas automáticas não precisam de conta: o lançador procura o nome do arqu
 No-Intro/Redump) nos thumbnails do libretro, guarda a lista de nomes de cada sistema por uma semana
 em `retroboat\cache\libretro` e envia as imagens para o Drive. Descrição e vídeo vêm do scraper do
 ES, que precisa de uma conta gratuita no ScreenScraper (menu Procurar mídias de jogo, aba Contas).
+
+## Memory cards
+
+Os memory cards do PS2 são do emulador: o PCSX2 cria, escolhe e grava os cartões em
+`<RetroBat>\saves\ps2\pcsx2\memcards`, e o emulatorLauncher escolhe o arquivo de cada slot pela opção do ES.
+O Retroboat sincroniza todo `*.ps2` dessa pasta com `retroboat\saves\ps2\pcsx2\memcards` no Drive:
+
+- **antes do jogo**, o `retroboat-launch` puxa o cartão mais novo. Se outro PC estiver jogando com os
+  cartões, ou se o mesmo cartão mudou aqui e na nuvem, ele pergunta antes, numa tela feita para controle;
+- **durante o jogo**, cada gravação vai para a nuvem uns 3 s depois que o emulador para de gravar;
+- **ao fechar**, envia o que faltar e libera a trava;
+- **ao abrir o `Retroboat.exe`**, envia o que ficou de uma partida sem o Drive.
+
+Cada gravação é uma versão nova no Drive (`<cartão>\<data>-<PC>.gz`); nada é sobrescrito. Antes de
+trocar ou apagar um cartão local, uma cópia vai para `<RetroBat>\retroboat\historico`. O estado da
+última sincronização fica em `<RetroBat>\retroboat\saves-sync.xml`. Cartões em pasta (opção `folder`)
+ainda não são sincronizados. Log em `<RetroBat>\retroboat\logs\launch.log`.

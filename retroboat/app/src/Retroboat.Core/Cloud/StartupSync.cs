@@ -6,6 +6,7 @@ using Retroboat.Accounts;
 using Retroboat.Bios;
 using Retroboat.Library;
 using Retroboat.Media;
+using Retroboat.Saves;
 
 namespace Retroboat.Cloud
 {
@@ -18,6 +19,7 @@ namespace Retroboat.Cloud
         public CloudMediaSyncResult Media { get; set; }
         public AutoMediaResult AutoMedia { get; set; }
         public AccountSyncResult Accounts { get; set; }
+        public SaveSyncResult Saves { get; set; }
         public IReadOnlyList<BiosReport> BiosStatus { get; set; } = new List<BiosReport>();
 
         /// <summary>Frases curtas para a interface (notificação do ES, janela do lançador).</summary>
@@ -28,8 +30,8 @@ namespace Retroboat.Cloud
     }
 
     /// <summary>
-    /// O que o Retroboat sincroniza com a nuvem antes de abrir o RetroBat: BIOS e a biblioteca de jogos
-    /// (marcadores dos jogos que ainda não foram baixados).
+    /// O que o Retroboat sincroniza com a nuvem antes de abrir o RetroBat: BIOS, contas, memory cards (o que
+    /// ficou de uma sessão offline) e a biblioteca de jogos (marcadores dos jogos que ainda não foram baixados).
     /// </summary>
     public static class StartupSync
     {
@@ -80,6 +82,11 @@ namespace Retroboat.Cloud
                         report.HasWarnings = true;
                     }
                 }
+
+                // Memory cards: envia o que ficou de uma partida offline e baixa o que chegou. Conflitos ficam para
+                // a abertura do jogo, onde dá para perguntar. Com um jogo aberto neste PC, não mexe nos cartões.
+                if (System.Diagnostics.Process.GetProcessesByName("retroboat-launch").Length == 0)
+                    report.Saves = SyncSaves(install, report.Cloud.RetroboatPath, report);
 
                 if (!string.IsNullOrEmpty(romsPath) && Directory.Exists(report.Cloud.GamesPath))
                 {
@@ -168,6 +175,48 @@ namespace Retroboat.Cloud
             }
 
             return report;
+        }
+
+        static SaveSyncResult SyncSaves(RetroBatInstall install, string cloudRetroboatPath, StartupSyncReport report)
+        {
+            var total = new SaveSyncResult();
+            var savesPath = SaveRules.GetSavesPath(install);
+            foreach (var rule in SaveRules.All)
+            {
+                try
+                {
+                    var result = new SaveSync(savesPath, install.RetroboatDataPath, cloudRetroboatPath, rule).Sync();
+                    total.Add(result);
+
+                    var parts = new List<string>();
+                    if (result.Uploaded.Count > 0) parts.Add(result.Uploaded.Count + " enviado(s)");
+                    if (result.Downloaded.Count > 0) parts.Add(result.Downloaded.Count + " baixado(s)");
+                    if (result.DeletedLocal.Count + result.DeletedInCloud.Count > 0) parts.Add(result.DeletedLocal.Count + result.DeletedInCloud.Count + " apagado(s)");
+                    if (parts.Count > 0)
+                        report.Messages.Add(rule.DisplayName + ": " + rule.ItemName + "s sincronizados (" + string.Join(", ", parts) + ")");
+
+                    if (result.Conflicts.Count > 0)
+                    {
+                        report.Messages.Add("Atenção: " + rule.DisplayName + ": " + string.Join(", ", result.Conflicts) +
+                                            " mudou neste PC e na nuvem. Você escolhe qual manter ao abrir um jogo.");
+                        report.HasWarnings = true;
+                    }
+
+                    if (result.Errors.Count > 0)
+                    {
+                        report.Messages.Add("Atenção: " + rule.DisplayName + ": problema ao sincronizar " + rule.ItemName + "s. Detalhes no log do Retroboat.");
+                        report.HasWarnings = true;
+                    }
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
+                {
+                    total.Errors.Add(rule.DisplayName + ": " + ex.Message);
+                    report.Messages.Add("Atenção: não foi possível sincronizar os " + rule.ItemName + "s (" + ex.Message + ").");
+                    report.HasWarnings = true;
+                }
+            }
+
+            return total;
         }
 
         static string DescribeSync(BiosSyncResult result)

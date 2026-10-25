@@ -14,7 +14,7 @@ sincronizados antes e depois de cada sessão.
 |---|---|
 | **Jogos** | A biblioteca mostra todos os jogos da nuvem, instalados ou não. Cada jogo tem um status (☁ na nuvem · ⬇ baixando 42% · ✔ instalado · ⚠ corrompido). Dá para instalar sob demanda ou em fila em segundo plano, pausar e retomar (inclusive depois de reiniciar o PC), desinstalar só a cópia local, ver o espaço usado e verificar a integridade. A verificação rápida lê alguns setores sem baixar o jogo e acha arquivos zerados; a completa compara o hash com bases conhecidas (Redump/No-Intro). |
 | **Saves e save states** | Sincronizados por jogo: puxa antes de abrir e envia ao fechar. Se os dois lados mudaram, aparece um diálogo de conflito ("Este PC: hoje 14:32 · Nuvem: ontem 22:10, PC-SALA"). Funciona offline e sincroniza quando a conexão volta. Guarda um histórico de versões. |
-| **Memory cards** | No PS2, como no console: o usuário tem quantos cartões quiser, usa cada um para vários jogos e escolhe qual vai em cada slot. O cartão escolhido é sincronizado com o Drive sempre (antes de jogar, a cada gravação e ao sair), com trava para não ser usado em dois PCs ao mesmo tempo (seção 9). GameCube (GCI) e PS1 (DuckStation) já usam um arquivo por jogo no padrão do RetroBat. |
+| **Memory cards** | No PS2, o emulador gerencia os cartões como no console (quantos quiser, um por slot, um por jogo) e o Retroboat sincroniza todos os que ele usa com o Drive sempre: antes de jogar, a cada gravação e ao sair, com trava para não serem usados em dois PCs ao mesmo tempo (seção 9). GameCube (GCI) e PS1 (DuckStation) já usam um arquivo por jogo no padrão do RetroBat. |
 | **Configurações** | Opções do ES e dos emuladores (só as portáveis), controles, coleções, metadados, favoritos e tempo jogado (somado entre PCs, não sobrescrito). |
 | **Perfil e PCs** | Lista de PCs e aviso de "perfil em uso no PC-SALA". A conta é a do Google Drive para computador instalado no PC. |
 | **PC novo** | Instala o Google Drive para computador e o Retroboat, e está tudo lá: a biblioteca aparece inteira, e cada jogo baixa na primeira vez que for jogado. |
@@ -277,45 +277,54 @@ O que cada marco testa com PS2:
 | M3 | Salvar no "Cartão 1" no PC A e continuar no PC B; dois jogos no mesmo cartão; cartão em uso em outro PC; save state também |
 | M4 | Opções do PCSX2 (resolução interna, widescreen) escolhidas no ES chegam ao outro PC |
 
-**Memory cards como no console** (decisão de 24/10/2026):
+**Memory cards: o emulador gerencia, o Retroboat sincroniza** (decisão de 25/10/2026, substitui a
+de 24/10, em que o Retroboat trocava cartões com nome dentro do `Mcd001.ps2`):
 
-- **Cartões com nome.** O usuário cria quantos cartões quiser ("Cartão 1", "Cartão do Pedro"...) e
-  usa cada um para vários jogos.
-- **Escolha de slot.** Há um padrão global para o slot 1 e o slot 2, que pode ser trocado por jogo.
-  No começo, um "Cartão 1" no slot 1, como um PS2 recém-comprado.
-- **Na nuvem:** cada cartão é um arquivo de 8 MB em `.retroboat\memcards\`, salvo em versões
-  imutáveis como os saves.
-
-Como funciona sem mexer no upstream (camada C0):
-
-- **Emulador:** o emulatorLauncher sempre configura o PCSX2 com os arquivos fixos `Mcd001.ps2`
-  (slot 1) e `Mcd002.ps2` (slot 2), em `saves\ps2\pcsx2\memcards\`, quando `pcsx2_slot1_memory` está
-  no padrão. Antes de abrir o jogo, o `retroboat-launch` coloca nesses arquivos os cartões escolhidos
-  para aquele jogo. Depois, devolve cada cartão ao seu lugar.
-- **Sincronização "sempre":**
-  - antes de jogar: puxa a versão mais nova de cada cartão escolhido;
-  - durante o jogo: a cada gravação do PCSX2 no cartão, envia uma versão nova poucos segundos depois
-    que ele termina de gravar, então uma queda de energia não perde o save;
-  - ao fechar o jogo: envia de novo e libera a trava.
-- **Trava:** o cartão fica "em uso no PC-SALA" enquanto alguém joga com ele, como um cartão físico
-  que só pode estar num console por vez. Abrir o mesmo cartão em outro PC mostra o aviso, com opção
-  de esperar ou assumir.
-- **Offline e conflito:** dá para jogar offline. Se o mesmo cartão mudou nos dois lados, o Retroboat
-  pergunta qual versão manter; a outra fica no histórico. Juntar saves de jogos diferentes do mesmo
-  cartão automaticamente exige ler o sistema de arquivos do memory card do PS2. É possível, mas fica
-  para depois do M3.
-- **Primeiro uso:** o `Mcd001.ps2` e o `Mcd002.ps2` que já existirem são importados como "Cartão 1" e
-  "Cartão 2". Nada se perde.
-
-A validar no M3:
-
-- **Menu do ES:** a escolha de cartões no menu de opções do jogo pode usar um `es_features_retroboat.cfg`
-  gerado a cada início com a lista de cartões. Falta confirmar como o ES mescla um segundo bloco
-  `<emulator name="pcsx2">`. A alternativa é a tela de cartões no próprio Retroboat.
-- **Outros modos do RetroBat:** se o usuário escolher `game` ou `folder` no ES, o Retroboat
-  sincroniza esses arquivos sem a camada de cartões.
-- **Núcleo libretro:** o `pcsx2` libretro grava em outro lugar. Começamos pelo PCSX2 standalone, o
-  primeiro da lista do RetroBat para PS2.
+- **Quem manda é o emulador.** O PCSX2 cria, formata, renomeia, apaga e escolhe os cartões de cada
+  slot, inclusive por jogo, e o emulatorLauncher escolhe o arquivo de cada slot pela opção
+  `pcsx2_slot1_memory` do ES. A cada jogo, ele aponta o PCSX2 para `saves\ps2\pcsx2\memcards` e
+  regrava os slots (`Generators\Pcsx2.Generator.cs`, "Memory cards management"):
+  - padrão: `Mcd001.ps2` no slot 1 e `Mcd002.ps2` no slot 2;
+  - `game`: `<nome da ROM>.ps2` no slot 1;
+  - `folder`: a pasta `Mcdf01.ps2`.
+- **O Retroboat não troca nada de lugar.** Ele sincroniza todo cartão `*.ps2` dessa pasta, qualquer
+  que seja o nome. Toda gravação que o emulador fizer num cartão vai para a nuvem.
+- **Quando:**
+  - antes de abrir um jogo de PS2: puxa a versão mais nova de cada cartão;
+  - durante o jogo: confere os cartões a cada 2 s e envia uma versão nova 3 s depois que o
+    emulador para de gravar, então uma queda de energia não perde o save;
+  - ao fechar o jogo: envia o que faltar e libera a trava;
+  - ao abrir o Retroboat: envia o que ficou de uma sessão offline e baixa o que chegou.
+- **Na nuvem** (`retroboat\saves\ps2\pcsx2\memcards\`, o mesmo caminho de `<RetroBat>\saves`):
+  - `<cartão>\<data UTC>-<PC>.gz`: uma versão imutável por gravação, comprimida. Um cartão de
+    8 MB quase vazio fica com poucos KB;
+  - `<cartão>\<data UTC>-<PC>.apagado`: o cartão foi apagado no emulador;
+  - `<cartão>\conflitos\`: a versão que perdeu num conflito. Nada é jogado fora;
+  - `pcs\<PC>.xml`: a trava e a última versão que cada PC enviou. Cada PC só grava o próprio arquivo.
+- **Neste PC:**
+  - `<RetroBat>\retroboat\saves-sync.xml` guarda a versão e o SHA-1 de cada cartão na última
+    sincronização. Com isso, o Retroboat distingue "mudou aqui", "mudou na nuvem" e "mudou nos dois";
+  - antes de substituir ou apagar um cartão local, ele guarda uma cópia em
+    `<RetroBat>\retroboat\historico\saves\...`, as 20 últimas de cada cartão.
+- **Conflito:** se o cartão mudou nos dois lados, uma tela pergunta qual manter, com a data e o PC de
+  cada um. A outra versão vai para `conflitos\`. Juntar saves de jogos diferentes do mesmo cartão
+  exigiria ler o sistema de arquivos do memory card; fica para depois.
+- **Trava:** enquanto um PC joga, o `pcs\<PC>.xml` dele diz "em uso desde 14:32" e é renovado a cada
+  2 minutos. Outro PC que abrir um jogo de PS2 vê "Os memory cards estão em uso no PC-SALA", com
+  "Jogar mesmo assim" ou "Voltar". Uma trava sem renovação há mais de 10 minutos (PC desligado no
+  meio do jogo) é ignorada.
+- **Aguardando a nuvem:** se o `pcs\` de outro PC já cita uma versão que ainda não chegou a este
+  PC, o Retroboat espera por ela, com a opção de jogar sem esperar.
+- **Apagar:**
+  - um cartão só é apagado na nuvem se sumir durante o jogo, ou seja, se o emulador o apagou;
+  - um cartão que sumiu fora do jogo (pasta `saves` apagada, RetroBat reinstalado) é baixado de novo;
+  - um cartão vazio ou zerado nunca é enviado nem substitui um bom.
+- **Primeiro uso:** cartões que já existem neste PC e não existem na nuvem são enviados. Se a nuvem
+  já tiver um cartão com o mesmo nome e conteúdo diferente, é um conflito.
+- **Ainda não:**
+  - cartão em pasta (`folder`, `Mcdf01.ps2`): é avisado e não é sincronizado;
+  - núcleo libretro `pcsx2` e PCSX2 1.6 (`pcsx2-16`), que gravam em outro lugar;
+  - save states.
 
 **Formato recomendado: CHD.** O PCSX2 e o RetroBat aceitam `.chd`. Converter os ISOs com o
 `chdman` (`createdvd`) reduz tamanho e tempo de download sem perda; quanto, varia de jogo para

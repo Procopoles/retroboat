@@ -15,12 +15,6 @@ namespace Retroboat.Launch
     /// </summary>
     sealed class DownloadForm : Form, IProgress<TransferProgress>
     {
-        static readonly Color Background = Color.FromArgb(16, 20, 26);
-        static readonly Color Foreground = Color.FromArgb(235, 238, 242);
-        static readonly Color Muted = Color.FromArgb(150, 160, 172);
-        static readonly Color Accent = Color.FromArgb(76, 160, 255);
-        static readonly Color Danger = Color.FromArgb(255, 110, 100);
-
         readonly OnDemandInstaller _installer;
         readonly CloudIndexEntry _entry;
         readonly CancellationTokenSource _cancel = new CancellationTokenSource();
@@ -38,21 +32,14 @@ namespace Retroboat.Launch
             _installer = installer;
             _entry = entry;
 
-            Text = "Retroboat";
-            FormBorderStyle = FormBorderStyle.None;
-            WindowState = FormWindowState.Maximized;
-            BackColor = Background;
-            ForeColor = Foreground;
-            TopMost = true;
-            KeyPreview = true;
-            ShowInTaskbar = true;
+            Theme.ApplyFullScreen(this);
 
-            _title = MakeLabel("Baixando da nuvem", 16f, Muted);
-            _game = MakeLabel(Path.GetFileNameWithoutExtension(entry.LocalName), 30f, Foreground, FontStyle.Bold);
-            _status = MakeLabel("Preparando...", 16f, Foreground);
-            _hint = MakeLabel("B no controle ou Esc: cancelar e voltar", 13f, Muted);
-            _barTrack = new Panel { BackColor = Color.FromArgb(40, 46, 56), Height = 14 };
-            _barFill = new Panel { BackColor = Accent, Height = 14, Width = 0 };
+            _title = Theme.MakeLabel("Baixando da nuvem", 16f, Theme.Muted);
+            _game = Theme.MakeLabel(Path.GetFileNameWithoutExtension(entry.LocalName), 30f, Theme.Foreground, FontStyle.Bold);
+            _status = Theme.MakeLabel("Preparando...", 16f, Theme.Foreground);
+            _hint = Theme.MakeLabel("B no controle ou Esc: cancelar e voltar", 13f, Theme.Muted);
+            _barTrack = new Panel { BackColor = Theme.Surface, Height = 14 };
+            _barFill = new Panel { BackColor = Theme.Accent, Height = 14, Width = 0 };
             _barTrack.Controls.Add(_barFill);
             Controls.AddRange(new Control[] { _title, _game, _barTrack, _status, _hint });
 
@@ -123,7 +110,7 @@ namespace Retroboat.Launch
 
             // Erro: mostra o motivo até o usuário apertar um botão (ou por alguns segundos).
             _title.Text = result.Outcome == OnDemandOutcome.Corrupt ? "Jogo corrompido na nuvem" : "Não foi possível baixar";
-            _title.ForeColor = Danger;
+            _title.ForeColor = Theme.Danger;
             _barTrack.Visible = false;
             _status.Text = result.Message;
             _hint.Text = "Qualquer botão ou tecla para voltar";
@@ -169,18 +156,6 @@ namespace Retroboat.Launch
             _barTrack.Bounds = new Rectangle(left, _game.Bottom + 28, width, 14);
             _status.Location = new Point(left, (_barTrack.Visible ? _barTrack.Bottom : _game.Bottom) + 18);
             _hint.Location = new Point(left, _status.Bottom + 40);
-        }
-
-        static Label MakeLabel(string text, float size, Color color, FontStyle style = FontStyle.Regular)
-        {
-            return new Label
-            {
-                Text = text,
-                AutoSize = true,
-                ForeColor = color,
-                BackColor = Background,
-                Font = new Font("Segoe UI", size, style)
-            };
         }
 
         protected override void Dispose(bool disposing)
