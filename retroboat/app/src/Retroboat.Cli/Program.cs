@@ -43,6 +43,8 @@ Memory cards na nuvem (retroboat\saves no Drive; o emulador gerencia os cartões
   retroboat-cli saves status --retrobat <pasta do RetroBat> [--pc NOME]
   retroboat-cli saves sync --retrobat <pasta do RetroBat> [--pc NOME] [--keep local|cloud]
   retroboat-cli saves history <cartão> --retrobat <pasta do RetroBat>
+  retroboat-cli saves verify --retrobat <pasta do RetroBat>
+  retroboat-cli saves restore <cartão> [<id da cópia>] --retrobat <pasta do RetroBat>   (com o emulador fechado)
   retroboat-cli saves lock|unlock --retrobat <pasta do RetroBat> [--pc NOME] [--game NOME]   (para testes)
 
 Biblioteca isolada (RB-003):
@@ -79,6 +81,8 @@ Opções gerais:
                     case "saves status": return SavesStatus(options);
                     case "saves sync": return SavesSync(options);
                     case "saves history": return SavesHistory(options);
+                    case "saves verify": return SavesVerify(options);
+                    case "saves restore": return SavesRestore(options);
                     case "saves lock": return SavesLock(options, locked: true);
                     case "saves unlock": return SavesLock(options, locked: false);
                     default:
@@ -282,11 +286,15 @@ Opções gerais:
                 if (other != null)
                     Console.WriteLine("  EM USO no " + other.Pc + " desde " + other.SinceUtc.ToLocalTime().ToString("dd/MM HH:mm") + (string.IsNullOrEmpty(other.Game) ? "" : " (" + other.Game + ")"));
 
+                if (!sync.LocalDeviceAvailable)
+                    Console.WriteLine("  pasta local inacessível (pen drive ou disco desconectado?)");
+
                 foreach (var plan in sync.Plan())
                 {
-                    Console.WriteLine(string.Format("  {0,-14} {1}{2}{3}", plan.Action, plan.Name,
+                    Console.WriteLine(string.Format("  {0,-14} {1}{2}{3}{4}", plan.Action, plan.Name,
                         plan.Cloud != null ? "   nuvem: " + plan.Cloud.TimeUtc.ToLocalTime().ToString("dd/MM HH:mm:ss") + " " + plan.Cloud.Pc + (plan.Cloud.Deleted ? " (apagado)" : "") : "   (não está na nuvem)",
-                        plan.WaitingFor != null ? "   aguardando " + plan.WaitingFor : ""));
+                        plan.WaitingFor != null ? "   aguardando " + plan.WaitingFor : "",
+                        plan.LocalProblem != null ? "   DANIFICADO neste PC: " + plan.LocalProblem : ""));
                 }
 
                 foreach (var item in sync.UnsupportedItems())
@@ -314,6 +322,8 @@ Opções gerais:
                 foreach (var item in result.DeletedInCloud) Console.WriteLine("apagado na nuvem: " + item);
                 foreach (var item in result.Conflicts) Console.WriteLine("CONFLITO (use --keep local|cloud): " + item);
                 foreach (var item in result.Waiting) Console.WriteLine("aguardando a versão de outro PC: " + item);
+                foreach (var item in result.Repaired) Console.WriteLine("consertado: " + item);
+                foreach (var item in result.DamagedHere.Concat(result.DamagedInCloud)) Console.WriteLine("DANIFICADO: " + item);
                 foreach (var item in result.Skipped) Console.WriteLine("não sincronizado: " + item);
                 foreach (var error in result.Errors) Console.WriteLine("ERRO: " + error);
                 problems += result.Conflicts.Count + result.Errors.Count;
@@ -327,11 +337,85 @@ Opções gerais:
             var name = options.Positional(2) ?? throw new UsageException("Informe o cartão, ex.: Mcd001.ps2");
             foreach (var sync in OpenSaves(options))
             {
-                foreach (var version in sync.History(name))
+                foreach (var copy in sync.Copies(name))
                 {
-                    var size = version.Deleted ? "apagado" : Format.Bytes(new FileInfo(version.Path).Length) + " comprimido";
-                    Console.WriteLine(version.TimeUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss") + "  " + version.Pc + "  " + size + "  " + version.Id);
+                    string state;
+                    if (copy.Deleted)
+                        state = "apagado no emulador";
+                    else
+                        state = sync.ReadCopy(copy, out var problem) != null ? "ok" : "DANIFICADA: " + problem;
+
+                    Console.WriteLine(string.Format("{0:dd/MM/yyyy HH:mm:ss}  {1,-18} {2,-12} {3}  [{4}]",
+                        copy.TimeUtc.ToLocalTime(), copy.KindName, copy.Pc, state, copy.Id));
                 }
+            }
+
+            return ExitOk;
+        }
+
+        /// <summary>Confere todos os cartões deste PC e todas as cópias guardadas, sem mudar nada.</summary>
+        static int SavesVerify(Options options)
+        {
+            int problems = 0;
+            foreach (var sync in OpenSaves(options))
+            {
+                if (!sync.LocalDeviceAvailable)
+                {
+                    Console.WriteLine("ATENÇÃO pasta local inacessível: " + sync.LocalFolder);
+                    problems++;
+                }
+
+                var names = new SortedSet<string>(sync.LocalItems().Select(Path.GetFileName), StringComparer.OrdinalIgnoreCase);
+                if (Directory.Exists(sync.CloudFolder))
+                {
+                    foreach (var dir in Directory.GetDirectories(sync.CloudFolder))
+                    {
+                        if (!Path.GetFileName(dir).Equals(SaveSync.PcsFolderName, StringComparison.OrdinalIgnoreCase))
+                            names.Add(Path.GetFileName(dir));
+                    }
+                }
+
+                foreach (var name in names)
+                {
+                    var local = Path.Combine(sync.LocalFolder, name);
+                    string localState = "não existe neste PC";
+                    if (File.Exists(local))
+                    {
+                        var problem = sync.Problem(File.ReadAllBytes(local));
+                        localState = problem == null ? "ok" : "DANIFICADO: " + problem;
+                        if (problem != null)
+                            problems++;
+                    }
+
+                    var copies = sync.Copies(name).Where(c => !c.Deleted).ToList();
+                    var bad = copies.Where(c => sync.ReadCopy(c, out _) == null).ToList();
+                    var newest = sync.Copies(name).FirstOrDefault(c => c.Kind == SaveCopyKind.Cloud);
+                    bool newestIsGood = newest == null || newest.Deleted || !bad.Any(b => b.Id == newest.Id);
+                    if (!newestIsGood)
+                        problems++;
+
+                    Console.WriteLine(name + ": neste PC " + localState + "; " + copies.Count + " cópia(s) guardada(s), " +
+                                      (bad.Count == 0 ? "todas boas" : bad.Count + " danificada(s)") +
+                                      (newestIsGood ? "" : "; a MAIS NOVA da nuvem está danificada (o próximo PC a sincronizar põe a boa anterior no lugar)"));
+                }
+            }
+
+            return problems > 0 ? ExitCorrupt : ExitOk;
+        }
+
+        static int SavesRestore(Options options)
+        {
+            var name = options.Positional(2) ?? throw new UsageException("Informe o cartão, ex.: Mcd001.ps2");
+            if (System.Diagnostics.Process.GetProcessesByName("retroboat-launch").Length > 0)
+                throw new InvalidOperationException("há um jogo aberto pelo Retroboat; feche o emulador antes de restaurar um cartão");
+
+            foreach (var sync in OpenSaves(options))
+            {
+                var result = sync.Restore(name, options.Positional(3));
+                foreach (var item in result.Repaired)
+                    Console.WriteLine(item);
+
+                Console.WriteLine("A versão anterior deste PC ficou no histórico; a restaurada já é a mais nova na nuvem.");
             }
 
             return ExitOk;

@@ -180,6 +180,16 @@ o histórico.
   - na tela de conflito, a escolha da versão da nuvem trouxe o save do outro PC e guardou o deste
     em `conflitos\`;
   - uma partida offline foi enviada pelo `Retroboat.exe` na abertura seguinte.
+- **Confiabilidade (25/10/2026):** o caso de referência é um RetroBat portátil num pen drive arrancado
+  no meio do jogo.
+  - Conferência do formato do memory card (`Ps2MemoryCard`) antes de enviar ou pôr no lugar.
+  - Conserto automático de um cartão cortado a partir da nuvem, com aviso na tela.
+  - Versões danificadas na nuvem são puladas.
+  - Pasta inacessível durante o jogo não vira exclusão.
+  - Gravação local com escrita forçada no disco.
+  - `.bak` do estado de sincronização.
+  - `saves verify`, `saves history` com o estado de cada cópia, e `saves restore`.
+  - Testado com um pen drive simulado (`subst`) arrancado durante o jogo.
 - **Falta testar com o PCSX2 de verdade:** ver se ele segura o arquivo do cartão aberto durante o
   jogo. Se segurar, os envios durante o jogo falham e tudo vai ao fechar.
 - **Risco semântico médio:** depende do bloco "Memory cards management" de `Pcsx2.Generator.cs`

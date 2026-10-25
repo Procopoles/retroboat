@@ -42,7 +42,40 @@ namespace Retroboat.Tests
             }
         }
 
-        static byte[] Content(int seed) => TempDir.RandomBytes(64 * 1024, seed);
+        /// <summary>Cartão de PS2 formatado (1 MB, para o teste ser rápido) com um "save" que muda com o seed.</summary>
+        static byte[] Content(int seed)
+        {
+            var card = FormattedCard(clusters: 1024);
+            TempDir.RandomBytes(4096, seed).CopyTo(card, 200000);
+            return card;
+        }
+
+        /// <summary>Memory card de PS2 formatado e vazio, no layout que o PCSX2 grava.</summary>
+        internal static byte[] FormattedCard(int clusters = 8192, bool ecc = true, int allocOffset = 41)
+        {
+            int rawPage = 512 + (ecc ? 16 : 0);
+            var data = new byte[clusters * 2 * rawPage];
+            for (int i = 0; i < data.Length; i++)
+                data[i] = 0xFF;
+
+            Array.Clear(data, 0, 0x200);
+            System.Text.Encoding.ASCII.GetBytes(Ps2MemoryCard.Magic + "1.2.0.0").CopyTo(data, 0);
+            BitConverter.GetBytes((ushort)512).CopyTo(data, 0x28);
+            BitConverter.GetBytes((ushort)2).CopyTo(data, 0x2A);
+            BitConverter.GetBytes((ushort)16).CopyTo(data, 0x2C);
+            BitConverter.GetBytes((uint)clusters).CopyTo(data, 0x30);
+            BitConverter.GetBytes((uint)allocOffset).CopyTo(data, 0x34);
+            BitConverter.GetBytes(0u).CopyTo(data, 0x3C);
+
+            int root = allocOffset * 2 * rawPage;
+            Array.Clear(data, root, 512);
+            BitConverter.GetBytes((ushort)0x8427).CopyTo(data, root);
+            data[root + 0x40] = (byte)'.';
+            return data;
+        }
+
+        /// <summary>O que sobra de um cartão quando o pen drive sai no meio da gravação: cortado.</summary>
+        static byte[] Torn(byte[] card) => card.Take(card.Length / 3).ToArray();
 
         [Fact]
         public void New_card_goes_to_the_cloud_and_reaches_the_other_pc()
@@ -196,11 +229,11 @@ namespace Retroboat.Tests
         {
             using (var pcs = new TwoPcs())
             {
-                pcs.Write(pcs.CardA, new byte[64 * 1024]);
+                pcs.Write(pcs.CardA, new byte[Content(1).Length]);
                 var result = pcs.PcA().Sync();
 
                 Assert.Empty(result.Uploaded);
-                Assert.Single(result.Skipped);
+                Assert.Contains("zerado", Assert.Single(result.DamagedHere));
                 Assert.False(Directory.Exists(pcs.CloudCard));
             }
         }
@@ -357,6 +390,243 @@ namespace Retroboat.Tests
                 Assert.Equal(Content(3), File.ReadAllBytes(pcs.CardA));
                 Assert.Single(Directory.GetFiles(Path.Combine(pcs.CloudCard, SaveSync.ConflictsFolderName)));
                 Assert.Equal(SaveAction.Conflict, pcs.PcA().Plan().Single().Action);
+            }
+        }
+
+        [Fact]
+        public void Ps2_card_validation_accepts_whole_cards_and_rejects_cut_or_foreign_files()
+        {
+            Assert.Null(Ps2MemoryCard.Validate(FormattedCard()));
+            Assert.Equal(8650752, FormattedCard().Length);
+            Assert.Null(Ps2MemoryCard.Validate(FormattedCard(ecc: false)));
+            Assert.Null(Ps2MemoryCard.Validate(FormattedCard(clusters: 16384)));
+
+            Assert.Contains("cortado", Ps2MemoryCard.Validate(Torn(FormattedCard())));
+            Assert.Contains("cabeçalho", Ps2MemoryCard.Validate(TempDir.RandomBytes(1 << 20)));
+
+            var unformatted = Enumerable.Repeat((byte)0xFF, 8650752).ToArray();
+            Assert.Contains("cabeçalho", Ps2MemoryCard.Validate(unformatted));
+
+            var brokenRoot = FormattedCard();
+            Array.Clear(brokenRoot, 41 * 2 * 528, 512);
+            Assert.Contains("raiz", Ps2MemoryCard.Validate(brokenRoot));
+        }
+
+        [Fact]
+        public void Card_cut_by_a_removed_pen_drive_never_reaches_the_cloud_and_comes_back_whole()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Content(1));
+                pcs.PcA().Sync();
+                pcs.PcB().Sync();
+
+                pcs.Write(pcs.CardA, Torn(Content(2)));
+                var plan = pcs.PcA().Plan().Single();
+                Assert.Equal(SaveAction.Repair, plan.Action);
+                Assert.Contains("cortado", plan.LocalProblem);
+
+                var result = pcs.PcA().Sync();
+
+                Assert.Empty(result.Uploaded);
+                Assert.Single(result.Repaired);
+                Assert.Equal(Content(1), File.ReadAllBytes(pcs.CardA));
+                Assert.Single(pcs.PcA().History(Card));
+                var kept = Assert.Single(Directory.GetFiles(pcs.A.Combine("retroboat", "historico", "saves", Rule.Folder, Card)));
+                Assert.Equal(Torn(Content(2)), File.ReadAllBytes(kept));
+                Assert.False(pcs.PcB().Sync().HasTransfers);
+            }
+        }
+
+        [Fact]
+        public void Cut_card_during_the_game_is_not_sent()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Content(1));
+                pcs.PcA().Sync();
+
+                var session = new SaveSession(pcs.PcA(), utcNow: () => pcs.Now);
+                session.Start("Black (USA)");
+                File.WriteAllBytes(pcs.CardA, Torn(Content(2)));
+                var last = session.Finish();
+
+                Assert.Empty(last.Uploaded);
+                Assert.Single(last.Skipped);
+                Assert.Single(pcs.PcA().History(Card));
+            }
+        }
+
+        [Fact]
+        public void Damaged_card_with_nothing_in_the_cloud_is_kept_and_reported()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Torn(Content(1)));
+
+                var result = pcs.PcA().Sync();
+
+                Assert.Empty(result.Uploaded);
+                Assert.Contains("danificado", Assert.Single(result.DamagedHere));
+                Assert.True(File.Exists(pcs.CardA));
+            }
+        }
+
+        [Fact]
+        public void Damaged_newest_version_in_the_cloud_is_skipped_and_the_good_one_becomes_newest_again()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Content(1));
+                pcs.PcA().Sync();
+                pcs.Write(pcs.CardA, Content(2));
+                pcs.PcA().Sync();
+                File.WriteAllBytes(pcs.PcA().LatestVersion(Card).Path, TempDir.RandomBytes(5000)); // Estragou no Drive.
+
+                var b = pcs.PcB().Sync();
+
+                Assert.Equal(new[] { Card }, b.Downloaded);
+                Assert.Single(b.DamagedInCloud);
+                Assert.Empty(b.Repaired);
+                Assert.Equal(Content(1), File.ReadAllBytes(pcs.CardB));
+                Assert.Equal("PC-B", pcs.PcA().LatestVersion(Card).Pc);
+                Assert.False(pcs.PcB().Sync().HasTransfers);
+            }
+        }
+
+        [Fact]
+        public void Any_kept_copy_can_be_restored_and_reaches_the_other_pcs()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Content(1));
+                pcs.PcA().Sync();
+                var first = pcs.PcA().LatestVersion(Card).Id;
+                pcs.Write(pcs.CardA, Content(2));
+                pcs.PcA().Sync();
+                pcs.PcB().Sync();
+
+                pcs.Now = pcs.Now.AddMinutes(1);
+                var restored = pcs.PcA().Restore(Card, first);
+                Assert.Single(restored.Repaired);
+                Assert.Equal(Content(1), File.ReadAllBytes(pcs.CardA));
+                Assert.Equal(new[] { Card }, pcs.PcB().Sync().Downloaded);
+                Assert.Equal(Content(1), File.ReadAllBytes(pcs.CardB));
+
+                // A cópia que o PC B guardou antes de receber a restauração também serve.
+                var local = pcs.PcB().Copies(Card).First(c => c.Kind == SaveCopyKind.LocalHistory);
+                pcs.Now = pcs.Now.AddMinutes(1);
+                pcs.PcB().Restore(Card, local.Id);
+                Assert.Equal(Content(2), File.ReadAllBytes(pcs.CardB));
+                Assert.Equal(new[] { Card }, pcs.PcA().Sync().Downloaded);
+                Assert.Equal(Content(2), File.ReadAllBytes(pcs.CardA));
+
+                Assert.Throws<InvalidOperationException>(() => pcs.PcA().Restore(Card, "nao-existe"));
+            }
+        }
+
+        [Fact]
+        public void Pen_drive_removed_during_the_game_deletes_nothing_in_the_cloud()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Content(1));
+                pcs.Write(pcs.A.Combine("saves", Rule.Folder, "Mcd002.ps2"), Content(2));
+                pcs.PcA().Sync();
+
+                var session = new SaveSession(pcs.PcA(), utcNow: () => pcs.Now);
+                session.Start("Black (USA)");
+
+                var folder = pcs.A.Combine("saves", Rule.Folder);
+                Directory.Move(folder, folder + "-fora");
+                var gone = session.Poll();
+                pcs.Now = pcs.Now.AddSeconds(10);
+                session.Poll();
+                Assert.Contains(gone.Skipped, s => s.Contains("inacessível"));
+
+                Directory.Move(folder + "-fora", folder);
+                File.WriteAllBytes(pcs.CardA, Content(3));
+                var back = session.Finish();
+
+                Assert.Equal(new[] { Card }, back.Uploaded);
+                Assert.Empty(back.DeletedInCloud);
+                Assert.Empty(Directory.GetFiles(pcs.Cloud.Combine("saves", Rule.Folder), "*" + SaveVersion.DeletedExtension, SearchOption.AllDirectories));
+            }
+        }
+
+        [Fact]
+        public void Lock_is_released_when_the_game_closes_with_the_pen_drive_still_out()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Content(1));
+                pcs.PcA().Sync();
+
+                var session = new SaveSession(pcs.PcA(), utcNow: () => pcs.Now);
+                session.Start("Black (USA)");
+                var folder = pcs.A.Combine("saves", Rule.Folder);
+                Directory.Move(folder, folder + "-fora");
+
+                var result = session.Finish();
+
+                Assert.Empty(result.DeletedInCloud);
+                Assert.Null(pcs.PcB().FindActiveLock());
+                Assert.DoesNotContain(pcs.PcA().Plan(), p => p.Action == SaveAction.UploadDeletion);
+            }
+        }
+
+        [Fact]
+        public void All_cards_vanishing_at_once_is_not_a_deletion()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Content(1));
+                pcs.Write(pcs.A.Combine("saves", Rule.Folder, "Mcd002.ps2"), Content(2));
+                pcs.PcA().Sync();
+
+                var session = new SaveSession(pcs.PcA(), utcNow: () => pcs.Now);
+                session.Start("Black (USA)");
+                foreach (var file in Directory.GetFiles(pcs.A.Combine("saves", Rule.Folder)))
+                    File.Delete(file);
+
+                var result = session.Finish();
+
+                Assert.Empty(result.DeletedInCloud);
+                Assert.Equal(2, pcs.PcA().Sync().Downloaded.Count); // Fora do jogo, voltam da nuvem.
+            }
+        }
+
+        [Fact]
+        public void Disconnected_drive_plans_nothing()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                var free = Enumerable.Range('D', 23).Select(c => (char)c + @":\").First(d => !Directory.Exists(d));
+                var sync = new SaveSync(free + "saves", pcs.A.Combine("retroboat"), pcs.Cloud.Path, Rule, "PC-A", () => pcs.Now);
+
+                Assert.False(sync.LocalDeviceAvailable);
+                Assert.Empty(sync.Plan());
+            }
+        }
+
+        [Fact]
+        public void Damaged_sync_state_falls_back_to_the_previous_copy()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Content(1));
+                pcs.PcA().Sync();
+                pcs.Write(pcs.CardA, Content(2));
+                pcs.PcA().Sync(); // Agora existe o .bak com o estado anterior.
+
+                var state = pcs.A.Combine("retroboat", SaveSync.StateFileName);
+                File.WriteAllText(state, "<savesSync><item folder="); // Gravação cortada.
+
+                var result = pcs.PcA().Sync();
+
+                Assert.Empty(result.Conflicts);
+                Assert.Empty(result.Errors);
+                Assert.Equal(Content(2), File.ReadAllBytes(pcs.CardA));
             }
         }
 

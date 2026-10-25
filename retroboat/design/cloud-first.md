@@ -321,6 +321,26 @@ de 24/10, em que o Retroboat trocava cartões com nome dentro do `Mcd001.ps2`):
   - um cartão vazio ou zerado nunca é enviado nem substitui um bom.
 - **Primeiro uso:** cartões que já existem neste PC e não existem na nuvem são enviados. Se a nuvem
   já tiver um cartão com o mesmo nome e conteúdo diferente, é um conflito.
+- **Confiabilidade** (25/10/2026; o caso de referência é o RetroBat portátil num pen drive arrancado
+  no meio do jogo):
+  - **Conferência do conteúdo:** antes de enviar e antes de pôr no lugar do local, o cartão precisa
+    estar inteiro: cabeçalho "Sony PS2 Memory Card Format", tamanho batendo com o número de clusters
+    (com ou sem ECC) e diretório raiz no lugar (`Saves\Ps2MemoryCard`). Um cartão cortado, zerado ou
+    sem formatar nunca vai para a nuvem.
+  - **Conserto automático:** um cartão danificado neste PC é trocado pela versão boa mais nova da nuvem
+    antes do jogo. A cópia danificada fica no histórico local, e uma tela avisa o que aconteceu. Se a
+    nuvem não tiver versão, o cartão fica como está e a tela avisa antes de o emulador oferecer formatar.
+  - **Versão danificada na nuvem:** é pulada; vale a versão boa anterior, que volta a ser a mais nova,
+    para os outros PCs pararem de tropeçar nela.
+  - **Pasta sumiu no meio do jogo** (pen drive arrancado, disco desconectado): nada é apagado na nuvem,
+    e a trava continua renovada. Todos os cartões sumindo de uma vez também não conta como exclusão.
+    Com a unidade fora, nada é planejado.
+  - **Gravação segura no PC:** arquivo temporário, escrita forçada no disco e só então a troca. O
+    `saves-sync.xml` mantém a versão anterior em `.bak` e, se os dois estiverem danificados, o SHA-1 dos
+    dois lados decide.
+  - **Restaurar:** `retroboat-cli saves history` lista todas as cópias (nuvem, conflitos, histórico deste
+    PC) dizendo se cada uma está boa. `saves restore <cartão> [<cópia>]` volta qualquer uma, que vira a
+    mais nova na nuvem. `saves verify` confere tudo sem mudar nada.
 - **Ainda não:**
   - cartão em pasta (`folder`, `Mcdf01.ps2`): é avisado e não é sincronizado;
   - núcleo libretro `pcsx2` e PCSX2 1.6 (`pcsx2-16`), que gravam em outro lugar;

@@ -195,6 +195,19 @@ namespace Retroboat.Cloud
                     if (parts.Count > 0)
                         report.Messages.Add(rule.DisplayName + ": " + rule.ItemName + "s sincronizados (" + string.Join(", ", parts) + ")");
 
+                    foreach (var repaired in result.Repaired)
+                    {
+                        report.Messages.Add("Atenção: " + rule.DisplayName + ": " + repaired);
+                        report.HasWarnings = true;
+                    }
+
+                    if (result.DamagedHere.Count > 0)
+                    {
+                        report.Messages.Add("Atenção: " + rule.DisplayName + ": " + string.Join("; ", result.DamagedHere) +
+                                            ". As cópias anteriores podem voltar com retroboat-cli saves restore.");
+                        report.HasWarnings = true;
+                    }
+
                     if (result.Conflicts.Count > 0)
                     {
                         report.Messages.Add("Atenção: " + rule.DisplayName + ": " + string.Join(", ", result.Conflicts) +

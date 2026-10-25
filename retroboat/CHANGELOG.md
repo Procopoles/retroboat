@@ -33,6 +33,11 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   para escolher qual manter, e a outra versão fica guardada. Um cartão em uso em outro PC mostra um
   aviso. Cada gravação fica no histórico do Drive e, antes de substituir um cartão, uma cópia fica
   em `retroboat\historico`. Comandos `retroboat-cli saves status | sync | history`.
+  - Feito para um pen drive arrancado no meio do jogo: um cartão cortado ou danificado nunca vai para a
+    nuvem e volta da nuvem antes do próximo jogo, com aviso na tela.
+  - Uma versão danificada na nuvem é pulada.
+  - A pasta sumindo no meio do jogo não apaga nada na nuvem.
+  - `saves verify` confere tudo e `saves restore` volta qualquer cópia guardada.
 - Design system do Retroboat (`design/design-system-steam.md`), com base no Steam Big Picture e
   nos tokens do próprio cliente Steam.
 

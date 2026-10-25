@@ -109,3 +109,20 @@ Cada gravação é uma versão nova no Drive (`<cartão>\<data>-<PC>.gz`); nada 
 trocar ou apagar um cartão local, uma cópia vai para `<RetroBat>\retroboat\historico`. O estado da
 última sincronização fica em `<RetroBat>\retroboat\saves-sync.xml`. Cartões em pasta (opção `folder`)
 ainda não são sincronizados. Log em `<RetroBat>\retroboat\logs\launch.log`.
+
+Feito para aguentar um RetroBat portátil num pen drive arrancado no meio do jogo:
+
+- um cartão só vai para a nuvem (ou substitui o local) se estiver inteiro: cabeçalho, tamanho e
+  diretório raiz de memory card de PS2;
+- um cartão danificado neste PC volta da nuvem antes do jogo, com aviso; uma versão danificada na
+  nuvem é pulada;
+- se a pasta some durante o jogo, nada é apagado na nuvem;
+- as gravações locais vão primeiro para um temporário forçado no disco.
+
+Para recuperar à mão:
+
+```
+retroboat-cli saves verify --retrobat <pasta>                       confere cartões e cópias, sem mudar nada
+retroboat-cli saves history Mcd001.ps2 --retrobat <pasta>           todas as cópias, e se cada uma está boa
+retroboat-cli saves restore Mcd001.ps2 [<id>] --retrobat <pasta>    volta uma cópia (padrão: a boa mais nova da nuvem)
+```

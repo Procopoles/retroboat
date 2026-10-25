@@ -122,8 +122,17 @@ Depende do fork e do build do ES (RB-011).
   - trava entre PCs, espera da versão que está chegando e tela de conflito, todas usáveis pelo controle;
   - histórico de versões na nuvem e cópias locais antes de substituir;
   - envio, ao abrir o Retroboat, do que ficou de uma partida offline.
+- **Confiabilidade** (122 testes automáticos), para um RetroBat portátil num pen drive arrancado no
+  meio do jogo:
+  - cartão cortado ou zerado nunca vai para a nuvem e volta inteiro antes do próximo jogo;
+  - versão danificada na nuvem é pulada;
+  - pasta sumindo durante o jogo não apaga nada e a trava é liberada mesmo assim;
+  - gravação local forçada no disco e `.bak` do estado;
+  - `saves verify` e `saves restore`.
+  Testado com um pen drive simulado (`subst P:`) arrancado durante o jogo e religado depois.
 - **Falta:** testar com o PCSX2 de verdade (instalar o PCSX2 pela primeira abertura de um jogo de
-  PS2 no ES e salvar num jogo); cartões em pasta (`folder`); save states; outros emuladores.
+  PS2 no ES e salvar num jogo) e confirmar que o validador aceita os cartões que ele cria; cartões em
+  pasta (`folder`); save states; outros emuladores.
 
 ## Etapa 2: redesign visual e de UX
 
@@ -139,4 +148,4 @@ Ideias aceitas que ainda precisam de desenho antes de entrar num marco.
 
 | Item | O quê | Por quê | Origem |
 |---|---|---|---|
-| Backup da nuvem | Backup automático dos arquivos que são a fonte da verdade na nuvem (memory cards, saves, configurações, contas, BIOS e metadados), guardado também no Drive, para recuperar se algo acontecer com eles | A nuvem é a fonte da verdade: um arquivo apagado, zerado ou sobrescrito por engano lá chega a todos os PCs. O histórico de versões dos memory cards (M3) ajuda, mas não substitui um backup | pedido de 25/10/2026; formato, frequência, retenção e restauração a definir |
+| Backup da nuvem | Backup automático dos arquivos que são a fonte da verdade na nuvem (memory cards, saves, configurações, contas, BIOS e metadados), guardado também no Drive, para recuperar se algo acontecer com eles | A nuvem é a fonte da verdade: um arquivo apagado, zerado ou sobrescrito por engano lá chega a todos os PCs. Para memory cards já há histórico de versões, conferência do conteúdo, conserto automático e `saves restore` (25/10/2026), mas tudo dentro da mesma pasta do Drive: se ela for apagada, vai junto | pedido de 25/10/2026; formato, frequência, retenção (hoje as versões dos cartões não expiram) e restauração dos outros tipos a definir |

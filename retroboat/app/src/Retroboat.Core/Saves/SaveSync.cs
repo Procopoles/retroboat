@@ -25,7 +25,12 @@ namespace Retroboat.Saves
         /// <summary>Mudou neste PC e na nuvem desde a última sincronização.</summary>
         Conflict,
         /// <summary>Outro PC já avisou que enviou uma versão mais nova, que ainda não chegou a este PC.</summary>
-        WaitForCloud
+        WaitForCloud,
+        /// <summary>
+        /// A cópia deste PC está danificada (gravação cortada por um pen drive arrancado, queda de energia):
+        /// não vai para a nuvem e é trocada pela versão boa mais nova da nuvem, com cópia no histórico.
+        /// </summary>
+        Repair
     }
 
     public enum ConflictChoice
@@ -86,9 +91,43 @@ namespace Retroboat.Saves
         /// <summary>Versão que outro PC enviou e que ainda não chegou (para WaitForCloud).</summary>
         public string WaitingFor { get; set; }
 
+        /// <summary>Por que a cópia deste PC não serve (danificada); nulo se está boa ou não foi conferida.</summary>
+        public string LocalProblem { get; set; }
+
         public bool LocalExists => LocalSha1 != null;
 
         public override string ToString() => Name + ": " + Action;
+    }
+
+    public enum SaveCopyKind
+    {
+        Cloud,
+        Conflict,
+        LocalHistory
+    }
+
+    /// <summary>Uma cópia guardada de um arquivo, que pode ser restaurada.</summary>
+    public sealed class SaveCopy
+    {
+        public SaveCopy(string id, SaveCopyKind kind, DateTime timeUtc, string pc, string path, bool deleted)
+        {
+            Id = id;
+            Kind = kind;
+            TimeUtc = timeUtc;
+            Pc = pc;
+            Path = path;
+            Deleted = deleted;
+        }
+
+        /// <summary>Identificador para restaurar: o nome da versão, conflito-&lt;versão&gt; ou local-&lt;data&gt;.</summary>
+        public string Id { get; }
+        public SaveCopyKind Kind { get; }
+        public DateTime TimeUtc { get; }
+        public string Pc { get; }
+        public string Path { get; }
+        public bool Deleted { get; }
+
+        public string KindName => Kind == SaveCopyKind.Cloud ? "nuvem" : Kind == SaveCopyKind.Conflict ? "conflito" : "histórico deste PC";
     }
 
     /// <summary>Trava de outro PC: ele está jogando com estes arquivos.</summary>
@@ -111,11 +150,20 @@ namespace Retroboat.Saves
         public List<string> Conflicts { get; } = new List<string>();
         public List<string> Waiting { get; } = new List<string>();
 
-        /// <summary>Arquivos deixados de lado, com o motivo (vazio, zerado, cartão em pasta).</summary>
+        /// <summary>Arquivos deixados de lado, com o motivo (vazio, zerado, danificado, cartão em pasta).</summary>
         public List<string> Skipped { get; } = new List<string>();
+
+        /// <summary>Cópia danificada deste PC trocada pela versão boa da nuvem (ou restaurada à mão).</summary>
+        public List<string> Repaired { get; } = new List<string>();
+
+        /// <summary>Cópia deste PC danificada que não deu para consertar (a nuvem não tem versão boa).</summary>
+        public List<string> DamagedHere { get; } = new List<string>();
+
+        /// <summary>Versões danificadas na nuvem, puladas.</summary>
+        public List<string> DamagedInCloud { get; } = new List<string>();
         public List<string> Errors { get; } = new List<string>();
 
-        public bool HasTransfers => Uploaded.Count + Downloaded.Count + DeletedLocal.Count + DeletedInCloud.Count > 0;
+        public bool HasTransfers => Uploaded.Count + Downloaded.Count + DeletedLocal.Count + DeletedInCloud.Count + Repaired.Count > 0;
 
         public void Add(SaveSyncResult other)
         {
@@ -126,6 +174,9 @@ namespace Retroboat.Saves
             Conflicts.AddRange(other.Conflicts);
             Waiting.AddRange(other.Waiting);
             Skipped.AddRange(other.Skipped);
+            Repaired.AddRange(other.Repaired);
+            DamagedHere.AddRange(other.DamagedHere);
+            DamagedInCloud.AddRange(other.DamagedInCloud);
             Errors.AddRange(other.Errors);
         }
     }
@@ -191,6 +242,10 @@ namespace Retroboat.Saves
         /// </summary>
         public List<SaveItemPlan> Plan(IEnumerable<string> only = null, ICollection<string> sessionItems = null, bool trustDates = true)
         {
+            // Pen drive ou disco desconectado: nada a planejar. Sem isso, os arquivos pareceriam apagados.
+            if (!LocalDeviceAvailable)
+                return new List<SaveItemPlan>();
+
             var state = SaveSyncState.Load(_statePath);
             var announced = ReadAnnouncedVersions();
             var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -223,7 +278,25 @@ namespace Retroboat.Saves
             {
                 plan.LocalModifiedUtc = local.LastWriteTimeUtc;
                 bool sameAsSynced = trustDates && synced != null && !synced.Deleted && synced.Length == local.Length && synced.ModifiedTicks == local.LastWriteTimeUtc.Ticks;
-                plan.LocalSha1 = sameAsSynced ? synced.Sha1 : Sha1(ReadShared(local.FullName));
+                if (sameAsSynced)
+                {
+                    plan.LocalSha1 = synced.Sha1;
+                }
+                else
+                {
+                    // Só o que mudou desde a última sincronização é conferido; o resto já estava bom quando foi sincronizado.
+                    var data = ReadShared(local.FullName);
+                    plan.LocalSha1 = Sha1(data);
+                    if (synced == null || synced.Deleted || plan.LocalSha1 != synced.Sha1)
+                        plan.LocalProblem = Problem(data);
+                }
+            }
+
+            if (plan.LocalProblem != null)
+            {
+                // Danificado aqui: nunca vai para a nuvem. Se a nuvem tem uma versão, ela volta para o lugar.
+                plan.Action = plan.Cloud != null && !plan.Cloud.Deleted ? SaveAction.Repair : SaveAction.None;
+                return plan;
             }
 
             if (announced.TryGetValue(name, out var newer) && string.CompareOrdinal(newer, plan.Cloud?.Id) > 0)
@@ -262,7 +335,13 @@ namespace Retroboat.Saves
             else if (!cloudChanged || !cloudHasData)
                 plan.Action = SaveAction.Upload; // Apagado em outro PC mas mudou aqui: o que mudou fica.
             else
-                plan.Action = Sha1(ReadVersion(plan.Cloud)) == plan.LocalSha1 ? SaveAction.Record : SaveAction.Conflict;
+            {
+                // A versão da nuvem danificada não disputa com a boa deste PC.
+                var cloudData = TryReadGood(plan.Cloud, out _);
+                plan.Action = cloudData == null ? SaveAction.Upload
+                            : Sha1(cloudData) == plan.LocalSha1 ? SaveAction.Record
+                            : SaveAction.Conflict;
+            }
 
             return plan;
         }
@@ -284,6 +363,18 @@ namespace Retroboat.Saves
                 {
                     switch (plan.Action)
                     {
+                        case SaveAction.None:
+                            if (plan.LocalProblem != null)
+                                result.DamagedHere.Add(plan.Name + ": danificado neste PC (" + plan.LocalProblem + "); não enviado, e a nuvem não tem uma versão para pôr no lugar");
+                            break;
+
+                        case SaveAction.Repair:
+                            if (uploadOnly)
+                                result.Skipped.Add(plan.Name + " (danificado neste PC: " + plan.LocalProblem + "; não enviado)");
+                            else
+                                Repair(plan, state, result, sent);
+                            break;
+
                         case SaveAction.Record:
                             state.Set(Rule.Folder, plan.Name, RecordOf(plan));
                             break;
@@ -299,7 +390,7 @@ namespace Retroboat.Saves
                         case SaveAction.Download:
                         case SaveAction.Restore:
                             if (!uploadOnly)
-                                Download(plan, state, result);
+                                Download(plan, state, result, sent);
                             break;
 
                         case SaveAction.DeleteLocal:
@@ -325,7 +416,7 @@ namespace Retroboat.Saves
                             {
                                 KeepInConflicts(plan);
                                 if (choice == ConflictChoice.KeepCloud)
-                                    Download(plan, state, result);
+                                    Download(plan, state, result, sent);
                                 else
                                     result.Conflicts.Add(plan.Name);
                             }
@@ -356,9 +447,10 @@ namespace Retroboat.Saves
             var data = ReadShared(plan.LocalPath);
             var after = new FileInfo(plan.LocalPath).LastWriteTimeUtc;
 
-            if (IsBlank(data))
+            var problem = Problem(data);
+            if (problem != null)
             {
-                result.Skipped.Add(plan.Name + " (vazio ou zerado, não enviado)");
+                result.Skipped.Add(plan.Name + " (" + problem + "; não enviado)");
                 return;
             }
 
@@ -380,23 +472,110 @@ namespace Retroboat.Saves
             result.DeletedInCloud.Add(plan.Name);
         }
 
-        void Download(SaveItemPlan plan, SaveSyncState state, SaveSyncResult result)
+        void Download(SaveItemPlan plan, SaveSyncState state, SaveSyncResult result, Dictionary<string, string> sent)
         {
-            var data = ReadVersion(plan.Cloud);
-            if (IsBlank(data))
+            var best = NewestGoodVersion(plan.Name, result, out var data);
+            if (best == null)
             {
-                result.Skipped.Add(plan.Name + " (a versão da nuvem está vazia ou zerada; a deste PC foi mantida)");
+                result.Skipped.Add(plan.Name + " (nenhuma versão boa na nuvem; a deste PC foi mantida)");
                 return;
             }
 
+            PlaceLocal(plan, best, data, state, sent);
+            result.Downloaded.Add(plan.Name);
+        }
+
+        void Repair(SaveItemPlan plan, SaveSyncState state, SaveSyncResult result, Dictionary<string, string> sent)
+        {
+            var best = NewestGoodVersion(plan.Name, result, out var data);
+            if (best == null)
+            {
+                result.DamagedHere.Add(plan.Name + ": danificado neste PC (" + plan.LocalProblem + "); nenhuma versão boa na nuvem para pôr no lugar");
+                return;
+            }
+
+            PlaceLocal(plan, best, data, state, sent);
+            result.Repaired.Add(plan.Name + ": a cópia deste PC estava danificada (" + plan.LocalProblem + "); voltou a versão de " +
+                                Describe(best) + ". A danificada ficou no histórico deste PC.");
+        }
+
+        /// <summary>
+        /// Põe uma versão boa no lugar do arquivo local (com cópia do anterior no histórico). Se ela não é a mais
+        /// nova da nuvem, porque a mais nova está danificada, vira de novo a mais nova, para os outros PCs também.
+        /// </summary>
+        void PlaceLocal(SaveItemPlan plan, SaveVersion version, byte[] data, SaveSyncState state, Dictionary<string, string> sent)
+        {
             if (File.Exists(plan.LocalPath))
                 Snapshot(plan.LocalPath);
 
             WriteAtomically(plan.LocalPath, data);
+            var id = version.Id;
+            var latest = LatestVersion(plan.Name);
+            if (latest != null && latest.Id != version.Id)
+            {
+                id = NewVersionId(plan, state);
+                WriteAtomically(Path.Combine(CloudFolder, plan.Name, id + SaveVersion.DataExtension), Compress(data));
+                sent[plan.Name] = id;
+            }
+
             var written = new FileInfo(plan.LocalPath);
-            state.Set(Rule.Folder, plan.Name, new SyncedItem { Version = plan.Cloud.Id, Sha1 = Sha1(data), Length = data.Length, ModifiedTicks = written.LastWriteTimeUtc.Ticks });
-            result.Downloaded.Add(plan.Name);
+            state.Set(Rule.Folder, plan.Name, new SyncedItem { Version = id, Sha1 = Sha1(data), Length = data.Length, ModifiedTicks = written.LastWriteTimeUtc.Ticks });
         }
+
+        /// <summary>
+        /// A versão boa mais nova do arquivo na nuvem. Versões que não abrem ou não passam na conferência são
+        /// puladas (e contadas em Repaired). Para numa exclusão: o que veio antes dela é de outra vida do arquivo.
+        /// </summary>
+        SaveVersion NewestGoodVersion(string name, SaveSyncResult result, out byte[] data)
+        {
+            foreach (var version in History(name))
+            {
+                data = null;
+                if (version.Deleted)
+                    return null;
+
+                data = TryReadGood(version, out var problem);
+                if (data != null)
+                    return version;
+
+                result.DamagedInCloud.Add(name + ": a versão da nuvem de " + Describe(version) + " está danificada (" + problem + ") e foi pulada");
+            }
+
+            data = null;
+            return null;
+        }
+
+        /// <summary>Conteúdo da versão se ela abre e passa na conferência; nulo (com o motivo) se não.</summary>
+        byte[] TryReadGood(SaveVersion version, out string problem)
+        {
+            try
+            {
+                var data = ReadVersion(version);
+                problem = Problem(data);
+                return problem == null ? data : null;
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException)
+            {
+                problem = "não abre: " + ex.Message;
+                return null;
+            }
+        }
+
+        /// <summary>Nulo se o conteúdo serve; senão, o motivo (vazio, zerado, ou o que o validador da regra achou).</summary>
+        public string Problem(byte[] data) => IsBlank(data) ? "vazio ou zerado" : Rule.Validate?.Invoke(data);
+
+        /// <summary>O disco da pasta local está conectado (um pen drive pode ser arrancado no meio do jogo).</summary>
+        public bool LocalDeviceAvailable
+        {
+            get
+            {
+                try { return Directory.Exists(Path.GetPathRoot(Path.GetFullPath(LocalFolder))); }
+                catch (Exception ex) when (ex is IOException || ex is ArgumentException || ex is UnauthorizedAccessException) { return false; }
+            }
+        }
+
+        static string Describe(SaveVersion version) =>
+            version.TimeUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) + " (" + version.Pc + ")";
 
         void DeleteLocal(SaveItemPlan plan, SaveSyncState state, SaveSyncResult result)
         {
@@ -414,7 +593,7 @@ namespace Retroboat.Saves
 
             var data = ReadShared(plan.LocalPath);
             var sha = Sha1(data);
-            if (IsBlank(data) || !_keptConflicts.Add(sha))
+            if (Problem(data) != null || !_keptConflicts.Add(sha))
                 return;
 
             // A mesma cópia já guardada numa abertura anterior não vai de novo.
@@ -474,6 +653,112 @@ namespace Retroboat.Saves
 
             return Directory.GetFiles(folder).Select(SaveVersion.TryParse).Where(v => v != null)
                 .OrderByDescending(v => v.Id, StringComparer.Ordinal).ToList();
+        }
+
+        /// <summary>
+        /// Todas as cópias guardadas de um arquivo, da mais nova para a mais antiga: versões na nuvem, as que
+        /// perderam conflitos e as cópias que este PC guardou antes de substituir (histórico local).
+        /// </summary>
+        public IReadOnlyList<SaveCopy> Copies(string name)
+        {
+            var copies = new List<SaveCopy>();
+            copies.AddRange(History(name).Select(v => new SaveCopy(v.Id, SaveCopyKind.Cloud, v.TimeUtc, v.Pc, v.Path, v.Deleted)));
+
+            var conflicts = Path.Combine(CloudFolder, name, ConflictsFolderName);
+            if (Directory.Exists(conflicts))
+            {
+                copies.AddRange(Directory.GetFiles(conflicts).Select(SaveVersion.TryParse).Where(v => v != null && !v.Deleted)
+                    .Select(v => new SaveCopy("conflito-" + v.Id, SaveCopyKind.Conflict, v.TimeUtc, v.Pc, v.Path, false)));
+            }
+
+            var local = Path.Combine(_historyRoot, name);
+            if (Directory.Exists(local))
+            {
+                foreach (var file in Directory.GetFiles(local))
+                {
+                    if (DateTime.TryParseExact(Path.GetFileNameWithoutExtension(file), "yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture,
+                                               DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var time))
+                        copies.Add(new SaveCopy("local-" + Path.GetFileNameWithoutExtension(file), SaveCopyKind.LocalHistory, time, PcName, file, false));
+                }
+            }
+
+            return copies.OrderByDescending(c => c.TimeUtc).ToList();
+        }
+
+        /// <summary>Conteúdo de uma cópia, ou o motivo de ela não servir.</summary>
+        public byte[] ReadCopy(SaveCopy copy, out string problem)
+        {
+            if (copy.Deleted)
+            {
+                problem = "é o registro de uma exclusão";
+                return null;
+            }
+
+            try
+            {
+                var data = copy.Kind == SaveCopyKind.LocalHistory ? ReadShared(copy.Path) : ReadVersion(SaveVersion.TryParse(copy.Path));
+                problem = Problem(data);
+                return problem == null ? data : null;
+            }
+            catch (Exception ex) when (ex is InvalidDataException || ex is IOException)
+            {
+                problem = "não abre: " + ex.Message;
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Volta o arquivo para uma cópia guardada (por padrão, a versão boa mais nova da nuvem). Ela vira a
+        /// versão mais nova da nuvem, para os outros PCs também; o arquivo atual vai para o histórico deste PC.
+        /// Não use com o emulador aberto.
+        /// </summary>
+        public SaveSyncResult Restore(string name, string copyId = null)
+        {
+            var result = new SaveSyncResult();
+            var copies = Copies(name);
+            SaveCopy chosen = null;
+            byte[] data = null;
+
+            if (copyId == null)
+            {
+                foreach (var copy in copies.Where(c => c.Kind == SaveCopyKind.Cloud && !c.Deleted))
+                {
+                    data = ReadCopy(copy, out _);
+                    if (data != null)
+                    {
+                        chosen = copy;
+                        break;
+                    }
+                }
+
+                if (chosen == null)
+                    throw new InvalidOperationException("nenhuma versão boa de " + name + " na nuvem");
+            }
+            else
+            {
+                chosen = copies.FirstOrDefault(c => string.Equals(c.Id, copyId, StringComparison.OrdinalIgnoreCase))
+                         ?? throw new InvalidOperationException("cópia " + copyId + " não encontrada para " + name);
+                data = ReadCopy(chosen, out var problem);
+                if (data == null)
+                    throw new InvalidOperationException("a cópia " + copyId + " não serve: " + problem);
+            }
+
+            var state = SaveSyncState.Load(_statePath);
+            var plan = new SaveItemPlan { Name = name, LocalPath = Path.Combine(LocalFolder, name), Cloud = LatestVersion(name) };
+            if (File.Exists(plan.LocalPath))
+                Snapshot(plan.LocalPath);
+
+            WriteAtomically(plan.LocalPath, data);
+            var id = NewVersionId(plan, state);
+            WriteAtomically(Path.Combine(CloudFolder, name, id + SaveVersion.DataExtension), Compress(data));
+            var written = new FileInfo(plan.LocalPath);
+            state.Set(Rule.Folder, name, new SyncedItem { Version = id, Sha1 = Sha1(data), Length = data.Length, ModifiedTicks = written.LastWriteTimeUtc.Ticks });
+            state.Save();
+            UpdateOwnPcFile(pc => SetItem(pc, name, id));
+
+            result.Repaired.Add(name + ": restaurada a cópia de " + chosen.TimeUtc.ToLocalTime().ToString("dd/MM/yyyy HH:mm:ss", CultureInfo.InvariantCulture) +
+                                " (" + chosen.Pc + ", " + chosen.KindName + ")");
+            return result;
         }
 
         /// <summary>Arquivos da regra que existem neste PC (só arquivos; cartões em pasta ficam de fora).</summary>
@@ -655,11 +940,20 @@ namespace Retroboat.Saves
             }
         }
 
-        static void WriteAtomically(string path, byte[] data)
+        /// <summary>
+        /// Grava num arquivo temporário, força a ida para o disco e só então troca pelo definitivo. Num pen drive
+        /// arrancado no meio, sobra o arquivo antigo ou o temporário, nunca um definitivo pela metade.
+        /// </summary>
+        internal static void WriteAtomically(string path, byte[] data)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             var temp = path + PartSuffix;
-            File.WriteAllBytes(temp, data);
+            using (var file = new FileStream(temp, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.WriteThrough))
+            {
+                file.Write(data, 0, data.Length);
+                file.Flush(true);
+            }
+
             if (File.Exists(path))
                 File.Delete(path);
 
@@ -713,13 +1007,29 @@ namespace Retroboat.Saves
         readonly Dictionary<string, SyncedItem> _items = new Dictionary<string, SyncedItem>(StringComparer.OrdinalIgnoreCase);
         string _path;
 
+        /// <summary>
+        /// Se o arquivo estiver danificado (gravação cortada), usa a cópia anterior (.bak); sem nenhum dos dois,
+        /// começa do zero: o SHA-1 dos dois lados decide e nada é perdido, no máximo um conflito a mais.
+        /// </summary>
         public static SaveSyncState Load(string path)
         {
-            var state = new SaveSyncState { _path = path };
-            if (!File.Exists(path))
-                return state;
+            foreach (var candidate in new[] { path, path + ".bak" })
+            {
+                try
+                {
+                    if (File.Exists(candidate))
+                        return Parse(path, XDocument.Load(candidate));
+                }
+                catch (Exception ex) when (ex is System.Xml.XmlException || ex is FormatException || ex is NullReferenceException) { } // Danificado; erro de disco sobe.
+            }
 
-            foreach (var element in XDocument.Load(path).Root.Elements("item"))
+            return new SaveSyncState { _path = path };
+        }
+
+        static SaveSyncState Parse(string path, XDocument document)
+        {
+            var state = new SaveSyncState { _path = path };
+            foreach (var element in document.Root.Elements("item"))
             {
                 state._items[Key((string)element.Attribute("folder"), (string)element.Attribute("name"))] = new SyncedItem
                 {
@@ -756,13 +1066,18 @@ namespace Retroboat.Saves
                     !i.Value.Deleted ? new XAttribute("modified", i.Value.ModifiedTicks) : null);
             }));
 
-            Directory.CreateDirectory(Path.GetDirectoryName(_path));
-            var temp = _path + ".retroboat-part";
-            new XDocument(root).Save(temp);
+            // A versão anterior fica como .bak, para o caso de esta gravação ser cortada.
             if (File.Exists(_path))
-                File.Delete(_path);
+            {
+                try { File.Copy(_path, _path + ".bak", true); }
+                catch (IOException) { }
+            }
 
-            File.Move(temp, _path);
+            using (var memory = new MemoryStream())
+            {
+                new XDocument(root).Save(memory);
+                SaveSync.WriteAtomically(_path, memory.ToArray());
+            }
         }
 
         static string Key(string folder, string name) => folder + "|" + name;

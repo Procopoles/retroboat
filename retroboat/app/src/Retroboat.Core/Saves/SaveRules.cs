@@ -39,6 +39,12 @@ namespace Retroboat.Saves
         /// <summary>Emuladores que gravam nesta pasta (o -emulator que o ES passa).</summary>
         public ISet<string> Emulators { get; }
 
+        /// <summary>
+        /// Confere o conteúdo antes de enviar ou de colocar no lugar do arquivo local: nulo se está bom, senão o
+        /// motivo. Sem validador, só arquivos vazios ou zerados são recusados.
+        /// </summary>
+        public Func<byte[], string> Validate { get; set; }
+
         public bool AppliesTo(string system, string emulator)
         {
             return string.Equals(System, system, StringComparison.OrdinalIgnoreCase)
@@ -53,7 +59,10 @@ namespace Retroboat.Saves
         /// arquivo de cada slot (Mcd001.ps2, Mcd002.ps2 ou &lt;jogo&gt;.ps2). Os cartões criados no próprio
         /// PCSX2 também ficam lá. Cartões em pasta (Mcdf01.ps2) ainda não são sincronizados.
         /// </summary>
-        public static readonly SaveRule Pcsx2MemoryCards = new SaveRule("ps2", "PlayStation 2", "memory card", @"ps2\pcsx2\memcards", "*.ps2", "pcsx2");
+        public static readonly SaveRule Pcsx2MemoryCards = new SaveRule("ps2", "PlayStation 2", "memory card", @"ps2\pcsx2\memcards", "*.ps2", "pcsx2")
+        {
+            Validate = Ps2MemoryCard.Validate
+        };
 
         public static readonly IReadOnlyList<SaveRule> All = new[] { Pcsx2MemoryCards };
 

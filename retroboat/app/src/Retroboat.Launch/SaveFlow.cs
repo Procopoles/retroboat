@@ -203,8 +203,30 @@ namespace Retroboat.Launch
 
                 var result = ChoiceForm.Busy(Title, Busy, () => sync.Apply(plans, p => choices.TryGetValue(p.Name, out var c) ? c : (ConflictChoice?)null));
                 LogResult(rule, result, beforeGame ? "antes do jogo" : "depois do jogo");
-                return true;
+                return ExplainDamage(rule, result, beforeGame);
             }
+        }
+
+        /// <summary>
+        /// Conta o que foi consertado (cartão cortado trocado pela versão da nuvem) e avisa do que não deu para
+        /// consertar, antes que o emulador ofereça formatar o cartão.
+        /// </summary>
+        /// <returns>false se o usuário preferiu voltar (só antes do jogo).</returns>
+        static bool ExplainDamage(SaveRule rule, SaveSyncResult result, bool beforeGame)
+        {
+            var item = rule.ItemName.Substring(0, 1).ToUpperInvariant() + rule.ItemName.Substring(1);
+            if (result.Repaired.Count > 0)
+                ChoiceForm.Ask(Title, item + " consertado", string.Join(" ", result.Repaired), new[] { "Continuar" });
+
+            if (result.DamagedHere.Count == 0)
+                return true;
+
+            int choice = ChoiceForm.Ask(Title, item + " danificado neste PC",
+                string.Join(" ", result.DamagedHere) + ". Se o emulador oferecer formatar o cartão, os saves dele se perdem. As cópias anteriores estão em " +
+                "retroboat\\historico e podem voltar com retroboat-cli saves restore.",
+                beforeGame ? new[] { "Voltar", "Jogar mesmo assim" } : new[] { "Continuar" });
+
+            return !beforeGame || choice == 1;
         }
 
         /// <summary>"hoje 14:32", "ontem 22:10" ou "23/10 09:15".</summary>
@@ -224,6 +246,9 @@ namespace Retroboat.Launch
             foreach (var name in result.DeletedInCloud) Log.Info(prefix + "apagado no emulador, apagado na nuvem: " + name);
             foreach (var name in result.Conflicts) Log.Warn(prefix + "mudou aqui e na nuvem; a cópia deste PC foi guardada em conflitos: " + name);
             foreach (var name in result.Waiting) Log.Info(prefix + "aguardando a versão de outro PC chegar: " + name);
+            foreach (var item in result.Repaired) Log.Warn(prefix + "consertado: " + item);
+            foreach (var item in result.DamagedHere) Log.Warn(prefix + item);
+            foreach (var item in result.DamagedInCloud) Log.Warn(prefix + item);
             foreach (var item in result.Skipped) Log.Warn(prefix + "não sincronizado: " + item);
             foreach (var error in result.Errors) Log.Warn(prefix + "erro: " + error);
         }

@@ -27,6 +27,7 @@ namespace Retroboat.Saves
         readonly Dictionary<string, Tracker> _trackers = new Dictionary<string, Tracker>(StringComparer.OrdinalIgnoreCase);
         DateTime _lastHeartbeat;
         bool _started;
+        bool _unavailable;
 
         /// <param name="activeItems">Arquivos que o emulador está usando agora (ex.: os slots do PCSX2.ini).
         /// Esses são conferidos pelo conteúdo a cada passada; os outros, pelo tamanho e pela data.</param>
@@ -60,9 +61,16 @@ namespace Retroboat.Saves
         /// <summary>O emulador fechou: envia o que faltar (sem esperar) e libera a trava.</summary>
         public SaveSyncResult Finish()
         {
-            var result = Run(final: true);
-            _sync.Unlock();
-            return result;
+            // A trava sai mesmo se o envio falhar (disco arrancado, erro de leitura): senão os outros PCs
+            // veriam "em uso" por 10 minutos à toa.
+            try
+            {
+                return Run(final: true);
+            }
+            finally
+            {
+                _sync.Unlock();
+            }
         }
 
         SaveSyncResult Run(bool final)
@@ -72,10 +80,31 @@ namespace Retroboat.Saves
                 return result;
 
             var now = _utcNow();
+
+            // Pen drive arrancado (ou disco desconectado): os cartões não sumiram, só não dá para vê-los. Nada é
+            // apagado na nuvem; o que mudou vai quando a pasta voltar (ou na próxima sincronização).
+            if (!_sync.LocalDeviceAvailable || !Directory.Exists(_sync.LocalFolder))
+            {
+                ReportUnavailable(result);
+                RenewLockIfDue(now, final, result);
+                return result;
+            }
+
             var active = new HashSet<string>(SafeActiveItems(), StringComparer.OrdinalIgnoreCase);
             var present = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var localItems = _sync.LocalItems().ToList();
 
-            foreach (var path in _sync.LocalItems())
+            // Todos os cartões sumindo de uma vez é falha de disco, não o emulador apagando.
+            if (localItems.Count == 0 && _trackers.Count(t => t.Value.Existed && !t.Value.Missing) > 1)
+            {
+                ReportUnavailable(result);
+                RenewLockIfDue(now, final, result);
+                return result;
+            }
+
+            _unavailable = false;
+
+            foreach (var path in localItems)
             {
                 var info = new FileInfo(path);
                 present.Add(info.Name);
@@ -140,18 +169,33 @@ namespace Retroboat.Saves
                 }
             }
 
-            if (!final && now - _lastHeartbeat >= HeartbeatEvery)
-            {
-                try
-                {
-                    _sync.RenewLock();
-                    _lastHeartbeat = now;
-                }
-                catch (IOException ex) { result.Errors.Add("trava: " + ex.Message); }
-                catch (UnauthorizedAccessException ex) { result.Errors.Add("trava: " + ex.Message); }
-            }
-
+            RenewLockIfDue(now, final, result);
             return result;
+        }
+
+        /// <summary>A trava fica na nuvem: continua valendo mesmo com o pen drive fora.</summary>
+        void RenewLockIfDue(DateTime now, bool final, SaveSyncResult result)
+        {
+            if (final || now - _lastHeartbeat < HeartbeatEvery)
+                return;
+
+            try
+            {
+                _sync.RenewLock();
+                _lastHeartbeat = now;
+            }
+            catch (IOException ex) { result.Errors.Add("trava: " + ex.Message); }
+            catch (UnauthorizedAccessException ex) { result.Errors.Add("trava: " + ex.Message); }
+        }
+
+        void ReportUnavailable(SaveSyncResult result)
+        {
+            if (_unavailable)
+                return;
+
+            _unavailable = true;
+            result.Skipped.Add("pasta dos " + _sync.Rule.ItemName + "s inacessível (" + _sync.LocalFolder + "): pen drive ou disco desconectado? " +
+                               "Nada foi apagado na nuvem; o que mudou vai quando a pasta voltar");
         }
 
         IEnumerable<string> SafeActiveItems()
