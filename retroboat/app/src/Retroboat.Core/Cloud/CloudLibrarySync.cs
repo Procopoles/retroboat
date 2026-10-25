@@ -90,10 +90,14 @@ namespace Retroboat.Cloud
                 result.SystemFolders.Add(game.System);
             }
 
+            // Um jogo trocado no Drive por outro formato (ex.: o .iso virou .zip) tem o mesmo nome local: o
+            // marcador é do jogo novo e fica.
+            var inUse = new HashSet<string>(seen.Select(e => e.System + "/" + e.LocalName), StringComparer.OrdinalIgnoreCase);
+
             foreach (var gone in index.Entries.Where(e => !seen.Contains(e)).ToList())
             {
                 var local = new FileInfo(Path.Combine(_romsRoot, gone.System, gone.LocalName));
-                if (gone.State != CloudGameState.Installed && local.Exists && local.Length == 0)
+                if (gone.State != CloudGameState.Installed && local.Exists && local.Length == 0 && !inUse.Contains(gone.System + "/" + gone.LocalName))
                 {
                     local.Delete();
                     result.PlaceholdersRemoved.Add(gone.System + "/" + gone.LocalName);

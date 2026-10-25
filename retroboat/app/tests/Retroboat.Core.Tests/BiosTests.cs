@@ -153,7 +153,7 @@ namespace Retroboat.Tests
         }
 
         [Fact]
-        public void Zeroed_bios_is_never_copied_and_never_replaces_a_good_one()
+        public void Zeroed_bios_in_the_cloud_never_replaces_a_good_one_and_is_repaired_from_it()
         {
             using (var cloud = new TempDir())
             using (var local = new TempDir())
@@ -167,8 +167,64 @@ namespace Retroboat.Tests
                 var result = new BiosSync(cloud.Path, local.Path).Sync();
 
                 Assert.Empty(result.Downloaded);
-                Assert.True(Assert.Single(result.SkippedCorrupt).InCloud);
+                Assert.Equal(new[] { @"pcsx2\bios\" + Ps2Name }, result.Uploaded);
+                Assert.Empty(result.SkippedCorrupt);
                 Assert.Equal(good, File.ReadAllBytes(localFile));
+                Assert.Equal(good, File.ReadAllBytes(cloudFile));
+            }
+        }
+
+        [Fact]
+        public void Zeroed_copy_with_the_same_size_and_date_is_repaired_on_either_side()
+        {
+            // Como saiu da recuperação de disco: mesmo nome, tamanho e data, mas só zeros.
+            var date = new DateTime(2024, 7, 21, 9, 42, 22, DateTimeKind.Utc);
+            var good = FakePs2Bios();
+
+            using (var cloud = new TempDir())
+            using (var local = new TempDir())
+            {
+                var cloudFile = cloud.WriteFile(@"bios\pcsx2\bios\" + Ps2Name, new byte[good.Length]);
+                var localFile = local.WriteFile(@"pcsx2\bios\" + Ps2Name, good);
+                File.SetLastWriteTimeUtc(cloudFile, date);
+                File.SetLastWriteTimeUtc(localFile, date);
+
+                var result = new BiosSync(cloud.Path, local.Path).Sync();
+
+                Assert.Single(result.Uploaded);
+                Assert.Empty(result.SkippedCorrupt);
+                Assert.Equal(good, File.ReadAllBytes(cloudFile));
+            }
+
+            using (var cloud = new TempDir())
+            using (var local = new TempDir())
+            {
+                var cloudFile = cloud.WriteFile(@"bios\pcsx2\bios\" + Ps2Name, good);
+                var localFile = local.WriteFile(@"pcsx2\bios\" + Ps2Name, new byte[good.Length]);
+                File.SetLastWriteTimeUtc(cloudFile, date);
+                File.SetLastWriteTimeUtc(localFile, date);
+
+                var result = new BiosSync(cloud.Path, local.Path).Sync();
+
+                Assert.Single(result.Downloaded);
+                Assert.Empty(result.Uploaded);
+                Assert.Equal(good, File.ReadAllBytes(localFile));
+            }
+        }
+
+        [Fact]
+        public void Zeroed_on_both_sides_is_reported_once_and_not_copied()
+        {
+            using (var cloud = new TempDir())
+            using (var local = new TempDir())
+            {
+                cloud.WriteFile(@"bios\pcsx2\bios\" + Ps2Name, new byte[4 << 20]);
+                local.WriteFile(@"pcsx2\bios\" + Ps2Name, new byte[4 << 20]);
+
+                var result = new BiosSync(cloud.Path, local.Path).Sync();
+
+                Assert.False(result.HasTransfers);
+                Assert.Single(result.SkippedCorrupt);
             }
         }
 

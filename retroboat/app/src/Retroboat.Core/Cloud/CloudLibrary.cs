@@ -114,9 +114,13 @@ namespace Retroboat.Cloud
             return GetGames(parts[0]).FirstOrDefault(g => string.Equals(g.Name, parts[1], StringComparison.OrdinalIgnoreCase));
         }
 
+        // "." e "_" no começo do nome marcam pastas e arquivos de controle (ex.: "_controle" com as planilhas de
+        // quem organiza a biblioteca); nenhum dump de jogo começa assim.
         static bool IsVisible(FileSystemInfo info)
         {
-            return (info.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0 && !info.Name.StartsWith(".", StringComparison.Ordinal);
+            return (info.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0
+                && !info.Name.StartsWith(".", StringComparison.Ordinal)
+                && !info.Name.StartsWith("_", StringComparison.Ordinal);
         }
     }
 }

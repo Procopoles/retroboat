@@ -116,6 +116,15 @@ o histórico.
   - Depende de o ES aceitar arquivo vazio como jogo, o que foi verificado no ES de 22/10/2026.
   - Se o upstream passar a validar o tamanho das ROMs, os marcadores somem da lista sem conflito de merge.
   - Os três pontos entram na lista de vigilância.
+- **Testado em 25/10/2026** com os 8 ZIPs de PS2 novos do Drive (todos com um ISO só, deflate):
+  janela de download em tela cheia com progresso e tempo restante; Shadow of the Colossus e Black
+  extraídos uma vez, com CRC conferido; Esc no God of War apaga o parcial e volta sem abrir o
+  emulador; a segunda abertura de um jogo instalado passa direto (0,6 s) e devolve o código de saída.
+- **Correções do teste:**
+  - pastas e arquivos que começam com `_` (ex.: `_controle`, com as planilhas de quem organiza a
+    biblioteca) não são mais jogos;
+  - um jogo trocado no Drive por outro formato com o mesmo disco (`.iso` → `.zip`) perdia o
+    marcador: a limpeza dos jogos que saíram apagava o marcador do jogo novo.
 
 ## RB-005 — Contas do ES na nuvem (primeira parte do perfil)
 
@@ -146,6 +155,9 @@ o histórico.
   `Pcsx2.Generator.cs` (`SetupConfigurationQT`). Se o upstream mudar essa lista ou a pasta
   `bios\pcsx2\bios`, o status fica errado sem conflito de merge. Esse trecho entra na lista de
   vigilância.
+- **Correção (25/10/2026):** uma BIOS zerada na nuvem com o mesmo nome, tamanho e data da cópia boa
+  do PC (o caso da recuperação de disco) era tratada como igual e nunca era consertada. Agora a
+  cópia zerada, de qualquer lado, é substituída pela boa do outro lado, mesmo que pareça mais nova.
 
 ## RB-015 — Conteúdo dos jogos na nuvem
 

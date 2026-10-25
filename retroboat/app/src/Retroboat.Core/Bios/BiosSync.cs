@@ -46,7 +46,7 @@ namespace Retroboat.Bios
     /// do RetroBat não é enviado: ele já vem em toda instalação.</item>
     /// </list>
     /// Em arquivo presente nos dois lados e diferente, vence o mais novo. Um arquivo zerado nunca é
-    /// copiado nem substitui um arquivo bom.
+    /// copiado nem substitui um arquivo bom; uma cópia zerada é substituída pela boa do outro lado.
     /// </summary>
     public sealed class BiosSync
     {
@@ -128,13 +128,14 @@ namespace Retroboat.Bios
                 try
                 {
                     var local = new FileInfo(localFile);
-                    if (local.Exists && local.Length == info.Length && Close(local.LastWriteTimeUtc, info.LastWriteTimeUtc))
+                    bool localZeroed = local.Exists && IsZeroed(localFile);
+                    if (local.Exists && local.Length == info.Length && Close(local.LastWriteTimeUtc, info.LastWriteTimeUtc) && !localZeroed)
                     {
                         result.Unchanged++;
-                        continue;
+                        continue; // Se a cópia da nuvem é que está zerada, o Push conserta.
                     }
 
-                    if (local.Exists && local.LastWriteTimeUtc > info.LastWriteTimeUtc + TimestampTolerance)
+                    if (local.Exists && local.LastWriteTimeUtc > info.LastWriteTimeUtc + TimestampTolerance && !localZeroed)
                         continue; // Este PC tem a versão mais nova: o Push envia.
 
                     if (IsZeroed(cloudFile))
@@ -170,16 +171,20 @@ namespace Retroboat.Bios
                     {
                         var local = new FileInfo(localFile);
                         var cloud = new FileInfo(cloudFile);
-                        if (cloud.Exists && (local.Length == cloud.Length && Close(local.LastWriteTimeUtc, cloud.LastWriteTimeUtc)
-                                             || local.LastWriteTimeUtc <= cloud.LastWriteTimeUtc + TimestampTolerance))
+                        bool cloudIsCurrent = cloud.Exists && (local.Length == cloud.Length && Close(local.LastWriteTimeUtc, cloud.LastWriteTimeUtc)
+                                                               || local.LastWriteTimeUtc <= cloud.LastWriteTimeUtc + TimestampTolerance);
+                        if (cloudIsCurrent && !IsZeroed(cloudFile))
                             continue;
 
                         if (IsZeroed(localFile))
                         {
-                            result.SkippedCorrupt.Add(new CorruptFile(relative, inCloud: false));
+                            if (!result.SkippedCorrupt.Any(c => c.RelativePath == relative))
+                                result.SkippedCorrupt.Add(new CorruptFile(relative, inCloud: false));
                             continue;
                         }
 
+                        // Uma cópia zerada na nuvem é consertada com a boa deste PC, mesmo que pareça mais nova.
+                        result.SkippedCorrupt.RemoveAll(c => c.InCloud && c.RelativePath == relative);
                         result.Uploaded.Add(relative);
                         if (!dryRun)
                             CopyPreservingTime(localFile, cloudFile);

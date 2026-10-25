@@ -19,6 +19,8 @@ namespace Retroboat.Tests
                 dir.WriteFile("jogos/ps3/Jogo.ps3/PS3_GAME/USRDIR/EBOOT.BIN", new byte[300]);
                 dir.WriteFile("jogos/ps3/Jogo.ps3/PS3_DISC.SFB", new byte[20]);
                 dir.WriteFile("jogos/.lixeira/x.iso", new byte[10]);
+                dir.WriteFile("jogos/snes/_controle/status.json", new byte[10]);
+                dir.WriteFile("jogos/_controle/fluxo.md", new byte[10]);
 
                 var library = new CloudLibrary(dir.Combine("jogos"));
 

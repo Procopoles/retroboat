@@ -192,6 +192,28 @@ namespace Retroboat.Tests
         }
 
         [Fact]
+        public void Game_replaced_by_a_zip_of_the_same_disc_keeps_its_placeholder()
+        {
+            using (var cloud = new TempDir())
+            using (var retrobat = new TempDir())
+            {
+                var iso = cloud.WriteFile(@"jogos\ps2\" + IsoName, FakeIso(1 << 20));
+                var install = new RetroBatInstall(retrobat.Path);
+                var roms = retrobat.Combine("roms");
+                var library = new CloudLibrary(cloud.Combine("jogos"));
+                new CloudLibrarySync(install, roms, library).Apply();
+
+                File.Delete(iso);
+                WriteZip(cloud, @"jogos\ps2\Jogo.zip", IsoName, FakeIso());
+                var result = new CloudLibrarySync(install, roms, library).Apply();
+
+                Assert.Empty(result.PlaceholdersRemoved);
+                Assert.True(File.Exists(Path.Combine(roms, "ps2", IsoName)));
+                Assert.Equal(1, result.InCloud);
+            }
+        }
+
+        [Fact]
         public void Description_written_by_the_user_stays_below_the_status_line()
         {
             using (var retrobat = new TempDir())

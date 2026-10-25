@@ -96,6 +96,19 @@ Depende do fork e do build do ES (RB-011).
   visões em grade, só o ícone de nuvem no cabeçalho. O `build.ini` já usa o fork
   (`theme_path`); os commits do tema estão só no clone local até a publicação no fim das etapas.
 
+### Teste de download e descompactação (25/10/2026)
+
+- A biblioteca do Drive agora tem 8 jogos de PS2 válidos, todos `.zip` com um ISO dentro (28,6 GB).
+- **Testado e ok:** marcadores dos 8 jogos; janela de download do `retroboat-launch` na tela; extração
+  única com CRC (Shadow of the Colossus e Black); cancelar com Esc; segunda abertura sem baixar nem
+  extrair de novo; descrição "Na nuvem" sai depois da instalação.
+- **Corrigido no teste:** pasta `_controle` listada como jogo; marcador perdido quando um `.iso` vira
+  `.zip` no Drive; BIOS zerada no Drive nunca consertada pela cópia boa do PC (a do PS2 foi
+  consertada neste teste).
+- **Falta testar:** abrir o jogo baixado no PCSX2 pelo ES (o PCSX2 ainda não está instalado na
+  build; o emulatorLauncher se oferece para baixá-lo na primeira vez).
+- **Memory cards (M3) e configurações por jogo (M4) ainda não existem no código.**
+
 ## Etapa 2: redesign visual e de UX
 
 Começa depois da etapa 1. Aproveita o fork e o build do ES montados no M5. A primeira escolha de
