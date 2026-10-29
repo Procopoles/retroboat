@@ -1,0 +1,14 @@
+<Project>
+  <!-- .NET Framework 4.8, igual ao resto do RetroBat: já vem no Windows 10/11, sem runtime extra. -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Deterministic>true</Deterministic>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <Company>Retroboat</Company>
+    <Product>Retroboat</Product>
+    <Version>0.1.0</Version>
+  </PropertyGroup>
+</Project>

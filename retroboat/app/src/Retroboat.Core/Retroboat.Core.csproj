@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>Retroboat</RootNamespace>
+    <AssemblyName>Retroboat.Core</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Retroboat.Core.Tests" />
+  </ItemGroup>
+
+</Project>
