@@ -11,6 +11,7 @@ using Retroboat.Library;
 using Retroboat.Logging;
 using Retroboat.Saves;
 using Retroboat.Settings;
+using Retroboat.Themes;
 
 namespace Retroboat.Launcher
 {
@@ -72,6 +73,8 @@ namespace Retroboat.Launcher
             if (!PrepareLibrary(install, settings.RomsPath, CreateCommandWrapper(install, settings), showWarnings: firstRun || own.Setup))
                 return 0;
 
+            ApplyThemeOverlays(install);
+
             var sync = RunStartupSync(install, settings);
 
             if (own.NoLaunch)
@@ -124,6 +127,28 @@ namespace Retroboat.Launcher
             }
 
             return new CommandWrapper(launcherPath, systems);
+        }
+
+        /// <summary>
+        /// Põe de volta o status do Retroboat (RB-014, RB-017) nos temas que o instalador de temas do ES
+        /// reinstalou ou atualizou. Leva milissegundos; falha aqui nunca impede de jogar.
+        /// </summary>
+        static void ApplyThemeOverlays(RetroBatInstall install)
+        {
+            try
+            {
+                var result = ThemeOverlays.Apply(install, AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/'));
+                foreach (var item in result.Applied)
+                    Log.Info("Tema: " + item);
+                if (result.HookWritten)
+                    Log.Info("Tema: script " + ThemeOverlays.HookEvent + " do ES gravado.");
+                foreach (var warning in result.Warnings)
+                    Log.Warn("Tema: " + warning);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Falha ao pôr o status do Retroboat nos temas", ex);
+            }
         }
 
         /// <summary>

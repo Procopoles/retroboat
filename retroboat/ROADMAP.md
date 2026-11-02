@@ -98,8 +98,9 @@ Depende do fork e do build do ES (RB-011).
 - **Tema PlayStation-X (RB-017, 01/11/2026):** o mesmo status no tema PlayStation-X, instalado pelo
   ES (clone local em `..\es-theme-PlayStation-X`). Nos dois temas, um jogo da nuvem com o Drive
   fechado aparece como "Drive fechado", não como pronto para baixar nem como corrompido.
-  - **A definir:** como os ajustes sobrevivem ao "Atualizar" do tema no ES, que baixa o tema
-    oficial por cima. Hoje é preciso copiar do clone de novo.
+  - O `Retroboat.exe` põe o status de volta nos dois temas a cada abertura, e um script do ES faz o
+    mesmo ao escolher um tema no menu: excluir, reinstalar ou atualizar o tema pelo ES não perde
+    mais os ajustes.
 
 ### Teste de download e descompactação (25/10/2026)
 

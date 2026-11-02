@@ -322,9 +322,24 @@ o histórico.
   "★ 2026" e o relógio. Uma versão nova que mude isso desalinha o status sem conflito de merge.
   Depois de cada sincronização, conferir as visões ps4Style, single e detailed.
 - **Entrada no build:** o RetroBuild só baixa um tema (`theme_path`, o Carbon do Retroboat). O
-  PlayStation-X vem do instalador de temas do ES; para aplicar, copiar `theme.xml` e `retroboat\`
-  do clone para `emulationstation\.emulationstation\themes\es-theme-PlayStation-X`. "Atualizar" o
-  tema pelo ES apaga os ajustes.
+  PlayStation-X vem do instalador de temas do ES, que apaga a pasta do tema e baixa o oficial ao
+  instalar, reinstalar ou atualizar (`ApiSystem::installBatoceraTheme`).
+- **Reaplicação pelo lançador (01/11/2026):** o app leva os `status.xml` do Carbon e do
+  PlayStation-X (`Themes\ThemeOverlays`, recursos do `Retroboat.Core.dll`). O `Retroboat.exe` os põe
+  de volta a cada abertura, antes do ES, e grava o script
+  `.emulationstation\scripts\theme-changed\retroboat-temas.bat`, que faz o mesmo quando um tema é
+  escolhido no menu (`retroboat-cli themes apply`).
+  - Só grava o que falta ou mudou; nos testes, a conferência leva cerca de 8 ms.
+  - Antes de mexer, confere que a pasta é mesmo do tema (um arquivo que só ele tem). Se a versão
+    instalada do PlayStation-X não for a 43, aplica e avisa no log.
+  - Testado na build: tema "reinstalado" (`theme.xml` oficial e sem `retroboat\`) voltou com o status
+    pelo `Retroboat.exe --no-launch` e pelo script do evento, e o ES mostrou o botão.
+  - Classificação: C0 no app. Grava só arquivos nossos (`retroboat\status.xml`, o script) e a linha de
+    include no `theme.xml` do tema instalado, que não é versionado aqui.
+  - Risco semântico: se o ES mudar a pasta de temas, o nome da pasta do tema ou parar de rodar o
+    evento `theme-changed` de forma síncrona, o status só volta na abertura seguinte, sem erro
+    visível. Os três pontos (`Paths.cpp`, `ApiSystem::installBatoceraTheme`, `Scripting.cpp`) entram
+    na lista de vigilância.
 - **Upstreamável:** não (depende do lançador do Retroboat).
 
 ## RB-007 — ExoDOS ignora a pasta de jogos configurada (candidato)

@@ -10,6 +10,7 @@ using Retroboat.Integrity;
 using Retroboat.Library;
 using Retroboat.Saves;
 using Retroboat.Text;
+using Retroboat.Themes;
 
 namespace Retroboat.Cli
 {
@@ -50,6 +51,10 @@ Memory cards na nuvem (retroboat\saves no Drive; o emulador gerencia os cartões
 Biblioteca isolada (RB-003):
   retroboat-cli library apply --retrobat <pasta do RetroBat> [--roms <pasta de jogos>] [--dry-run] [--no-folders]
 
+Status do Retroboat nos temas (Carbon e PlayStation-X; volta depois de reinstalar o tema pelo ES):
+  retroboat-cli themes status --retrobat <pasta do RetroBat>
+  retroboat-cli themes apply --retrobat <pasta do RetroBat>
+
 Opções gerais:
   --cloud <pasta>   usa esta pasta como a pasta do Retroboat na nuvem, em vez de detectar o Google Drive";
 
@@ -75,6 +80,8 @@ Opções gerais:
                     case "cloud install": return CloudInstall(options);
                     case "cloud uninstall": return CloudUninstall(options);
                     case "library apply": return LibraryApply(options);
+                    case "themes status": return ThemesApply(options, dryRun: true);
+                    case "themes apply": return ThemesApply(options, dryRun: false);
                     case "bios status": return BiosStatusCommand(options);
                     case "bios sync": return BiosSyncCommand(options, organizeOnly: false);
                     case "bios organize": return BiosSyncCommand(options, organizeOnly: true);
@@ -258,6 +265,23 @@ Opções gerais:
             if (result.GamelistsCreated > 0) Console.WriteLine("  " + result.GamelistsCreated + " gamelists vazios criados em .emulationstation\\gamelists");
             if (result.GamelistsMoved.Count > 0) Console.WriteLine("  gamelists movidos para .emulationstation\\gamelists: " + string.Join(", ", result.GamelistsMoved));
             if (!result.HasChanges) Console.WriteLine("  nada a mudar");
+
+            foreach (var warning in result.Warnings)
+                Console.WriteLine("  AVISO: " + warning);
+
+            return ExitOk;
+        }
+
+        static int ThemesApply(Options options, bool dryRun)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            var result = ThemeOverlays.Apply(install, dryRun: dryRun);
+
+            Console.WriteLine((dryRun ? "[simulação] " : "") + "Temas em " + install.ThemesPath);
+            foreach (var item in result.Applied) Console.WriteLine("  " + (dryRun ? "faltando: " : "") + item);
+            foreach (var name in result.UpToDate) Console.WriteLine("  " + name + ": em dia");
+            if (result.Applied.Count == 0 && result.UpToDate.Count == 0)
+                Console.WriteLine("  nenhum tema suportado instalado (" + string.Join(", ", ThemeOverlays.All.Select(o => o.Folder)) + ")");
 
             foreach (var warning in result.Warnings)
                 Console.WriteLine("  AVISO: " + warning);

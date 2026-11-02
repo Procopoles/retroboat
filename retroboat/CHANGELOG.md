@@ -31,8 +31,10 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
     baixar", em vez de parecer pronto para baixar. Não é tratado como corrompido.
 - RB-017: o tema PlayStation-X ganha o mesmo status: o "Iniciar" do jogo em foco vira JOGAR, BAIXAR
   ou INDISPONÍVEL (visões ps4Style e single), barra de ação na visão detalhada, ícone de status na
-  faixa de ícones de todas as visões em grade e ícone global de nuvem no cabeçalho. Fica num clone
-  local do tema (`..\es-theme-PlayStation-X`); "Atualizar" o tema pelo ES apaga os ajustes.
+  faixa de ícones de todas as visões em grade e ícone global de nuvem no cabeçalho.
+  - O `Retroboat.exe` põe o status de volta no Carbon e no PlayStation-X a cada abertura, e também
+    quando o tema é escolhido no menu do ES. Excluir, reinstalar ou atualizar o tema pelo ES não
+    perde mais os ajustes. Comandos `retroboat-cli themes status | apply`.
 - RB-009 (memory cards do PS2): todo cartão que o PCSX2 usa vai para a nuvem
   (`retroboat\saves\ps2\pcsx2\memcards`). O cartão mais novo é puxado antes do jogo, cada
   gravação é enviada segundos depois e o resto ao fechar. Um cartão mudado em dois PCs abre uma tela

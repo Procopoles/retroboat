@@ -18,6 +18,9 @@ namespace Retroboat.Library
         public string EmulationStationPath => Path.Combine(Root, "emulationstation");
         public string UserEmulationStationPath => Path.Combine(EmulationStationPath, ".emulationstation");
         public string GamelistsPath => Path.Combine(UserEmulationStationPath, "gamelists");
+
+        /// <summary>Pasta dos temas no Windows, onde o instalador de temas do ES também grava (Paths.cpp).</summary>
+        public string ThemesPath => Path.Combine(UserEmulationStationPath, "themes");
         public string EmulatorLauncherConfigPath => Path.Combine(EmulationStationPath, "emulatorLauncher.cfg");
 
         /// <summary>Dados do Retroboat nesta instalação (configuração local do PC, logs).</summary>

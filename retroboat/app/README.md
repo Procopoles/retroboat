@@ -50,6 +50,8 @@ retroboat-cli bios organize [--dry-run]                   só organiza as BIOS s
 retroboat-cli saves status --retrobat <pasta>             memory cards: o que mudou aqui, na nuvem ou nos dois
 retroboat-cli saves sync --retrobat <pasta> [--keep local|cloud]   sincroniza (conflitos só com --keep)
 retroboat-cli saves history <cartão> --retrobat <pasta>   versões do cartão na nuvem
+retroboat-cli themes status --retrobat <pasta>            temas suportados com ou sem o status do Retroboat
+retroboat-cli themes apply --retrobat <pasta>             põe o status de volta nos temas (Carbon, PlayStation-X)
 ```
 
 `--pc NOME` nos comandos `saves` faz a pasta valer como outro PC, para testar dois PCs numa máquina só.
@@ -92,6 +94,29 @@ As capas automáticas não precisam de conta: o lançador procura o nome do arqu
 No-Intro/Redump) nos thumbnails do libretro, guarda a lista de nomes de cada sistema por uma semana
 em `retroboat\cache\libretro` e envia as imagens para o Drive. Descrição e vídeo vêm do scraper do
 ES, que precisa de uma conta gratuita no ScreenScraper (menu Procurar mídias de jogo, aba Contas).
+
+## Status nos temas
+
+O status do Retroboat (JOGAR/BAIXAR, ícone de nuvem no cabeçalho) é um `retroboat\status.xml` dentro
+da pasta do tema mais uma linha de include no `theme.xml` dele. O instalador de temas do ES apaga a
+pasta do tema e baixa o oficial ao instalar, reinstalar ou atualizar, e o status some junto. Por
+isso o app leva os `status.xml` dos temas suportados (Carbon e PlayStation-X, recursos do
+`Retroboat.Core.dll`, em `src\Retroboat.Core\Themes\Overlays`) e os põe de volta:
+
+- **A cada abertura do `Retroboat.exe`**, antes do ES. Lê só o `theme.xml` e o `status.xml` de cada
+  tema suportado (alguns milissegundos) e grava apenas o que falta ou mudou. As imagens, vídeos e
+  músicas do tema não são tocados.
+- **Ao escolher um tema no menu do ES**: o lançador grava
+  `.emulationstation\scripts\theme-changed\retroboat-temas.bat`, que roda `retroboat-cli themes apply`.
+  O ES roda esse evento antes de recarregar o tema.
+
+Um tema reinstalado pelo ES com ele já escolhido fica sem o status até a próxima abertura pelo
+`Retroboat.exe`. Se a versão instalada do PlayStation-X não for a da qual as posições foram copiadas
+(hoje a 43), o status entra mesmo assim e o log avisa para conferir o layout.
+
+Os `status.xml` são editados e testados nos clones dos temas (`..\es-theme-carbon`,
+`..\es-theme-PlayStation-X`) e copiados para cá. O teste `Bundled_overlays_match_the_theme_clones`
+falha se a cópia do app ficar diferente da do clone.
 
 ## Memory cards
 

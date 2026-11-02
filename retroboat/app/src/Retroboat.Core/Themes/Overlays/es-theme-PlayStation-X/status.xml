@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Retroboat (RB-017): status dos jogos e da nuvem no PlayStation-X, no design da Steam (Big Picture).
+É o mesmo status do Carbon do Retroboat (RB-014), encaixado no layout deste tema.
+Tokens e regras: retroboat/design/design-system-steam.md no repositório do Retroboat.
+
+- Seção do jogo:
+  - ps4Style (a visão padrão) e single: o botão "Iniciar" do jogo em foco vira JOGAR (verde),
+    BAIXAR (azul) ou INDISPONÍVEL (cinza), com o status em legenda + valor ao lado;
+  - detailed: barra de ação abaixo da mídia, que fica um pouco menor para a barra caber.
+- Faixa de ícones do jogo (contenedor-iconos) nas visões em grade: grid, ps5Style, carousel,
+  full-grid, ps4Style e single.
+- Cabeçalho: só o estado global da nuvem (o lançador cria retroboat\estado\nuvem-conectada).
+
+O jogo está na nuvem quando o arquivo dele tem 0 bytes (é o marcador que o lançador cria). A
+descrição não serve para isso: o scraper do ES a troca. "Corrompido" vem da descrição, que só o
+lançador escreve. Sem o arquivo nuvem-conectada (Drive fechado), o jogo da nuvem aparece com BAIXAR
+desativado e "Abra o Google Drive para baixar": não dá para baixar agora, mas não é defeito.
+
+Diferenças em relação ao Carbon:
+- Fonte SST, a do tema, no lugar da Cabin.
+- Alerta de "corrompido" com o glifo F06A: o tema troca o F071 por uma imagem própria
+  (resources/fontoverrides), que ignora a cor.
+- As visões personalizadas herdam de grid/detailed só o que existe quando elas são lidas. O que
+  este arquivo põe em <view name="grid|detailed"> chega a elas porque o ES repassa a definição às
+  visões que herdam; o que é de uma visão só vai em <customView name="...">.
+
+Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
+-->
+<theme>
+  <formatVersion>7</formatVersion>
+  <variables>
+    <rbGame>(!{game:folder} &amp;&amp; !{game:placeholder})</rbGame>
+    <rbMarker>(filesize({game:path}) == 0 &amp;&amp; !isdirectory({game:path}))</rbMarker>
+    <rbCorrupt>(startswith({game:desc}, "Corrompido na nuvem"))</rbCorrupt>
+  </variables>
+
+  <!-- Cabeçalho: estado global da nuvem, entre "★ 2026" e o relógio. Nas telas mais quadradas o tema
+       esconde o "★ 2026" e o troféu encosta no relógio; ali o ícone sobe para a linha do "v.43", entre o
+       netplay e o avatar. É estado global, então vai em if= (avaliado ao carregar o tema): <visible> sem
+       variável {...} é lido como true/false. -->
+  <view name="system, detailed, grid">
+    <text name="rbCloudOnline" extra="true" if='exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+      <text>&#xF0C2;</text>
+      <pos>0.9285 0.066</pos>
+      <pos ifSubset="aspect-ratio:16-10|5-3">0.934 0.066</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4|3-2">0.604 0.028</pos>
+      <origin>0.5 0.5</origin>
+      <size>0.035 0.05</size>
+      <alignment>center</alignment>
+      <fontSize>0.03</fontSize>
+      <fontSize ifSubset="aspect-ratio:4-3|5-4|3-2">0.026</fontSize>
+      <color>DCDEDF</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+    <text name="rbCloudOffline" extra="true" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+      <text>&#xF0C2;</text>
+      <pos>0.9285 0.066</pos>
+      <pos ifSubset="aspect-ratio:16-10|5-3">0.934 0.066</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4|3-2">0.604 0.028</pos>
+      <origin>0.5 0.5</origin>
+      <size>0.035 0.05</size>
+      <alignment>center</alignment>
+      <fontSize>0.03</fontSize>
+      <fontSize ifSubset="aspect-ratio:4-3|5-4|3-2">0.026</fontSize>
+      <color>67707B</color>
+      <opacity>0.6</opacity>
+      <zIndex>99</zIndex>
+    </text>
+  </view>
+
+  <!-- Faixa de ícones do jogo: selo de status no fim, depois dos ícones do tema. Chega a todas as
+       visões que herdam de grid (ps4Style, ps5Style, carousel, full-grid, single). -->
+  <view name="grid">
+    <stackpanel name="contenedor-iconos" ifSubset="info-bar:YES">
+      <text name="rbBadgeSeparator">
+        <text>•</text>
+        <fontSize>0.022</fontSize>
+        <color>FFFFFF</color>
+        <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+        <visible>${rbGame}</visible>
+      </text>
+      <text name="rbBadgeCloud" if='exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+        <text>&#xF0ED;</text>
+        <fontSize>0.028</fontSize>
+        <color>1A9FFF</color>
+        <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      </text>
+      <!-- Drive fechado: o jogo continua na nuvem, só não dá para baixar agora (não é defeito). -->
+      <text name="rbBadgeCloudOffline" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+        <text>&#xF0ED;</text>
+        <fontSize>0.028</fontSize>
+        <color>67707B</color>
+        <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      </text>
+      <text name="rbBadgeInstalled">
+        <text>&#xF058;</text>
+        <fontSize>0.028</fontSize>
+        <color>59BF40</color>
+        <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      </text>
+      <text name="rbBadgeCorrupt">
+        <text>&#xF06A;</text>
+        <fontSize>0.028</fontSize>
+        <color>E5484D</color>
+        <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      </text>
+    </stackpanel>
+  </view>
+
+  <!-- ps4Style: o "Iniciar" sob o jogo em foco vira o botão de ação; legenda + valor sob o nome.
+       O botão ocupa o mesmo retângulo do "Iniciar", que fica só para pastas. -->
+  <customView name="ps4Style">
+    <text name="start">
+      <visible>{system:total} &gt; 0 &amp;&amp; !${rbGame}</visible>
+    </text>
+
+    <image name="rbPlayButton, rbDownloadButton, rbUnavailableButton" extra="true">
+      <path>${themePath}/_theme_inc/images/pixel-blanco.png</path>
+      <pos>0.165 0.424</pos>
+      <size>0.16 0.05</size>
+      <size ifSubset="aspect-ratio:4-3">0.216 0.05</size>
+      <size ifSubset="aspect-ratio:5-4">0.230 0.05</size>
+      <size ifSubset="aspect-ratio:16-10">0.178 0.05</size>
+      <size ifSubset="aspect-ratio:3-2">0.192 0.05</size>
+      <size ifSubset="aspect-ratio:5-3">0.173 0.05</size>
+      <size ifSubset="aspect-ratio:21-9">0.12 0.05</size>
+      <zIndex>59</zIndex>
+    </image>
+    <text name="rbPlayLabel, rbDownloadLabel, rbUnavailableLabel" extra="true">
+      <pos>0.165 0.424</pos>
+      <size>0.16 0.05</size>
+      <size ifSubset="aspect-ratio:4-3">0.216 0.05</size>
+      <size ifSubset="aspect-ratio:5-4">0.230 0.05</size>
+      <size ifSubset="aspect-ratio:16-10">0.178 0.05</size>
+      <size ifSubset="aspect-ratio:3-2">0.192 0.05</size>
+      <size ifSubset="aspect-ratio:5-3">0.173 0.05</size>
+      <size ifSubset="aspect-ratio:21-9">0.12 0.05</size>
+      <alignment>center</alignment>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+      <fontSize>0.024</fontSize>
+      <color>FFFFFF</color>
+      <zIndex>59</zIndex>
+    </text>
+    <text name="rbPlayCaption, rbDownloadCaption, rbUnavailableCaption" extra="true">
+      <pos>0.335 0.501</pos>
+      <x ifSubset="aspect-ratio:4-3">0.390</x>
+      <x ifSubset="aspect-ratio:5-4">0.405</x>
+      <x ifSubset="aspect-ratio:16-10">0.352</x>
+      <x ifSubset="aspect-ratio:3-2">0.365</x>
+      <x ifSubset="aspect-ratio:5-3">0.35</x>
+      <x ifSubset="aspect-ratio:21-9">0.29</x>
+      <size>0.5 0.028</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>B8BCBF</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+    <text name="rbPlayValue, rbDownloadValue, rbUnavailableValue" extra="true">
+      <pos>0.335 0.529</pos>
+      <x ifSubset="aspect-ratio:4-3">0.390</x>
+      <x ifSubset="aspect-ratio:5-4">0.405</x>
+      <x ifSubset="aspect-ratio:16-10">0.352</x>
+      <x ifSubset="aspect-ratio:3-2">0.365</x>
+      <x ifSubset="aspect-ratio:5-3">0.35</x>
+      <x ifSubset="aspect-ratio:21-9">0.29</x>
+      <size>0.5 0.034</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Roman.ttf</fontPath>
+      <fontSize>0.021</fontSize>
+      <color>DCDEDF</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+  </customView>
+
+  <!-- single: o "Iniciar" acima do nome vira o botão de ação; legenda + valor à direita dele. -->
+  <customView name="single">
+    <text name="start-single">
+      <visible>{system:total} &gt; 0 &amp;&amp; !${rbGame}</visible>
+    </text>
+
+    <image name="rbPlayButton, rbDownloadButton, rbUnavailableButton" extra="true">
+      <path>${themePath}/_theme_inc/images/pixel-blanco.png</path>
+      <pos>0.025 0.31</pos>
+      <size>0.13 0.055</size>
+      <size ifSubset="aspect-ratio:4-3|5-4">0.15 0.055</size>
+      <roundCorners>3</roundCorners>
+      <zIndex>59</zIndex>
+    </image>
+    <text name="rbPlayLabel, rbDownloadLabel, rbUnavailableLabel" extra="true">
+      <pos>0.025 0.31</pos>
+      <size>0.13 0.055</size>
+      <size ifSubset="aspect-ratio:4-3|5-4">0.15 0.055</size>
+      <alignment>center</alignment>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+      <fontSize>0.024</fontSize>
+      <color>FFFFFF</color>
+      <zIndex>59</zIndex>
+    </text>
+    <text name="rbPlayCaption, rbDownloadCaption, rbUnavailableCaption" extra="true">
+      <pos>0.17 0.311</pos>
+      <x ifSubset="aspect-ratio:4-3|5-4">0.19</x>
+      <size>0.5 0.026</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>B8BCBF</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+    <text name="rbPlayValue, rbDownloadValue, rbUnavailableValue" extra="true">
+      <pos>0.17 0.335</pos>
+      <x ifSubset="aspect-ratio:4-3|5-4">0.19</x>
+      <size>0.5 0.032</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Roman.ttf</fontPath>
+      <fontSize>0.021</fontSize>
+      <color>DCDEDF</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+  </customView>
+
+  <!-- detailed: mídia um pouco menor e barra de ação embaixo dela, antes das linhas de informação. -->
+  <view name="detailed">
+    <image name="image-detailed, thumbnail-detailed, marquee-detailed, boxart-detailed, cartridge-detailed, fanart-detailed, titleshot-detailed, boxback-detailed">
+      <pos>0.76 0.365</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.76 0.30</pos>
+    </image>
+    <image name="image-detailed, thumbnail-detailed, boxart-detailed, titleshot-detailed, fanart-detailed, boxback-detailed">
+      <maxSize>0.42 0.48</maxSize>
+      <maxSize ifSubset="aspect-ratio:4-3|5-4">0.42 0.34</maxSize>
+    </image>
+    <video name="game-video" ifSubset="game-video:window|inside|default">
+      <pos>0.76 0.365</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.76 0.30</pos>
+      <maxSize>0.42 0.48</maxSize>
+      <maxSize ifSubset="aspect-ratio:4-3|5-4">0.42 0.34</maxSize>
+    </video>
+
+    <image name="rbActionBar" extra="true">
+      <visible>${rbGame}</visible>
+      <path>${themePath}/_theme_inc/images/pixel-blanco.png</path>
+      <color>23262ED9</color>
+      <roundCorners>4</roundCorners>
+      <pos>0.55 0.615</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.55 0.478</pos>
+      <size>0.42 0.07</size>
+      <zIndex>92</zIndex>
+    </image>
+    <image name="rbPlayButton, rbDownloadButton, rbUnavailableButton" extra="true">
+      <path>${themePath}/_theme_inc/images/pixel-blanco.png</path>
+      <roundCorners>3</roundCorners>
+      <pos>0.557 0.65</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.557 0.513</pos>
+      <origin>0 0.5</origin>
+      <size>0.12 0.048</size>
+      <size ifSubset="aspect-ratio:4-3|5-4">0.14 0.048</size>
+      <zIndex>93</zIndex>
+    </image>
+    <text name="rbPlayLabel, rbDownloadLabel, rbUnavailableLabel" extra="true">
+      <pos>0.557 0.65</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.557 0.513</pos>
+      <origin>0 0.5</origin>
+      <size>0.12 0.048</size>
+      <size ifSubset="aspect-ratio:4-3|5-4">0.14 0.048</size>
+      <alignment>center</alignment>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+      <fontSize>0.024</fontSize>
+      <color>FFFFFF</color>
+      <zIndex>94</zIndex>
+    </text>
+    <text name="rbPlayCaption, rbDownloadCaption, rbUnavailableCaption" extra="true">
+      <pos>0.69 0.634</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.71 0.497</pos>
+      <origin>0 0.5</origin>
+      <size>0.27 0.028</size>
+      <size ifSubset="aspect-ratio:4-3|5-4">0.26 0.028</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>8B929A</color>
+      <zIndex>94</zIndex>
+    </text>
+    <text name="rbPlayValue, rbDownloadValue, rbUnavailableValue" extra="true">
+      <pos>0.69 0.664</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.71 0.527</pos>
+      <origin>0 0.5</origin>
+      <size>0.27 0.032</size>
+      <size ifSubset="aspect-ratio:4-3|5-4">0.26 0.032</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Roman.ttf</fontPath>
+      <fontSize>0.02</fontSize>
+      <fontSize ifSubset="aspect-ratio:4-3|5-4">0.018</fontSize>
+      <color>DCDEDF</color>
+      <zIndex>94</zIndex>
+    </text>
+  </view>
+
+  <!-- test-medias (o testador de mídia do tema) herda de detailed e recebe o que está acima: a mídia
+       e o vídeo voltam para o lugar dele, e a barra de ação some. -->
+  <customView name="test-medias">
+    <image name="image-detailed, thumbnail-detailed, marquee-detailed, boxart-detailed, cartridge-detailed, fanart-detailed, titleshot-detailed, boxback-detailed">
+      <pos>-2 -2</pos>
+    </image>
+    <video name="game-video" ifSubset="game-video:window|inside|default">
+      <pos>0.32 0.29</pos>
+      <maxSize>0.2 0.25</maxSize>
+    </video>
+    <image name="rbActionBar, rbPlayButton, rbDownloadButton, rbUnavailableButton" extra="true">
+      <visible>false</visible>
+    </image>
+    <text name="rbPlayLabel, rbDownloadLabel, rbUnavailableLabel, rbPlayCaption, rbDownloadCaption, rbUnavailableCaption, rbPlayValue, rbDownloadValue, rbUnavailableValue" extra="true">
+      <visible>false</visible>
+    </text>
+  </customView>
+
+  <!-- Estados do botão (cor, rótulo, legenda e valor), iguais nas três visões que têm o botão.
+       Com vírgula e sem inherits, o ES aplica o bloco só às visões listadas que já existem, sem
+       repassar às que herdam delas (test-medias continua sem o botão). -->
+  <customView name="detailed, ps4Style, single">
+    <!-- Instalado: JOGAR -->
+    <image name="rbPlayButton" extra="true">
+      <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      <color>50C82F</color>
+      <colorEnd>18B14E</colorEnd>
+      <gradientType>horizontal</gradientType>
+    </image>
+    <text name="rbPlayLabel" extra="true">
+      <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      <text>&#xF04B;  JOGAR</text>
+    </text>
+    <text name="rbPlayCaption" extra="true">
+      <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      <text>INSTALADO</text>
+    </text>
+    <text name="rbPlayValue" extra="true">
+      <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      <text>Pronto para jogar neste PC</text>
+    </text>
+
+    <!-- Na nuvem: BAIXAR -->
+    <image name="rbDownloadButton" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <color>3A9BED</color>
+      <colorEnd>235DCE</colorEnd>
+      <gradientType>horizontal</gradientType>
+    </image>
+    <text name="rbDownloadLabel" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <text>&#xF019;  BAIXAR</text>
+    </text>
+    <text name="rbDownloadCaption" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <text>NA NUVEM</text>
+    </text>
+    <text name="rbDownloadValue" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <text>Baixa na primeira vez que você jogar</text>
+    </text>
+
+    <!-- Corrompido na nuvem: INDISPONÍVEL -->
+    <image name="rbUnavailableButton" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      <color>2E3136</color>
+    </image>
+    <text name="rbUnavailableLabel" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      <text>&#xF06A;  INDISPONÍVEL</text>
+      <fontSize>0.02</fontSize>
+      <color>FFFFFF80</color>
+    </text>
+    <text name="rbUnavailableCaption" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      <text>CORROMPIDO NA NUVEM</text>
+      <color>E5484D</color>
+    </text>
+    <text name="rbUnavailableValue" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      <text>Troque o arquivo no Drive</text>
+    </text>
+  </customView>
+
+  <!-- Drive fechado (o lançador não achou o Google Drive): o jogo da nuvem não dá para baixar agora.
+       Não é defeito, então nada de vermelho: BAIXAR desativado e um aviso de como resolver. -->
+  <customView name="detailed, ps4Style, single" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+    <image name="rbDownloadButton" extra="true">
+      <color>2E3136</color>
+      <colorEnd>2E3136</colorEnd>
+    </image>
+    <text name="rbDownloadLabel" extra="true">
+      <color>FFFFFF80</color>
+    </text>
+    <text name="rbDownloadCaption" extra="true">
+      <text>NA NUVEM · DRIVE FECHADO</text>
+      <color>FFC82C</color>
+    </text>
+    <text name="rbDownloadValue" extra="true">
+      <text>Abra o Google Drive para baixar</text>
+    </text>
+  </customView>
+</theme>

@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Retroboat (RB-014): status dos jogos e da nuvem, no design da Steam (Big Picture).
+Tokens e regras: retroboat/design/design-system-steam.md no repositório do Retroboat.
+
+- Seção do jogo, visão detalhada: barra de ação abaixo da mídia, com o botão
+  JOGAR (verde), BAIXAR (azul) ou INDISPONÍVEL (cinza) e o status em legenda + valor.
+- Faixa de informações das visões em grade: ícone de status do jogo.
+- Cabeçalho: só o estado global da nuvem (o lançador cria retroboat\estado\nuvem-conectada).
+
+O jogo está na nuvem quando o arquivo dele tem 0 bytes (é o marcador que o lançador cria). A
+descrição não serve para isso: o scraper do ES a troca. "Corrompido" vem da descrição, que só o
+lançador escreve. Sem o arquivo nuvem-conectada (Drive fechado), o jogo da nuvem aparece com BAIXAR
+desativado e "Abra o Google Drive para baixar": não dá para baixar agora, mas não é defeito.
+
+Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
+-->
+<theme>
+  <formatVersion>7</formatVersion>
+  <variables>
+    <rbGame>(!{game:folder} &amp;&amp; !{game:placeholder})</rbGame>
+    <rbMarker>(filesize({game:path}) == 0 &amp;&amp; !isdirectory({game:path}))</rbMarker>
+    <rbCorrupt>(startswith({game:desc}, "Corrompido na nuvem"))</rbCorrupt>
+  </variables>
+
+  <!-- Cabeçalho: estado global da nuvem, ao lado da bateria. É estado global, então vai em if= (avaliado
+       ao carregar o tema): <visible> sem variável {...} é lido como true/false e não como expressão. -->
+  <view name="system,basic,detailed,grid,gamecarousel">
+    <text name="rbCloudOnline" extra="true" if='exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+      <text>&#xF0C2;</text>
+      <pos>0.935 0.026</pos>
+      <origin>1 0.5</origin>
+      <size>0.04 0.04</size>
+      <alignment>right</alignment>
+      <fontSize>0.026</fontSize>
+      <color>DCDEDF</color>
+      <zIndex>101</zIndex>
+    </text>
+    <text name="rbCloudOffline" extra="true" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+      <text>&#xF0C2;</text>
+      <pos>0.935 0.026</pos>
+      <origin>1 0.5</origin>
+      <size>0.04 0.04</size>
+      <alignment>right</alignment>
+      <fontSize>0.026</fontSize>
+      <color>67707B</color>
+      <opacity>0.6</opacity>
+      <zIndex>101</zIndex>
+    </text>
+  </view>
+
+  <!-- Seção do jogo (visão detalhada): mídia um pouco menor para a barra de ação caber embaixo. -->
+  <view name="detailed">
+    <video name="md_video">
+      <pos>0.74 0.405</pos>
+      <maxSize>0.39 0.45</maxSize>
+    </video>
+    <image name="md_image">
+      <pos>0.74 0.405</pos>
+      <maxSize>0.39 0.45</maxSize>
+    </image>
+
+    <image name="rbActionBar" extra="true">
+      <visible>${rbGame}</visible>
+      <path>./../art/white.png</path>
+      <color>23262ED9</color>
+      <roundCorners>4</roundCorners>
+      <pos>0.545 0.645</pos>
+      <size>0.39 0.07</size>
+      <zIndex>35</zIndex>
+    </image>
+
+    <!-- Instalado: JOGAR -->
+    <image name="rbPlayButton" extra="true">
+      <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      <path>./../art/white.png</path>
+      <color>50C82F</color>
+      <colorEnd>18B14E</colorEnd>
+      <gradientType>horizontal</gradientType>
+      <roundCorners>3</roundCorners>
+      <pos>0.553 0.68</pos>
+      <origin>0 0.5</origin>
+      <size>0.115 0.048</size>
+      <zIndex>36</zIndex>
+    </image>
+    <text name="rbPlayLabel" extra="true">
+      <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      <text>&#xF04B;  JOGAR</text>
+      <pos>0.553 0.68</pos>
+      <origin>0 0.5</origin>
+      <size>0.115 0.048</size>
+      <alignment>center</alignment>
+      <fontPath>./../art/fonts/Cabin-Bold.ttf</fontPath>
+      <fontSize>0.024</fontSize>
+      <color>FFFFFF</color>
+      <zIndex>37</zIndex>
+    </text>
+    <text name="rbPlayCaption" extra="true">
+      <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      <text>INSTALADO</text>
+      <pos>0.68 0.663</pos>
+      <origin>0 0.5</origin>
+      <size>0.25 0.03</size>
+      <fontPath>./../art/fonts/Cabin-Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>8B929A</color>
+      <zIndex>37</zIndex>
+    </text>
+    <text name="rbPlayValue" extra="true">
+      <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      <text>Pronto para jogar neste PC</text>
+      <pos>0.68 0.694</pos>
+      <origin>0 0.5</origin>
+      <size>0.25 0.035</size>
+      <fontPath>./../art/fonts/Cabin-Regular.ttf</fontPath>
+      <fontSize>0.02</fontSize>
+      <color>DCDEDF</color>
+      <zIndex>37</zIndex>
+    </text>
+
+    <!-- Na nuvem: BAIXAR -->
+    <image name="rbDownloadButton" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <path>./../art/white.png</path>
+      <color>3A9BED</color>
+      <colorEnd>235DCE</colorEnd>
+      <gradientType>horizontal</gradientType>
+      <roundCorners>3</roundCorners>
+      <pos>0.553 0.68</pos>
+      <origin>0 0.5</origin>
+      <size>0.115 0.048</size>
+      <zIndex>36</zIndex>
+    </image>
+    <text name="rbDownloadLabel" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <text>&#xF019;  BAIXAR</text>
+      <pos>0.553 0.68</pos>
+      <origin>0 0.5</origin>
+      <size>0.115 0.048</size>
+      <alignment>center</alignment>
+      <fontPath>./../art/fonts/Cabin-Bold.ttf</fontPath>
+      <fontSize>0.024</fontSize>
+      <color>FFFFFF</color>
+      <zIndex>37</zIndex>
+    </text>
+    <text name="rbDownloadCaption" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <text>NA NUVEM</text>
+      <pos>0.68 0.663</pos>
+      <origin>0 0.5</origin>
+      <size>0.25 0.03</size>
+      <fontPath>./../art/fonts/Cabin-Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>8B929A</color>
+      <zIndex>37</zIndex>
+    </text>
+    <text name="rbDownloadValue" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <text>Baixa na primeira vez que você jogar</text>
+      <pos>0.68 0.694</pos>
+      <origin>0 0.5</origin>
+      <size>0.25 0.035</size>
+      <fontPath>./../art/fonts/Cabin-Regular.ttf</fontPath>
+      <fontSize>0.02</fontSize>
+      <color>DCDEDF</color>
+      <zIndex>37</zIndex>
+    </text>
+
+    <!-- Corrompido na nuvem: INDISPONÍVEL -->
+    <image name="rbUnavailableButton" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      <path>./../art/white.png</path>
+      <color>2E3136</color>
+      <roundCorners>3</roundCorners>
+      <pos>0.553 0.68</pos>
+      <origin>0 0.5</origin>
+      <size>0.115 0.048</size>
+      <zIndex>36</zIndex>
+    </image>
+    <text name="rbUnavailableLabel" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      <text>&#xF071;  INDISPONÍVEL</text>
+      <pos>0.553 0.68</pos>
+      <origin>0 0.5</origin>
+      <size>0.115 0.048</size>
+      <alignment>center</alignment>
+      <fontPath>./../art/fonts/Cabin-Bold.ttf</fontPath>
+      <fontSize>0.02</fontSize>
+      <color>FFFFFF80</color>
+      <zIndex>37</zIndex>
+    </text>
+    <text name="rbUnavailableCaption" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      <text>CORROMPIDO NA NUVEM</text>
+      <pos>0.68 0.663</pos>
+      <origin>0 0.5</origin>
+      <size>0.25 0.03</size>
+      <fontPath>./../art/fonts/Cabin-Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>E5484D</color>
+      <zIndex>37</zIndex>
+    </text>
+    <text name="rbUnavailableValue" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      <text>Troque o arquivo no Drive</text>
+      <pos>0.68 0.694</pos>
+      <origin>0 0.5</origin>
+      <size>0.25 0.035</size>
+      <fontPath>./../art/fonts/Cabin-Regular.ttf</fontPath>
+      <fontSize>0.02</fontSize>
+      <color>DCDEDF</color>
+      <zIndex>37</zIndex>
+    </text>
+  </view>
+
+  <!-- Drive fechado (o lançador não achou o Google Drive): o jogo da nuvem não dá para baixar agora.
+       Não é defeito, então nada de vermelho: BAIXAR desativado e um aviso de como resolver. -->
+  <view name="detailed" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+    <image name="rbDownloadButton" extra="true">
+      <color>2E3136</color>
+      <colorEnd>2E3136</colorEnd>
+    </image>
+    <text name="rbDownloadLabel" extra="true">
+      <color>FFFFFF80</color>
+    </text>
+    <text name="rbDownloadCaption" extra="true">
+      <text>NA NUVEM · DRIVE FECHADO</text>
+      <color>FFC82C</color>
+    </text>
+    <text name="rbDownloadValue" extra="true">
+      <text>Abra o Google Drive para baixar</text>
+    </text>
+  </view>
+
+  <!-- Visões em grade e carrossel: ícone de status na faixa de informações do jogo. -->
+  <view name="grid,gamecarousel">
+    <text name="rbBadgeCloud" extra="true" ifSubset="gameBar:yes">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <text>&#xF0ED;</text>
+      <pos>0.976 0.635</pos>
+      <origin>0.5 0.5</origin>
+      <size>0.04 0.04</size>
+      <alignment>center</alignment>
+      <fontSize>0.03</fontSize>
+      <color>1A9FFF</color>
+      <zIndex>15</zIndex>
+    </text>
+    <text name="rbBadgeInstalled" extra="true" ifSubset="gameBar:yes">
+      <visible>${rbGame} &amp;&amp; !${rbMarker}</visible>
+      <text>&#xF058;</text>
+      <pos>0.976 0.635</pos>
+      <origin>0.5 0.5</origin>
+      <size>0.04 0.04</size>
+      <alignment>center</alignment>
+      <fontSize>0.03</fontSize>
+      <color>59BF40</color>
+      <zIndex>15</zIndex>
+    </text>
+    <text name="rbBadgeCorrupt" extra="true" ifSubset="gameBar:yes">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; ${rbCorrupt}</visible>
+      <text>&#xF071;</text>
+      <pos>0.976 0.635</pos>
+      <origin>0.5 0.5</origin>
+      <size>0.04 0.04</size>
+      <alignment>center</alignment>
+      <fontSize>0.03</fontSize>
+      <color>E5484D</color>
+      <zIndex>15</zIndex>
+    </text>
+  </view>
+  <view name="grid,gamecarousel" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+    <text name="rbBadgeCloud" extra="true" ifSubset="gameBar:yes">
+      <color>67707B</color>
+    </text>
+  </view>
+</theme>
