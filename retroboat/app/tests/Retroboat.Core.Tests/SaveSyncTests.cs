@@ -457,6 +457,45 @@ namespace Retroboat.Tests
             }
         }
 
+        /// <summary>Cartão que o PCSX2 acabou de criar: memória "apagada", toda em 0xFF, ainda sem formatar.</summary>
+        static byte[] BlankNewCard() => Enumerable.Repeat((byte)0xFF, 1024 * 2 * 528).ToArray();
+
+        [Fact]
+        public void Blank_new_card_is_not_damaged_and_waits_for_the_first_save()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, BlankNewCard());
+
+                var result = pcs.PcA().Sync();
+
+                Assert.Empty(result.Uploaded);
+                Assert.Empty(result.DamagedHere);
+                Assert.Equal(new[] { Card }, result.BlankNew);
+                Assert.Contains(pcs.PcA().Plan(), p => p.LocalBlankNew && p.LocalProblem == null);
+
+                pcs.Write(pcs.CardA, Content(1)); // o jogo formatou o cartão e gravou
+                Assert.Equal(new[] { Card }, pcs.PcA().Sync().Uploaded);
+            }
+        }
+
+        [Fact]
+        public void Blank_new_card_on_a_new_pc_gets_the_card_from_the_cloud()
+        {
+            using (var pcs = new TwoPcs())
+            {
+                pcs.Write(pcs.CardA, Content(1));
+                pcs.PcA().Sync();
+                pcs.Write(pcs.CardB, BlankNewCard());
+
+                var result = pcs.PcB().Sync();
+
+                Assert.Equal(new[] { Card }, result.Downloaded);
+                Assert.Empty(result.Repaired);
+                Assert.Equal(Content(1), File.ReadAllBytes(pcs.CardB));
+            }
+        }
+
         [Fact]
         public void Damaged_card_with_nothing_in_the_cloud_is_kept_and_reported()
         {

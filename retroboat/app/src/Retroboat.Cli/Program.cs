@@ -318,7 +318,8 @@ Opções gerais:
                     Console.WriteLine(string.Format("  {0,-14} {1}{2}{3}{4}", plan.Action, plan.Name,
                         plan.Cloud != null ? "   nuvem: " + plan.Cloud.TimeUtc.ToLocalTime().ToString("dd/MM HH:mm:ss") + " " + plan.Cloud.Pc + (plan.Cloud.Deleted ? " (apagado)" : "") : "   (não está na nuvem)",
                         plan.WaitingFor != null ? "   aguardando " + plan.WaitingFor : "",
-                        plan.LocalProblem != null ? "   DANIFICADO neste PC: " + plan.LocalProblem : ""));
+                        plan.LocalProblem != null ? "   DANIFICADO neste PC: " + plan.LocalProblem
+                        : plan.LocalBlankNew ? "   em branco (sem formatar; vai para a nuvem no primeiro save)" : ""));
                 }
 
                 foreach (var item in sync.UnsupportedItems())

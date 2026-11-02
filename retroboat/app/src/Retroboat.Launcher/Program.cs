@@ -239,6 +239,7 @@ namespace Retroboat.Launcher
                 foreach (var item in report.Saves.Waiting) Log.Info("Memory card aguardando a versão de outro PC: " + item);
                 foreach (var item in report.Saves.Repaired) Log.Warn("Memory card consertado: " + item);
                 foreach (var item in report.Saves.DamagedHere.Concat(report.Saves.DamagedInCloud)) Log.Warn("Memory card: " + item);
+                foreach (var item in report.Saves.BlankNew) Log.Info("Memory card em branco, ainda sem save (vai para a nuvem no primeiro save): " + item);
                 foreach (var item in report.Saves.Skipped) Log.Warn("Memory card não sincronizado: " + item);
                 foreach (var problem in report.Saves.Errors) Log.Warn("Memory cards: " + problem);
             }

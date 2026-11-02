@@ -51,6 +51,8 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   - Uma versão danificada na nuvem é pulada.
   - A pasta sumindo no meio do jogo não apaga nada na nuvem.
   - `saves verify` confere tudo e `saves restore` volta qualquer cópia guardada.
+  - Um cartão novo que o PCSX2 criou em branco não é mais chamado de danificado: fica fora da nuvem até
+    o primeiro save, e num PC novo recebe o cartão da nuvem.
 - Design system do Retroboat (`design/design-system-steam.md`), com base no Steam Big Picture e
   nos tokens do próprio cliente Steam.
 

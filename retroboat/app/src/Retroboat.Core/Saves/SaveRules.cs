@@ -45,6 +45,12 @@ namespace Retroboat.Saves
         /// </summary>
         public Func<byte[], string> Validate { get; set; }
 
+        /// <summary>
+        /// Arquivo novo que o emulador criou em branco (ex.: memory card sem formatar): não tem save, então não
+        /// vai para a nuvem, mas também não é danificado. Sem isso, um cartão em branco seria tratado como defeito.
+        /// </summary>
+        public Func<byte[], bool> IsBlankNew { get; set; }
+
         public bool AppliesTo(string system, string emulator)
         {
             return string.Equals(System, system, StringComparison.OrdinalIgnoreCase)
@@ -61,7 +67,8 @@ namespace Retroboat.Saves
         /// </summary>
         public static readonly SaveRule Pcsx2MemoryCards = new SaveRule("ps2", "PlayStation 2", "memory card", @"ps2\pcsx2\memcards", "*.ps2", "pcsx2")
         {
-            Validate = Ps2MemoryCard.Validate
+            Validate = Ps2MemoryCard.Validate,
+            IsBlankNew = Ps2MemoryCard.IsUnformatted
         };
 
         public static readonly IReadOnlyList<SaveRule> All = new[] { Pcsx2MemoryCards };

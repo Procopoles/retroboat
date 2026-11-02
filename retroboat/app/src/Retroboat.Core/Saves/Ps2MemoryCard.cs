@@ -18,6 +18,24 @@ namespace Retroboat.Saves
         const ushort DirExists = 0x8000;
         const ushort DirDirectory = 0x0020;
 
+        /// <summary>
+        /// Cartão novo que o PCSX2 criou e nenhum jogo formatou: a memória "apagada", toda em 0xFF. Não é
+        /// defeito; o jogo formata o cartão no primeiro save.
+        /// </summary>
+        public static bool IsUnformatted(byte[] data)
+        {
+            if (data.Length < 0x200)
+                return false;
+
+            foreach (var b in data)
+            {
+                if (b != 0xFF)
+                    return false;
+            }
+
+            return true;
+        }
+
         /// <returns>Nulo se o cartão está inteiro; senão, o motivo.</returns>
         public static string Validate(byte[] data)
         {

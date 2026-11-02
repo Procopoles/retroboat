@@ -94,6 +94,9 @@ namespace Retroboat.Saves
         /// <summary>Por que a cópia deste PC não serve (danificada); nulo se está boa ou não foi conferida.</summary>
         public string LocalProblem { get; set; }
 
+        /// <summary>A cópia deste PC é nova e está em branco (memory card sem formatar): não tem save.</summary>
+        public bool LocalBlankNew { get; set; }
+
         public bool LocalExists => LocalSha1 != null;
 
         public override string ToString() => Name + ": " + Action;
@@ -159,6 +162,9 @@ namespace Retroboat.Saves
         /// <summary>Cópia deste PC danificada que não deu para consertar (a nuvem não tem versão boa).</summary>
         public List<string> DamagedHere { get; } = new List<string>();
 
+        /// <summary>Cartões novos em branco (sem formatar), que ficam fora da nuvem até o primeiro save.</summary>
+        public List<string> BlankNew { get; } = new List<string>();
+
         /// <summary>Versões danificadas na nuvem, puladas.</summary>
         public List<string> DamagedInCloud { get; } = new List<string>();
         public List<string> Errors { get; } = new List<string>();
@@ -177,6 +183,7 @@ namespace Retroboat.Saves
             Repaired.AddRange(other.Repaired);
             DamagedHere.AddRange(other.DamagedHere);
             DamagedInCloud.AddRange(other.DamagedInCloud);
+            BlankNew.AddRange(other.BlankNew);
             Errors.AddRange(other.Errors);
         }
     }
@@ -287,7 +294,9 @@ namespace Retroboat.Saves
                     // Só o que mudou desde a última sincronização é conferido; o resto já estava bom quando foi sincronizado.
                     var data = ReadShared(local.FullName);
                     plan.LocalSha1 = Sha1(data);
-                    if (synced == null || synced.Deleted || plan.LocalSha1 != synced.Sha1)
+                    if (Rule.IsBlankNew?.Invoke(data) == true)
+                        plan.LocalBlankNew = true;
+                    else if (synced == null || synced.Deleted || plan.LocalSha1 != synced.Sha1)
                         plan.LocalProblem = Problem(data);
                 }
             }
@@ -309,6 +318,14 @@ namespace Retroboat.Saves
             bool basePresent = synced != null && !synced.Deleted;
             bool cloudChanged = !string.Equals(plan.Cloud?.Id, synced?.Version, StringComparison.Ordinal);
             bool cloudHasData = plan.Cloud != null && !plan.Cloud.Deleted;
+
+            if (plan.LocalBlankNew)
+            {
+                // Em branco não tem save para enviar. Se a nuvem tem o cartão (ex.: o emulador criou um novo neste PC
+                // antes da primeira sincronização), ele vem para cá; o em branco fica no histórico.
+                plan.Action = cloudHasData ? SaveAction.Download : SaveAction.None;
+                return plan;
+            }
 
             if (!plan.LocalExists && basePresent)
             {
@@ -364,7 +381,9 @@ namespace Retroboat.Saves
                     switch (plan.Action)
                     {
                         case SaveAction.None:
-                            if (plan.LocalProblem != null)
+                            if (plan.LocalBlankNew)
+                                result.BlankNew.Add(plan.Name);
+                            else if (plan.LocalProblem != null)
                                 result.DamagedHere.Add(plan.Name + ": danificado neste PC (" + plan.LocalProblem + "); não enviado, e a nuvem não tem uma versão para pôr no lugar");
                             break;
 

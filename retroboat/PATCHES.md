@@ -191,6 +191,11 @@ o histórico.
   - `.bak` do estado de sincronização.
   - `saves verify`, `saves history` com o estado de cada cópia, e `saves restore`.
   - Testado com um pen drive simulado (`subst`) arrancado durante o jogo.
+- **Cartão novo em branco (02/11/2026):** o PCSX2 cria os cartões com a memória "apagada" (tudo em
+  0xFF) e o jogo só os formata no primeiro save. O Retroboat tratava esses cartões como danificados
+  e repetia o aviso a cada abertura. Agora um cartão em branco não vai para a nuvem e não gera aviso
+  (só uma linha de informação no log); se a nuvem já tem esse cartão, a versão da nuvem vem para cá,
+  como num PC novo. Zerado (tudo em 0x00) ou cortado continua sendo danificado.
 - **Falta testar com o PCSX2 de verdade:** ver se ele segura o arquivo do cartão aberto durante o
   jogo. Se segurar, os envios durante o jogo falham e tudo vai ao fechar.
 - **Risco semântico médio:** depende do bloco "Memory cards management" de `Pcsx2.Generator.cs`
