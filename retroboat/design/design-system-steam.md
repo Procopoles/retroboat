@@ -124,7 +124,12 @@ valores acima são maiores.
 |---|---|---|---|
 | Instalado | ▶ `` | JOGAR | gradiente JOGAR |
 | Na nuvem | ⬇ `` | BAIXAR | gradiente INSTALAR |
+| Na nuvem, Drive fechado | ⬇ `` | BAIXAR | `disabled-bg`, texto a 50% |
 | Corrompido na nuvem | ⚠ `` | INDISPONÍVEL | `disabled-bg`, texto a 50% |
+
+"Drive fechado" não é defeito: o jogo continua na nuvem, só não dá para baixar agora. Por isso a
+legenda usa `warning` ("NA NUVEM · DRIVE FECHADO") e o valor diz como resolver ("Abra o Google
+Drive para baixar"); vermelho fica só para corrompido. O selo da faixa (4.3) fica `neutral-10`.
 
 Altura de 48 px @1080p (0.044), largura mínima de 200 px (0.105 da largura em 16:9), raio 3 px,
 rótulo em maiúsculas, peso 700, `text-on-action`.
@@ -162,13 +167,27 @@ Canto superior direito, junto da bateria e da hora, como os ícones de sistema d
 Padrão de informação do Big Picture: legenda curta em maiúsculas (`text-secondary`, 18 px, peso 500)
 sobre o valor (`text-body`, 22 px). Usado na barra de ação e em informações do jogo.
 
-## 5. Aplicação no tema (Carbon do Retroboat)
+## 5. Aplicação nos temas
+
+### Carbon do Retroboat (RB-014)
 
 | Elemento | Onde | Arquivo |
 |---|---|---|
 | Barra de ação (botão + status) | visão detalhada, abaixo da mídia | `retroboat/status.xml` do fork do Carbon |
 | Selo de status | faixa de informações das visões em grade e carrossel | idem |
 | Ícone global de nuvem | cabeçalho, canto superior direito | idem |
+
+### PlayStation-X do Retroboat (RB-017)
+
+| Elemento | Onde | Arquivo |
+|---|---|---|
+| Botão + legenda e valor | ps4Style (visão padrão) e single: no lugar do "Iniciar" do jogo em foco | `retroboat/status.xml` do clone do PlayStation-X |
+| Barra de ação | detailed, abaixo da mídia | idem |
+| Selo de status | fim da faixa de ícones (`contenedor-iconos`) de todas as visões em grade | idem |
+| Ícone global de nuvem | cabeçalho, entre "★ 2026" e o relógio (na linha do "v.43" em 4:3, 5:4 e 3:2) | idem |
+
+No PlayStation-X a fonte é a SST, do próprio tema, e o alerta de corrompido usa o glifo `F06A`: o
+tema troca o `F071` por uma imagem própria, que ignora a cor.
 
 O status do jogo vem do tamanho do arquivo (`filesize({game:path}) == 0` é um marcador da
 nuvem), e não da descrição: o scraper do ES troca a descrição e apagava a linha de status.
@@ -185,10 +204,18 @@ nuvem), e não da descrição: o scraper do ES troca a descrição e apagava a l
   `!${variavel}` muda de sentido pela precedência dos operadores.
 - O estado da nuvem chega ao tema por um arquivo: o lançador cria
   `<RetroBat>\retroboat\estado\nuvem-conectada` quando acha o Drive e apaga quando não acha.
+- Uma visão personalizada (`customView ... inherits="grid"`) copia os elementos da base quando é
+  lida. Um `<view name="grid">` lido depois ainda chega a ela, porque o ES repassa a definição às
+  visões que herdam; um `<customView name="a, b">` (com vírgula e sem `inherits`) altera só as
+  visões listadas que já existem, sem repassar.
+- Filhos de um `stackpanel` redefinido são acrescentados no fim, não mesclados: para mudar um filho
+  conforme o estado, use `if="..."` no próprio filho.
+- Um tema pode trocar glifos do FontAwesome por imagens (`resources/fontoverrides/<código>.png`);
+  esses glifos perdem a cor do texto.
 
 ## 6. Pendências
 
 - Fonte livre no lugar da Motiva Sans (etapa 2).
 - Nome esmaecido para jogos da nuvem na lista e "BAIXAR" na barra de ajuda: dependem do ES (RB-010).
 - Tema próprio estilo Big Picture (etapa 2). Até lá, os elementos do Retroboat seguem estes tokens
-  dentro do Carbon.
+  dentro do Carbon e do PlayStation-X.

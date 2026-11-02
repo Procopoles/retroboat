@@ -95,6 +95,11 @@ Depende do fork e do build do ES (RB-011).
   Steam Big Picture): barra com JOGAR/BAIXAR e status na seção do jogo, ícone de status nas
   visões em grade, só o ícone de nuvem no cabeçalho. O `build.ini` já usa o fork
   (`theme_path`); os commits do tema estão só no clone local até a publicação no fim das etapas.
+- **Tema PlayStation-X (RB-017, 01/11/2026):** o mesmo status no tema PlayStation-X, instalado pelo
+  ES (clone local em `..\es-theme-PlayStation-X`). Nos dois temas, um jogo da nuvem com o Drive
+  fechado aparece como "Drive fechado", não como pronto para baixar nem como corrompido.
+  - **A definir:** como os ajustes sobrevivem ao "Atualizar" do tema no ES, que baixa o tema
+    oficial por cima. Hoje é preciso copiar do clone de novo.
 
 ### Teste de download e descompactação (25/10/2026)
 

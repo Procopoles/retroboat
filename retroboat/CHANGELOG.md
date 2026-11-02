@@ -27,6 +27,12 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-014: o tema padrão passa a ser o nosso fork do Carbon (`build.ini: theme_path`), no design da
   Steam (Big Picture): botão JOGAR ou BAIXAR com o status na seção do jogo, ícone de status nas
   visões em grade e ícone global de nuvem no cabeçalho.
+  - Com o Drive fechado, um jogo da nuvem mostra BAIXAR desativado e "Abra o Google Drive para
+    baixar", em vez de parecer pronto para baixar. Não é tratado como corrompido.
+- RB-017: o tema PlayStation-X ganha o mesmo status: o "Iniciar" do jogo em foco vira JOGAR, BAIXAR
+  ou INDISPONÍVEL (visões ps4Style e single), barra de ação na visão detalhada, ícone de status na
+  faixa de ícones de todas as visões em grade e ícone global de nuvem no cabeçalho. Fica num clone
+  local do tema (`..\es-theme-PlayStation-X`); "Atualizar" o tema pelo ES apaga os ajustes.
 - RB-009 (memory cards do PS2): todo cartão que o PCSX2 usa vai para a nuvem
   (`retroboat\saves\ps2\pcsx2\memcards`). O cartão mais novo é puxado antes do jogo, cada
   gravação é enviada segundos depois e o resto ao fechar. Um cartão mudado em dois PCs abre uma tela

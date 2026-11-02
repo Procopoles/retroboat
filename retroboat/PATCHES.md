@@ -23,6 +23,7 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-014 | Tema Retroboat (fork do Carbon): status Baixar/Jogar nos detalhes; base do tema Steam | es-theme-carbon (fork) + retrobat (`build.ini`) | C1 no tema e no `build.ini` | baixa (a linha `theme_path`) | baixo | não | em andamento |
 | RB-015 | Conteúdo dos jogos na nuvem: metadados e mídia compartilhados, mídia fora da pasta de jogos | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
 | RB-016 | ES não compila com o Visual Studio 2026 (MSVC 14.50): falta `#include <chrono>` em `Log.cpp` | ES (Batocera) | C1 | média | baixo | sim | em andamento |
+| RB-017 | Tema PlayStation-X com o status do Retroboat (Baixar/Jogar, nuvem, Drive fechado) | es-theme-PlayStation-X (clone local) | C1 no tema (2 linhas no `theme.xml`) | média | baixo (semântico: médio) | não | em andamento |
 
 ---
 
@@ -285,6 +286,46 @@ o histórico.
 - **Risco semântico:** o fork precisa acompanhar o Carbon oficial. Se ficar parado, o RetroBat
   sai com um tema velho sem conflito de merge. A rotina de sincronização do FORK.md vale para
   ele também (`upstream-check.sh -C ../es-theme-carbon -b master`).
+- **Drive fechado (01/11/2026):** sem o arquivo `nuvem-conectada`, um jogo da nuvem mostrava BAIXAR
+  azul e "Baixa na primeira vez que você jogar", o que não dá para fazer sem o Drive. Agora mostra
+  BAIXAR desativado, "NA NUVEM · DRIVE FECHADO" em amarelo e "Abra o Google Drive para baixar"; o
+  ícone da faixa fica cinza. O lançador já tratava esse caso como "não disponível" (e não como
+  corrompido): `OnDemandInstaller` responde "Abra o Google Drive e tente de novo" e o jogo continua
+  na nuvem. Validado com o ES real na visão detailed.
+
+## RB-017 — Status do Retroboat no tema PlayStation-X
+
+- **Onde:** clone local de [pajarorrojo/es-theme-PlayStation-X](https://github.com/pajarorrojo/es-theme-PlayStation-X)
+  (versão 43.1, `1e4650e`) em `..\es-theme-PlayStation-X`, com o upstream só de leitura. Arquivos
+  novos `retroboat/status.xml` e `retroboat/README.md`; duas linhas no fim do `theme.xml`. Ainda
+  não há fork no GitHub (os commits ficam só no clone até o fim das etapas).
+- **Por quê:** o PlayStation-X foi instalado pelo ES nesta build e precisa mostrar o mesmo status do
+  Carbon do Retroboat (RB-014).
+- **Como funciona:** as mesmas regras do RB-014 (marcador de 0 bytes, prefixo "Corrompido na
+  nuvem", arquivo `nuvem-conectada`), encaixadas no layout do tema:
+  - ps4Style (visão padrão) e single: o "Iniciar" do jogo em foco vira JOGAR, BAIXAR ou
+    INDISPONÍVEL, com legenda + valor ao lado do nome;
+  - detailed: barra de ação abaixo da mídia (a mídia fica um pouco menor);
+  - todas as visões em grade: selo no fim da faixa de ícones (`contenedor-iconos`);
+  - cabeçalho: ícone global de nuvem entre "★ 2026" e o relógio (na linha do "v.43" em 4:3, 5:4
+    e 3:2, onde o tema não deixa espaço);
+  - Drive fechado: BAIXAR desativado com aviso, como no Carbon;
+  - o testador de mídia do tema (test-medias) continua sem o botão.
+- **Validado em 01/11/2026** com o ES real (janela de 1280×720 e de 1024×768), em todas as visões do
+  tema: jogo instalado, na nuvem, corrompido (descrição alterada só para o teste) e Drive conectado e
+  fechado. O log do ES não tem avisos dos elementos novos.
+- **Classificação:** C1 no `theme.xml` (duas linhas no fim, depois de `</variables>`), calor média:
+  4 alterações nos últimos 12 meses, duas delas no bloco de variáveis, logo acima das nossas linhas.
+  Um merge pode pedir uma resolução simples ali (manter as duas linhas no fim).
+- **Risco semântico médio:** o `status.xml` copia posições do tema: o retângulo do "Iniciar" do
+  ps4Style e do single, a posição da mídia e do vídeo na detailed e no test-medias, e o vão entre
+  "★ 2026" e o relógio. Uma versão nova que mude isso desalinha o status sem conflito de merge.
+  Depois de cada sincronização, conferir as visões ps4Style, single e detailed.
+- **Entrada no build:** o RetroBuild só baixa um tema (`theme_path`, o Carbon do Retroboat). O
+  PlayStation-X vem do instalador de temas do ES; para aplicar, copiar `theme.xml` e `retroboat\`
+  do clone para `emulationstation\.emulationstation\themes\es-theme-PlayStation-X`. "Atualizar" o
+  tema pelo ES apaga os ajustes.
+- **Upstreamável:** não (depende do lançador do Retroboat).
 
 ## RB-007 — ExoDOS ignora a pasta de jogos configurada (candidato)
 
