@@ -24,7 +24,8 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   - Informações automáticas, como na Steam: todo jogo da biblioteca, baixado ou não, ganha nome sem
     as etiquetas do arquivo, descrição (em português quando há página na Wikipédia), gênero, data,
     desenvolvedora, editora e jogadores, sem conta (base do libretro, Wikidata e Wikipédia). A linha
-    genérica "Na nuvem · ..." saiu da descrição; o status fica no botão do tema.
+    genérica "Na nuvem · ..." saiu da descrição; o status fica no botão do tema. O scraper do ES passa a ser a última fonte
+    (ele errou, por exemplo, o gênero do Shadow of the Colossus).
 - RB-005 (contas): os logins do ES (ScreenScraper, IGDB, RetroAchievements) vão para o Drive
   (`retroboat\contas`). Um PC sem login recebe o da nuvem ao abrir; uma troca de login chega aos
   outros PCs.

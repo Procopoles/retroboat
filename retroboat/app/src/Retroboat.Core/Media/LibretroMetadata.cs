@@ -64,7 +64,8 @@ namespace Retroboat.Media
                 ReleaseDate = GameInfoText.ReleaseDate(Field("releaseyear"), Field("releasemonth"), Field("releaseday")),
                 Developer = Field("developer"),
                 Publisher = Field("publisher"),
-                Players = GameInfoText.Players(Field("users"))
+                Players = GameInfoText.Players(Field("users")),
+                Origin = GameInfoOrigin.Libretro
             };
         }
 

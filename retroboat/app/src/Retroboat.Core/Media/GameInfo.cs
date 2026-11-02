@@ -23,9 +23,6 @@ namespace Retroboat.Media
 
         public string Genre { get; set; }
 
-        /// <summary>Gênero específico e revisado (Wikidata), que vale mais que a categoria larga do libretro.</summary>
-        public bool GenreIsDetailed { get; set; }
-
         /// <summary>Data no formato do gamelist (yyyyMMddT000000).</summary>
         public string ReleaseDate { get; set; }
 
@@ -35,6 +32,18 @@ namespace Retroboat.Media
 
         /// <summary>Jogadores no formato do gamelist ("1", "1-4").</summary>
         public string Players { get; set; }
+
+        /// <summary>De qual fonte veio: cada campo tem a sua ordem de preferência (<see cref="AutoInfo"/>).</summary>
+        public GameInfoOrigin Origin { get; set; }
+    }
+
+    public enum GameInfoOrigin
+    {
+        /// <summary>Base do libretro: dados da edição do arquivo (região, editora da época).</summary>
+        Libretro,
+
+        /// <summary>Wikidata e Wikipédia: gêneros específicos, estúdio de verdade, texto em português.</summary>
+        Wikidata
     }
 
     /// <summary>De onde vêm as informações automáticas. Separado para os testes não dependerem da internet.</summary>
@@ -142,8 +151,18 @@ namespace Retroboat.Media
         /// <summary>Até dois gêneros do Wikidata, como as tags da Steam: "Ação-aventura / Tiro em terceira pessoa".</summary>
         public static string WikidataGenres(IEnumerable<string> labels)
         {
-            var genres = labels.Select(WikidataGenre).Where(g => g != null).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(g => g, StringComparer.Ordinal).Take(2).ToList();
+            var genres = labels.Where(l => !IsTheme(l)).Select(WikidataGenre).Where(g => g != null).Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(g => g, StringComparer.Ordinal).Take(2).ToList();
             return genres.Count == 0 ? null : string.Join(" / ", genres);
+        }
+
+        /// <summary>
+        /// O Wikidata mistura tema e ambientação com gênero ("videojogo com personagem LGBT", "ficção científica",
+        /// "crossover"); no gamelist só entra o gênero do jogo.
+        /// </summary>
+        static bool IsTheme(string label)
+        {
+            var lower = (label ?? "").ToLowerInvariant();
+            return new[] { "lgbt", "personagem", "temas", "crossover", "ficção", "fantasia", "baseado em" }.Any(lower.Contains);
         }
 
         /// <summary>Gênero do Wikidata ("jogo eletrônico de ação-aventura") como no gamelist ("Ação-aventura").</summary>

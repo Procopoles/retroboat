@@ -46,7 +46,8 @@ namespace Retroboat.Tests
             ReleaseDate = "20050322T000000",
             Developer = "Santa Monica Studio",
             Publisher = "Sony Computer Entertainment",
-            Players = "1"
+            Players = "1",
+            Origin = GameInfoOrigin.Libretro
         };
 
         static readonly GameInfo Wikipedia = new GameInfo
@@ -56,7 +57,7 @@ namespace Retroboat.Tests
                           "Sony Computer Entertainment. Foi lançado para PlayStation 2 em março de 2005.",
             DescriptionInPortuguese = true,
             Genre = "Ação-aventura",
-            GenreIsDetailed = true,
+            Origin = GameInfoOrigin.Wikidata,
             Developer = "Santa Monica Studio"
         };
 
@@ -105,7 +106,7 @@ namespace Retroboat.Tests
             using (var pc = new TempDir())
             {
                 var install = CloudGame(cloud, pc);
-                var stub = new GameInfo { Description = "God of War é um jogo de 2005.", DescriptionInPortuguese = true };
+                var stub = new GameInfo { Description = "God of War é um jogo de 2005.", DescriptionInPortuguese = true, Origin = GameInfoOrigin.Wikidata };
 
                 new AutoInfo(install, new[] { new FakeInfo().Add(GodOfWar, Libretro), new FakeInfo().Add(GodOfWar, stub) }).Apply();
 
@@ -114,7 +115,7 @@ namespace Retroboat.Tests
         }
 
         [Fact]
-        public void Info_from_the_scraper_or_the_user_is_never_replaced()
+        public void The_scraper_comes_last_and_stays_only_where_no_source_knows()
         {
             using (var cloud = new TempDir())
             using (var pc = new TempDir())
@@ -122,18 +123,38 @@ namespace Retroboat.Tests
                 var install = CloudGame(cloud, pc);
                 var gamelist = XDocument.Load(Gamelist(install));
                 var game = CloudLibrarySync.FindGame(gamelist, GodOfWar + ".iso");
-                game.SetElementValue("name", "Meu God of War");
-                game.SetElementValue("desc", "Minha descrição.");
-                game.SetElementValue("genre", "Aventura / Hack and slash");
+                game.SetElementValue("name", "God of War : Edição");
+                game.SetElementValue("desc", "Descrição do scraper.");
+                game.SetElementValue("genre", "Briga de rua");
+                game.SetElementValue("players", "1-2");
                 gamelist.Save(Gamelist(install));
 
-                new AutoInfo(install, new[] { new FakeInfo().Add(GodOfWar, Libretro) }).Apply();
+                new AutoInfo(install, new[] { new FakeInfo().Add(GodOfWar, new GameInfo { Title = "God of War", Genre = "Ação-aventura", Origin = GameInfoOrigin.Wikidata }) }).Apply();
 
                 game = Game(install);
-                Assert.Equal("Meu God of War", (string)game.Element("name"));
-                Assert.Equal("Minha descrição.", (string)game.Element("desc"));
-                Assert.Equal("Aventura / Hack and slash", (string)game.Element("genre"));
-                Assert.Equal("Santa Monica Studio", (string)game.Element("developer"));
+                Assert.Equal("God of War", (string)game.Element("name"));
+                Assert.Equal("Ação-aventura", (string)game.Element("genre"));
+                Assert.Equal("Descrição do scraper.", (string)game.Element("desc"));
+                Assert.Equal("1-2", (string)game.Element("players"));
+            }
+        }
+
+        [Fact]
+        public void Each_field_comes_from_the_source_that_gets_it_right_most()
+        {
+            using (var cloud = new TempDir())
+            using (var pc = new TempDir())
+            {
+                var install = CloudGame(cloud, pc, "Shadow of the Colossus (USA).iso");
+                var libretro = new GameInfo { Genre = "Ação", Developer = "Sony Computer Entertainment", Publisher = "Sony Computer Entertainment", ReleaseDate = "20051018T000000", Origin = GameInfoOrigin.Libretro };
+                var wikidata = new GameInfo { Genre = "Ação-aventura", Developer = "Team Ico", Publisher = "Sony Interactive Entertainment", ReleaseDate = "20051018T000000", Origin = GameInfoOrigin.Wikidata };
+
+                new AutoInfo(install, new[] { new FakeInfo().Add("Shadow of the Colossus (USA)", libretro), new FakeInfo().Add("Shadow of the Colossus (USA)", wikidata) }).Apply();
+
+                var game = Game(install, "Shadow of the Colossus (USA).iso");
+                Assert.Equal("Ação-aventura", (string)game.Element("genre"));
+                Assert.Equal("Team Ico", (string)game.Element("developer"));
+                Assert.Equal("Sony Computer Entertainment", (string)game.Element("publisher"));
             }
         }
 
@@ -292,6 +313,7 @@ namespace Retroboat.Tests
             Assert.Equal("Criterion Games", black.Developer);
             Assert.Equal("https://pt.wikipedia.org/wiki/Black_(jogo_eletr%C3%B4nico)", black.PtWiki);
             Assert.Equal("Ação / Tiro em primeira pessoa", GameInfoText.WikidataGenres(black.Genres));
+            Assert.Equal("Ação-aventura", GameInfoText.WikidataGenres(new[] { "jogo eletrônico de ação-aventura", "videojogo com personagem LGBT", "ficção científica" }));
             var query = WikidataInfo.BuildQuery(new[] { "Black" }, "Q10680");
             Assert.Contains("wdt:P400 wd:Q10680", query);
             Assert.Contains("\"Black\"@mul", query);

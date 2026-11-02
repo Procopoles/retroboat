@@ -94,8 +94,9 @@ Como na Steam, a página de um jogo mostra o conteúdo dele antes do download. P
 biblioteca, o lançador preenche o que estiver vazio no gamelist: nome sem as etiquetas do arquivo,
 descrição, gênero, data, desenvolvedora, editora e jogadores. As fontes não pedem conta nem chave:
 a base do libretro (pelo nome Redump; no PS2, descrição em inglês e o resto) e o Wikidata com o
-resumo da página do jogo na Wikipédia em português. O que veio do scraper do ES, do usuário ou de
-outro PC não é trocado. Cada jogo é consultado no máximo uma vez por mês, e o resultado vai para o
+resumo da página do jogo na Wikipédia em português. O scraper do ES fica por último: nome, gênero e
+desenvolvedora vêm primeiro do Wikidata; editora, data e jogadores, do libretro; o que nenhuma fonte tem
+continua como estava. Cada jogo é consultado no máximo uma vez por mês, e o resultado vai para o
 Drive, então os outros PCs não precisam buscar. Consultas em `retroboat\cache\informacoes`.
 
 As capas automáticas não precisam de conta: o lançador procura o nome do arquivo (padrão

@@ -23,17 +23,20 @@ namespace Retroboat.Media
     }
 
     /// <summary>
-    /// Informações automáticas, como na loja da Steam: todo jogo da biblioteca, baixado ou não, ganha descrição,
-    /// gênero, data, desenvolvedora, editora, jogadores e o nome sem as etiquetas do arquivo, sem conta e sem
-    /// precisar do arquivo do jogo. Só preenche o que está vazio; o que veio do scraper do ES, do usuário ou de
-    /// outro PC pela nuvem continua valendo. A descrição em português (Wikipédia) vem antes da em inglês
-    /// (libretro), a não ser que seja só uma frase. Depois, o <see cref="CloudMediaSync"/> envia para o Drive,
-    /// e os outros PCs nem precisam buscar.
+    /// Informações automáticas, como na loja da Steam: todo jogo da biblioteca, baixado ou não, ganha nome,
+    /// descrição, gênero, data, desenvolvedora, editora e jogadores, sem conta e sem precisar do arquivo do jogo.
+    /// O scraper do ES vem por último: numa comparação de 50 jogos de PS2 ele errou gênero e inverteu
+    /// desenvolvedora e editora em vários (Shadow of the Colossus como "Briga de rua"). Cada campo tem a sua
+    /// ordem, pela fonte que mais acertou nele; o que nenhuma fonte tem continua como estava. Depois, o
+    /// <see cref="CloudMediaSync"/> envia para o Drive, e os outros PCs nem precisam buscar.
     /// </summary>
     public sealed class AutoInfo
     {
-        /// <summary>Campos da página do jogo, além do nome e da descrição.</summary>
-        static readonly string[] Fields = { "genre", "releasedate", "developer", "publisher", "players" };
+        /// <summary>Gênero, estúdio e nome: o Wikidata é mais específico; o libretro tem "Action" para quase tudo.</summary>
+        static readonly GameInfoOrigin[] WikidataFirst = { GameInfoOrigin.Wikidata, GameInfoOrigin.Libretro };
+
+        /// <summary>Editora, data e jogadores: o libretro é o da edição do arquivo; o Wikidata mistura regiões e relançamentos.</summary>
+        static readonly GameInfoOrigin[] LibretroFirst = { GameInfoOrigin.Libretro, GameInfoOrigin.Wikidata };
 
         /// <summary>Um jogo consultado, achado ou não, só volta às fontes depois disso (elas mudam pouco).</summary>
         static readonly TimeSpan RecheckAfter = TimeSpan.FromDays(30);
@@ -94,7 +97,6 @@ namespace Retroboat.Media
 
             var pending = games
                 .Select(file => new { File = file, Stem = Path.GetFileNameWithoutExtension(file), Element = CloudLibrarySync.FindGame(gamelist, file) })
-                .Where(g => NeedsInfo(g.Element, g.Stem))
                 .Where(g => !(checkedAt.TryGetValue(Key(systemName, g.File), out var when) && DateTime.UtcNow - when < RecheckAfter))
                 .ToList();
             if (pending.Count == 0)
@@ -146,22 +148,7 @@ namespace Retroboat.Media
             return allAnswered;
         }
 
-        static bool NeedsInfo(XElement game, string stem)
-        {
-            if (game == null)
-                return true;
-
-            var name = (string)game.Element("name");
-            if (string.IsNullOrWhiteSpace(name) || name == stem)
-                return true;
-
-            if (GameDescription.WithoutStatus((string)game.Element("desc")).Trim().Length == 0)
-                return true;
-
-            return Fields.Any(f => string.IsNullOrWhiteSpace((string)game.Element(f)));
-        }
-
-        /// <summary>Preenche os campos vazios do jogo. Retorna true se mudou algo.</summary>
+        /// <summary>Põe no jogo o que as fontes têm, campo a campo. Retorna true se mudou algo.</summary>
         static bool Fill(XDocument gamelist, XElement game, string file, string stem, List<GameInfo> infos)
         {
             if (game == null)
@@ -172,43 +159,35 @@ namespace Retroboat.Media
 
             bool filled = false;
 
-            // O nome só troca se ainda é o do arquivo: um nome do scraper ou do usuário fica.
-            var name = (string)game.Element("name");
-            var title = infos.Select(i => i.Title).FirstOrDefault(t => !string.IsNullOrWhiteSpace(t));
-            if ((string.IsNullOrWhiteSpace(name) || name == stem) && title != null && title != name)
+            filled |= Set(game, "name", Pick(infos, WikidataFirst, i => i.Title));
+
+            // Descrição: a da Wikipédia em português, a não ser que seja só uma frase; depois a do libretro, em inglês.
+            var desc = (string)game.Element("desc");
+            var text = infos.FirstOrDefault(i => i.DescriptionInPortuguese && (i.Description?.Length ?? 0) >= MinPortugueseLength)?.Description
+                       ?? Pick(infos, LibretroFirst, i => i.Description);
+            if (text != null && GameDescription.WithoutStatus(desc).Trim() != text)
             {
-                game.SetElementValue("name", title);
+                game.SetElementValue("desc", GameDescription.ReplaceBody(desc, text));
                 filled = true;
             }
 
-            var desc = (string)game.Element("desc");
-            if (GameDescription.WithoutStatus(desc).Trim().Length == 0)
-            {
-                var text = infos.FirstOrDefault(i => i.DescriptionInPortuguese && (i.Description?.Length ?? 0) >= MinPortugueseLength)?.Description
-                           ?? infos.Select(i => i.Description).FirstOrDefault(d => !string.IsNullOrWhiteSpace(d));
-                if (text != null)
-                {
-                    game.SetElementValue("desc", GameDescription.ReplaceBody(desc, text));
-                    filled = true;
-                }
-            }
-
-            // Gênero: o específico do Wikidata antes da categoria larga do libretro (que tem erros, como Black = RPG).
-            filled |= SetIfEmpty(game, "genre", infos.Where(i => i.GenreIsDetailed).Concat(infos.Where(i => !i.GenreIsDetailed)).Select(i => i.Genre));
-            filled |= SetIfEmpty(game, "releasedate", infos.Select(i => i.ReleaseDate));
-            filled |= SetIfEmpty(game, "developer", infos.Select(i => i.Developer));
-            filled |= SetIfEmpty(game, "publisher", infos.Select(i => i.Publisher));
-            filled |= SetIfEmpty(game, "players", infos.Select(i => i.Players));
+            filled |= Set(game, "genre", Pick(infos, WikidataFirst, i => i.Genre));
+            filled |= Set(game, "developer", Pick(infos, WikidataFirst, i => i.Developer));
+            filled |= Set(game, "publisher", Pick(infos, LibretroFirst, i => i.Publisher));
+            filled |= Set(game, "releasedate", Pick(infos, LibretroFirst, i => i.ReleaseDate));
+            filled |= Set(game, "players", Pick(infos, LibretroFirst, i => i.Players));
             return filled;
         }
 
-        static bool SetIfEmpty(XElement game, string field, IEnumerable<string> candidates)
+        static string Pick(List<GameInfo> infos, GameInfoOrigin[] order, Func<GameInfo, string> field)
         {
-            if (!string.IsNullOrWhiteSpace((string)game.Element(field)))
-                return false;
+            return order.SelectMany(o => infos.Where(i => i.Origin == o)).Select(field).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+        }
 
-            var value = candidates.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
-            if (value == null)
+        /// <summary>Troca o valor se a fonte tem um; o que nenhuma fonte tem continua como estava (scraper ou usuário).</summary>
+        static bool Set(XElement game, string field, string value)
+        {
+            if (value == null || (string)game.Element(field) == value)
                 return false;
 
             game.SetElementValue(field, value);

@@ -230,11 +230,20 @@ o histórico.
     específicos em português e o que o libretro não tem (GTA San Andreas e The Warriors não estão
     lá). Só aceita item que seja jogo eletrônico e tenha saído para a plataforma do sistema, para não
     trazer outro jogo de mesmo nome.
-  - Regras: o nome só troca se ainda é o do arquivo; a descrição em português vem antes da em
-    inglês, a não ser que seja só uma frase; o gênero do Wikidata vem antes do libretro, que tem
-    erros (Black aparece lá como RPG). Cada jogo é consultado no máximo uma vez por mês, achado ou
-    não; com uma fonte fora do ar, tenta de novo na próxima abertura. O que vier vai para o Drive na
-    mesma abertura, e os outros PCs recebem sem buscar.
+  - **Ordem por campo, com o scraper do ES por último (decisão de 01/11/2026).** Numa comparação de
+    50 jogos de PS2 (26 com dados do scraper), o scraper errou o gênero em 5 (Shadow of the Colossus
+    e Ben 10 como "Briga de rua", True Crime como "Corrida") e inverteu desenvolvedora e editora em 2
+    (The Punisher, Tomb Raider Underworld). O libretro põe "Action" em quase tudo e tem erros (Black =
+    RPG, Just Cause = Avalanche Software); o Wikidata acerta o estúdio e o gênero, mas mistura
+    editoras de outras regiões e temas como "personagem LGBT" (filtrados).
+    - Nome, gênero e desenvolvedora: Wikidata → libretro → scraper.
+    - Editora, data e jogadores: libretro (a edição do arquivo) → Wikidata → scraper.
+    - Descrição: Wikipédia em português (se não for só uma frase) → libretro (inglês) → scraper.
+    - O que nenhuma fonte tem continua como estava. Uma edição feita à mão num desses campos também é
+      trocada, porque o gamelist não diz quem escreveu cada valor.
+  - Cada jogo é consultado no máximo uma vez por mês, achado ou não; com uma fonte fora do ar, tenta
+    de novo na próxima abertura. O que vier vai para o Drive na mesma abertura, e os outros PCs
+    recebem sem buscar.
   - A linha "Na nuvem · ..." saiu da descrição: os dois temas mostram o status no botão (RB-014,
     RB-017). O aviso de corrompido continua. Sem o Drive, a abertura também tira as linhas antigas,
     a partir do índice deste PC.

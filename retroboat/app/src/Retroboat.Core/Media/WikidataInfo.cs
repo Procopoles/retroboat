@@ -71,7 +71,7 @@ namespace Retroboat.Media
                     {
                         Title = item.Label ?? title,
                         Genre = GameInfoText.WikidataGenres(item.Genres),
-                        GenreIsDetailed = true,
+                        Origin = GameInfoOrigin.Wikidata,
                         ReleaseDate = item.Released != null && item.Released.Length >= 10
                             ? GameInfoText.ReleaseDate(item.Released.Substring(0, 4), item.Released.Substring(5, 2), item.Released.Substring(8, 2))
                             : null,
