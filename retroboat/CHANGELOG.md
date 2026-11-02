@@ -21,6 +21,10 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   `.emulationstation\media`. Vídeos e manuais são opcionais (`[Cloud] Videos` e `Manuals` no
   `retroboat.ini`). Jogos sem imagem ganham capa, tela e título automáticos (thumbnails do
   libretro, sem conta), que vão para o Drive na mesma hora (`[Media] Automatic`).
+  - Informações automáticas, como na Steam: todo jogo da biblioteca, baixado ou não, ganha nome sem
+    as etiquetas do arquivo, descrição (em português quando há página na Wikipédia), gênero, data,
+    desenvolvedora, editora e jogadores, sem conta (base do libretro, Wikidata e Wikipédia). A linha
+    genérica "Na nuvem · ..." saiu da descrição; o status fica no botão do tema.
 - RB-005 (contas): os logins do ES (ScreenScraper, IGDB, RetroAchievements) vão para o Drive
   (`retroboat\contas`). Um PC sem login recebe o da nuvem ao abrir; uma troca de login chega aos
   outros PCs.

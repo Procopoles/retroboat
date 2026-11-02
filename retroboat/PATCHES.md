@@ -219,6 +219,29 @@ o histórico.
   de PS2 do Drive (77 imagens em 24 s na primeira vez; depois só o que faltar). Desliga com
   `[Media] Automatic=0`. Descrição e vídeo continuam vindo do scraper do ES, com conta no
   ScreenScraper.
+- **Informações automáticas (01/11/2026):** como na Steam, a página de um jogo mostra o conteúdo
+  dele antes do download. Os jogos não baixados apareciam só com o nome do arquivo ("God of War
+  (USA)") e a linha genérica "Na nuvem · 7,0 GB · baixa na primeira vez que você jogar." como
+  descrição. Agora o lançador preenche, para todo jogo da biblioteca, o que estiver vazio
+  (`Media\AutoInfo`, sem conta nem chave):
+  - **libretro-database** (`metadat`, pelo nome Redump; `LibretroMetadata`): desenvolvedora,
+    editora, data, jogadores, gênero e descrição em inglês. No PS2 cobre cerca de 4.700 jogos.
+  - **Wikidata + Wikipédia** (`WikidataInfo`): resumo da página do jogo em português, gêneros
+    específicos em português e o que o libretro não tem (GTA San Andreas e The Warriors não estão
+    lá). Só aceita item que seja jogo eletrônico e tenha saído para a plataforma do sistema, para não
+    trazer outro jogo de mesmo nome.
+  - Regras: o nome só troca se ainda é o do arquivo; a descrição em português vem antes da em
+    inglês, a não ser que seja só uma frase; o gênero do Wikidata vem antes do libretro, que tem
+    erros (Black aparece lá como RPG). Cada jogo é consultado no máximo uma vez por mês, achado ou
+    não; com uma fonte fora do ar, tenta de novo na próxima abertura. O que vier vai para o Drive na
+    mesma abertura, e os outros PCs recebem sem buscar.
+  - A linha "Na nuvem · ..." saiu da descrição: os dois temas mostram o status no botão (RB-014,
+    RB-017). O aviso de corrompido continua. Sem o Drive, a abertura também tira as linhas antigas,
+    a partir do índice deste PC.
+  - Testado na build: os 6 jogos sem informações (5 ainda não baixados) ficaram completos na
+    primeira abertura, que levou 8 s ao todo com o Drive conectado; as informações chegaram ao Drive.
+  - Risco semântico baixo: as fontes são externas e podem mudar de formato. Sem resposta, o jogo só
+    fica sem informações, sem erro visível; o log do lançador registra.
 - **Correção:** a nuvem juntava os PCs por jogo inteiro (a entrada mais nova vencia). Um PC que só
   tinha o nome escondia a descrição e a capa enviadas por outro. Agora junta campo a campo.
 - **Risco semântico médio:** depende da lista de campos de mídia do gamelist (`MetaData.cpp`) e de

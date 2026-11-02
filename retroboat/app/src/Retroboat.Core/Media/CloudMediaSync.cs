@@ -17,7 +17,7 @@ namespace Retroboat.Media
         /// <summary>Manuais e revistas em PDF também podem ser grandes.</summary>
         public bool Manuals { get; set; }
 
-        /// <summary>Buscar capas automáticas (<see cref="AutoMedia"/>) para jogos sem imagem.</summary>
+        /// <summary>Buscar capas (<see cref="AutoMedia"/>) e informações (<see cref="AutoInfo"/>) automáticas para jogos sem elas.</summary>
         public bool Automatic { get; set; }
 
         public bool Allows(MediaKind kind) => kind == MediaKind.Image || (kind == MediaKind.Video && Videos) || (kind == MediaKind.Manual && Manuals);
@@ -247,8 +247,7 @@ namespace Retroboat.Media
                     if (GameDescription.WithoutStatus(current).Length > 0)
                         continue;
 
-                    var status = GameDescription.HasStatus(current) ? current.Split('\n')[0].TrimEnd('\r') : null;
-                    game.SetElementValue("desc", status == null ? field.Value : GameDescription.WithStatus(status, field.Value));
+                    game.SetElementValue("desc", GameDescription.ReplaceBody(current, field.Value));
                     changed = true;
                     continue;
                 }

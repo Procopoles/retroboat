@@ -4,7 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Xml.Linq;
 using Retroboat.Library;
-using Retroboat.Text;
+using Retroboat.Media;
 
 namespace Retroboat.Cloud
 {
@@ -22,13 +22,12 @@ namespace Retroboat.Cloud
 
     /// <summary>
     /// Faz os jogos da nuvem aparecerem no ES antes de serem baixados. Para cada jogo que só está na
-    /// nuvem, cria um marcador vazio com o nome que o jogo terá ao ser instalado, e coloca no gamelist
-    /// local uma descrição dizendo que ele está na nuvem. Quando o jogo é instalado, a descrição sai.
-    /// Roda antes do ES abrir, porque o ES regrava os gamelists ao fechar.
+    /// nuvem, cria um marcador vazio com o nome que o jogo terá ao ser instalado; o tema mostra que ele
+    /// está na nuvem pelo tamanho do marcador. Um jogo corrompido na nuvem ganha uma linha de aviso no
+    /// topo da descrição. Roda antes do ES abrir, porque o ES regrava os gamelists ao fechar.
     /// </summary>
     public sealed class CloudLibrarySync
     {
-        public const string CloudDescriptionPrefix = GameDescription.CloudPrefix;
         public const string CorruptDescriptionPrefix = GameDescription.CorruptPrefix;
 
         readonly RetroBatInstall _install;
@@ -106,7 +105,7 @@ namespace Retroboat.Cloud
                 index.Remove(gone);
             }
 
-            UpdateGamelists(index);
+            UpdateGamelists(_install, index);
             index.Save();
 
             result.InCloud = index.Entries.Count(e => e.State == CloudGameState.Cloud);
@@ -115,13 +114,22 @@ namespace Retroboat.Cloud
             return result;
         }
 
-        void UpdateGamelists(CloudIndex index)
+        /// <summary>
+        /// Gamelists em dia com o índice deste PC, sem o Drive: com o Drive fechado, a abertura ainda tira as
+        /// linhas de status antigas e mantém o aviso dos jogos corrompidos.
+        /// </summary>
+        public static void RefreshGamelists(RetroBatInstall install)
         {
-            var systemNames = SystemNamesByFolder();
+            UpdateGamelists(install, CloudIndex.Load(IndexPath(install)));
+        }
+
+        static void UpdateGamelists(RetroBatInstall install, CloudIndex index)
+        {
+            var systemNames = GameMedia.SystemNamesByFolder(install);
             foreach (var group in index.Entries.GroupBy(e => e.System, StringComparer.OrdinalIgnoreCase))
             {
                 var systemName = systemNames.TryGetValue(group.Key, out var name) ? name : group.Key;
-                var path = Path.Combine(_install.GamelistsPath, systemName, "gamelist.xml");
+                var path = Path.Combine(install.GamelistsPath, systemName, "gamelist.xml");
                 UpdateGamelist(path, group);
             }
         }
@@ -137,27 +145,22 @@ namespace Retroboat.Cloud
                 var current = (string)game?.Element("desc");
                 var body = GameDescription.WithoutStatus(current);
 
+                // Na nuvem ou instalado, o tema mostra o status; a descrição fica só com o texto do jogo.
                 string status = null;
-                if (entry.State == CloudGameState.Cloud)
-                    status = CloudDescriptionPrefix + " " + Format.Bytes(entry.CloudSize) + " · baixa na primeira vez que você jogar.";
-                else if (entry.State == CloudGameState.Corrupt)
+                if (entry.State == CloudGameState.Corrupt)
                     status = CorruptDescriptionPrefix + " " + (entry.Problem ?? "o arquivo no Drive está danificado") + ". Substitua o arquivo no Drive para poder jogar.";
 
-                if (status == null)
+                // Tira só a linha de status (inclusive a "Na nuvem" de versões anteriores); o resto da descrição fica.
+                if (status == null && game != null && GameDescription.HasStatus(current))
                 {
-                    // Instalado: tira só a linha de status; o resto da descrição fica.
-                    if (game != null && GameDescription.HasStatus(current))
-                    {
-                        if (body.Length == 0)
-                            game.Element("desc").Remove();
-                        else
-                            game.SetElementValue("desc", body);
-                    }
-
-                    continue;
+                    if (body.Length == 0)
+                        game.Element("desc").Remove();
+                    else
+                        game.SetElementValue("desc", body);
                 }
 
-                if (game == null)
+                // Jogo que ainda não foi baixado entra no gamelist, para as informações e a mídia terem onde ficar.
+                if (game == null && entry.State != CloudGameState.Installed)
                 {
                     game = new XElement("game",
                         new XElement("path", "./" + entry.LocalName),
@@ -165,7 +168,8 @@ namespace Retroboat.Cloud
                     doc.Root.Add(game);
                 }
 
-                game.SetElementValue("desc", GameDescription.WithStatus(status, body));
+                if (status != null)
+                    game.SetElementValue("desc", GameDescription.WithStatus(status, body));
             }
 
             if (doc.ToString() == before)
@@ -173,22 +177,6 @@ namespace Retroboat.Cloud
 
             Directory.CreateDirectory(Path.GetDirectoryName(path));
             doc.Save(path);
-        }
-
-        Dictionary<string, string> SystemNamesByFolder()
-        {
-            var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            var config = _install.SystemsConfigPath;
-            if (config == null)
-                return map;
-
-            foreach (var system in IsolatedLibrary.ReadSystems(config))
-            {
-                if (!map.ContainsKey(system.Folder))
-                    map[system.Folder] = system.Name;
-            }
-
-            return map;
         }
 
         /// <summary>O &lt;game&gt; do gamelist cujo &lt;path&gt; é "./&lt;nome local&gt;".</summary>

@@ -99,25 +99,9 @@ namespace Retroboat.Media
             return name == null ? url : url + Uri.EscapeDataString(name) + ".png";
         }
 
-        static byte[] Get(string url)
-        {
-            ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-            var request = (HttpWebRequest)WebRequest.Create(url);
-            request.UserAgent = "Retroboat";
-            request.Timeout = 30000;
-            request.ReadWriteTimeout = 30000;
-            request.AutomaticDecompression = DecompressionMethods.GZip | DecompressionMethods.Deflate;
+        static byte[] Get(string url) => WebFetch.Get(url);
 
-            using (var response = request.GetResponse())
-            using (var stream = response.GetResponseStream())
-            using (var memory = new MemoryStream())
-            {
-                stream.CopyTo(memory);
-                return memory.ToArray();
-            }
-        }
-
-        static string Safe(string name)
+        internal static string Safe(string name)
         {
             foreach (var invalid in Path.GetInvalidFileNameChars())
                 name = name.Replace(invalid, '_');

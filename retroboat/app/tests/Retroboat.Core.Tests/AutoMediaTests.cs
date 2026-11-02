@@ -122,7 +122,7 @@ namespace Retroboat.Tests
                 Assert.Equal("~/.emulationstation/media/ps2/images/God Hand (USA)-image.png", (string)game.Element("image"));
                 Assert.Equal("~/.emulationstation/media/ps2/images/God Hand (USA)-titleshot.png", (string)game.Element("titleshot"));
                 Assert.True(File.Exists(pc.Combine(@"RetroBat\emulationstation\.emulationstation\media\ps2\images\God Hand (USA)-thumb.png")));
-                Assert.StartsWith(GameDescription.CloudPrefix, (string)game.Element("desc"));
+                Assert.Null(game.Element("desc"));
             }
         }
 
@@ -215,7 +215,7 @@ namespace Retroboat.Tests
                 var install = Install(pc);
                 var options = new CloudMediaOptions { Automatic = true };
 
-                var report = StartupSync.Run(install, cloud.Path, install.DefaultRomsPath, options, new FakeThumbnails(new[] { "God Hand (USA)" }));
+                var report = StartupSync.Run(install, cloud.Path, install.DefaultRomsPath, options, new FakeThumbnails(new[] { "God Hand (USA)" }), new IGameInfoSource[0]);
 
                 Assert.Equal(1, report.AutoMedia.GamesFilled);
                 Assert.Contains(report.Messages, m => m.StartsWith("Capas automáticas"));

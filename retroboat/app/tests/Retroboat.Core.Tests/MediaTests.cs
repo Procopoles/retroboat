@@ -59,7 +59,7 @@ namespace Retroboat.Tests
                 var gamelistA = XDocument.Load(Gamelist(a));
                 var gameA = CloudLibrarySync.FindGame(gamelistA, Game);
                 gameA.SetElementValue("name", "Jogo Incrível");
-                gameA.SetElementValue("desc", GameDescription.WithStatus((string)gameA.Element("desc"), "Uma aventura."));
+                gameA.SetElementValue("desc", "Uma aventura.");
                 gameA.SetElementValue("image", "~/.emulationstation/media/ps2/images/Jogo (USA)-image.png");
                 gameA.SetElementValue("playcount", "7");
                 gameA.SetAttributeValue("id", "12345");
@@ -89,9 +89,7 @@ namespace Retroboat.Tests
                 Assert.Equal("~/.emulationstation/media/ps2/images/Jogo (USA)-image.png", (string)gameB.Element("image"));
                 Assert.True(File.Exists(pcs.Combine(@"B\emulationstation\.emulationstation\media\ps2\images\Jogo (USA)-image.png")));
 
-                var desc = (string)gameB.Element("desc");
-                Assert.StartsWith(GameDescription.CloudPrefix, desc);
-                Assert.EndsWith("Uma aventura.", desc);
+                Assert.Equal("Uma aventura.", (string)gameB.Element("desc"));
             }
         }
 
@@ -167,12 +165,12 @@ namespace Retroboat.Tests
             using (var retrobat = new TempDir())
             {
                 var path = retrobat.WriteText("gamelist.xml", "<gameList><game><path>./A.iso</path><desc>Uma aventura.</desc></game></gameList>");
-                var entry = new CloudIndexEntry { LocalName = "A.iso", State = CloudGameState.Cloud, CloudSize = 1000 };
+                var entry = new CloudIndexEntry { LocalName = "A.iso", State = CloudGameState.Corrupt, CloudSize = 1000 };
 
                 CloudLibrarySync.UpdateGamelist(path, new[] { entry });
-                var inCloud = (string)XDocument.Load(path).Root.Element("game").Element("desc");
-                Assert.StartsWith(GameDescription.CloudPrefix, inCloud);
-                Assert.EndsWith("Uma aventura.", inCloud);
+                var corrupt = (string)XDocument.Load(path).Root.Element("game").Element("desc");
+                Assert.StartsWith(GameDescription.CorruptPrefix, corrupt);
+                Assert.EndsWith("Uma aventura.", corrupt);
 
                 entry.State = CloudGameState.Installed;
                 CloudLibrarySync.UpdateGamelist(path, new[] { entry });

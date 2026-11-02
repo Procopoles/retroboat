@@ -10,6 +10,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- JavaScriptSerializer, para as respostas JSON do Wikidata e da Wikipédia (WikidataInfo). -->
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Status do Retroboat para os temas (ThemeOverlays). Cópias dos clones dos temas; o teste
          Bundled_overlays_match_the_theme_clones avisa se ficarem diferentes. -->
     <EmbeddedResource Include="Themes\Overlays\es-theme-carbon\status.xml" LogicalName="Retroboat.Themes.es-theme-carbon.status.xml" />

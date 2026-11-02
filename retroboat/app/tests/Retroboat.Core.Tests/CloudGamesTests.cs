@@ -141,7 +141,7 @@ namespace Retroboat.Tests
         }
 
         [Fact]
-        public void Cloud_games_appear_as_placeholders_with_a_description()
+        public void Cloud_games_appear_as_placeholders_without_a_status_in_the_description()
         {
             using (var cloud = new TempDir())
             using (var retrobat = new TempDir())
@@ -160,7 +160,7 @@ namespace Retroboat.Tests
 
                 var gamelist = XDocument.Load(Path.Combine(install.GamelistsPath, "ps2", "gamelist.xml"));
                 var game = gamelist.Root.Elements("game").Single(g => (string)g.Element("path") == "./" + IsoName);
-                Assert.StartsWith(CloudLibrarySync.CloudDescriptionPrefix, (string)game.Element("desc"));
+                Assert.Null(game.Element("desc")); // O status fica no tema; a descrição é só do jogo, como na Steam.
                 Assert.Equal("Jogo (Europe) (En,Fr)", (string)game.Element("name"));
             }
         }
@@ -214,17 +214,22 @@ namespace Retroboat.Tests
         }
 
         [Fact]
-        public void Description_written_by_the_user_stays_below_the_status_line()
+        public void A_cloud_game_keeps_its_description_and_loses_the_old_status_line()
         {
             using (var retrobat = new TempDir())
             {
-                var path = retrobat.WriteText(@"gamelist.xml", "<gameList><game><path>./A.iso</path><desc>Minha descrição</desc></game></gameList>");
+                var path = retrobat.WriteText(@"gamelist.xml", "<gameList><game><path>./A.iso</path><desc>Minha descrição</desc></game>" +
+                    "<game><path>./B.iso</path><desc>Na nuvem · 1,0 KB · baixa na primeira vez que você jogar.\n\nOutra descrição</desc></game></gameList>");
 
-                CloudLibrarySync.UpdateGamelist(path, new[] { new CloudIndexEntry { LocalName = "A.iso", State = CloudGameState.Cloud, CloudSize = 1000 } });
+                CloudLibrarySync.UpdateGamelist(path, new[]
+                {
+                    new CloudIndexEntry { LocalName = "A.iso", State = CloudGameState.Cloud, CloudSize = 1000 },
+                    new CloudIndexEntry { LocalName = "B.iso", State = CloudGameState.Cloud, CloudSize = 1000 }
+                });
 
-                var desc = (string)XDocument.Load(path).Root.Element("game").Element("desc");
-                Assert.StartsWith(CloudLibrarySync.CloudDescriptionPrefix, desc);
-                Assert.EndsWith("Minha descrição", desc);
+                var games = XDocument.Load(path).Root.Elements("game").ToList();
+                Assert.Equal("Minha descrição", (string)games[0].Element("desc"));
+                Assert.Equal("Outra descrição", (string)games[1].Element("desc"));
             }
         }
 

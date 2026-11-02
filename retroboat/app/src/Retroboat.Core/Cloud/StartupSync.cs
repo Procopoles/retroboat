@@ -18,6 +18,7 @@ namespace Retroboat.Cloud
         public MediaRelocationResult Relocation { get; set; }
         public CloudMediaSyncResult Media { get; set; }
         public AutoMediaResult AutoMedia { get; set; }
+        public AutoInfoResult AutoInfo { get; set; }
         public AccountSyncResult Accounts { get; set; }
         public SaveSyncResult Saves { get; set; }
         public IReadOnlyList<BiosReport> BiosStatus { get; set; } = new List<BiosReport>();
@@ -36,7 +37,7 @@ namespace Retroboat.Cloud
     public static class StartupSync
     {
         public static StartupSyncReport Run(RetroBatInstall install, string configuredCloudPath, string romsPath, CloudMediaOptions mediaOptions = null,
-                                            IThumbnailSource thumbnails = null)
+                                            IThumbnailSource thumbnails = null, IReadOnlyList<IGameInfoSource> infoSources = null)
         {
             var report = new StartupSyncReport { Cloud = CloudLocator.Locate(configuredCloudPath) };
             var localBios = Path.Combine(install.Root, "bios");
@@ -52,6 +53,16 @@ namespace Retroboat.Cloud
             {
                 report.Messages.Add("Nuvem: Google Drive para computador não encontrado. Usando só o que está neste PC.");
                 report.HasWarnings = true;
+
+                // Os jogos da nuvem continuam no ES; os gamelists acompanham o índice deste PC.
+                try
+                {
+                    CloudLibrarySync.RefreshGamelists(install);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
+                {
+                    report.Messages.Add("Atenção: não foi possível atualizar a lista de jogos (" + ex.Message + ").");
+                }
             }
             else
             {
@@ -118,14 +129,20 @@ namespace Retroboat.Cloud
                 }
             }
 
-            // Capas automáticas para o que nem este PC nem a nuvem têm. O que vier vai para o Drive na hora.
+            // Capas e informações automáticas para o que nem este PC nem a nuvem têm. O que vier vai para o Drive na hora.
             if (mediaOptions != null && mediaOptions.Automatic && !string.IsNullOrEmpty(romsPath))
             {
                 var source = thumbnails ?? new LibretroThumbnails(Path.Combine(install.RetroboatDataPath, "cache", "libretro"));
                 report.AutoMedia = new AutoMedia(install, romsPath, source).Apply();
                 if (report.AutoMedia.GamesFilled > 0)
-                {
                     report.Messages.Add("Capas automáticas: " + report.AutoMedia.GamesFilled + " jogo(s)");
+
+                report.AutoInfo = new AutoInfo(install, infoSources ?? AutoInfo.DefaultSources(install)).Apply();
+                if (report.AutoInfo.GamesFilled > 0)
+                    report.Messages.Add("Informações automáticas: " + report.AutoInfo.GamesFilled + " jogo(s)");
+
+                if (report.AutoMedia.GamesFilled + report.AutoInfo.GamesFilled > 0)
+                {
                     if (report.Cloud != null && report.Cloud.Exists)
                     {
                         var shared = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();

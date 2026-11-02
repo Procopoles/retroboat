@@ -93,14 +93,14 @@ namespace Retroboat.Media
         }
 
         /// <summary>Parte do nome antes da primeira etiqueta entre parênteses ou colchetes.</summary>
-        static string Title(string name)
+        internal static string Title(string name)
         {
             int cut = name.IndexOfAny(new[] { '(', '[' });
             return (cut < 0 ? name : name.Substring(0, cut)).Trim();
         }
 
         /// <summary>"Punisher, The" -> "The Punisher".</summary>
-        static string MoveArticle(string title)
+        internal static string MoveArticle(string title)
         {
             var match = Regex.Match(title, @"^(.*), (The|A|An)$");
             return match.Success ? match.Groups[2].Value + " " + match.Groups[1].Value : title;

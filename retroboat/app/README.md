@@ -86,9 +86,17 @@ Videos=0
 Manuals=0
 
 [Media]
-; 1 = capa, tela e título automáticos (thumbnails do libretro) para jogos sem imagem.
+; 1 = capas, descrição, gênero, data e demais informações automáticas para jogos sem elas.
 Automatic=1
 ```
+
+Como na Steam, a página de um jogo mostra o conteúdo dele antes do download. Para todo jogo da
+biblioteca, o lançador preenche o que estiver vazio no gamelist: nome sem as etiquetas do arquivo,
+descrição, gênero, data, desenvolvedora, editora e jogadores. As fontes não pedem conta nem chave:
+a base do libretro (pelo nome Redump; no PS2, descrição em inglês e o resto) e o Wikidata com o
+resumo da página do jogo na Wikipédia em português. O que veio do scraper do ES, do usuário ou de
+outro PC não é trocado. Cada jogo é consultado no máximo uma vez por mês, e o resultado vai para o
+Drive, então os outros PCs não precisam buscar. Consultas em `retroboat\cache\informacoes`.
 
 As capas automáticas não precisam de conta: o lançador procura o nome do arquivo (padrão
 No-Intro/Redump) nos thumbnails do libretro, guarda a lista de nomes de cada sistema por uma semana

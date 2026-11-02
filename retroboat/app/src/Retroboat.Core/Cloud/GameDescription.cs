@@ -3,10 +3,11 @@ using System;
 namespace Retroboat.Cloud
 {
     /// <summary>
-    /// Linha de status que o Retroboat coloca no topo da descrição de um jogo que não está instalado
-    /// ("Na nuvem · 3,0 GB · ..."). O resto da descrição (do scraper, da nuvem ou do usuário) fica embaixo,
-    /// intacto, e a linha sai quando o jogo é instalado. Até a interface ganhar um status próprio (RB-010,
-    /// RB-014), é por aqui que o ES mostra que o jogo está na nuvem.
+    /// Linha de status que o Retroboat coloca no topo da descrição de um jogo corrompido na nuvem
+    /// ("Corrompido na nuvem: ..."). O resto da descrição (do scraper, da nuvem, das informações automáticas
+    /// ou do usuário) fica embaixo, intacto. Jogo na nuvem ou instalado não tem linha: o tema mostra o status
+    /// (RB-014, RB-017) e a descrição fica só com o texto do jogo, como na Steam. A linha "Na nuvem · ..." das
+    /// versões anteriores é reconhecida para sair dos gamelists antigos.
     /// </summary>
     public static class GameDescription
     {
@@ -31,6 +32,14 @@ namespace Retroboat.Cloud
         public static string WithStatus(string status, string body)
         {
             return string.IsNullOrEmpty(body) ? status : status + "\n\n" + body;
+        }
+
+        /// <summary>Troca o texto da descrição, mantendo o aviso de corrompido se houver (a linha "Na nuvem" antiga sai).</summary>
+        public static string ReplaceBody(string description, string body)
+        {
+            return description != null && description.StartsWith(CorruptPrefix, StringComparison.Ordinal)
+                ? WithStatus(description.Split('\n')[0].TrimEnd('\r'), body)
+                : body;
         }
     }
 }

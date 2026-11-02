@@ -216,6 +216,13 @@ namespace Retroboat.Launcher
                 foreach (var problem in report.AutoMedia.Errors) Log.Warn("Capas automáticas: " + problem);
             }
 
+            if (report.AutoInfo != null)
+            {
+                Log.Info(string.Format("Informações automáticas (libretro, Wikidata, Wikipédia): {0} jogo(s)", report.AutoInfo.GamesFilled));
+                foreach (var game in report.AutoInfo.NotFound) Log.Info("Informações automáticas não encontradas: " + game);
+                foreach (var problem in report.AutoInfo.Errors) Log.Warn("Informações automáticas: " + problem);
+            }
+
             if (report.Media != null)
             {
                 Log.Info(string.Format("Capas e descrições: {0} jogo(s) enviados ({1} arquivos), {2} recebidos ({3} arquivos)",
