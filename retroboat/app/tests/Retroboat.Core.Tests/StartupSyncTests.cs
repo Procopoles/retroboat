@@ -57,7 +57,7 @@ namespace Retroboat.Tests
                 Assert.Equal(new[]
                 {
                     "Nuvem: BIOS sincronizadas (1 baixada(s))",
-                    "Biblioteca na nuvem: 0 instalado(s), 1 para baixar ao jogar",
+                    "Biblioteca na nuvem: 0 instalado(s), 1 para baixar",
                     "PlayStation 2: BIOS ok (v1.60, EUA, 2002-02-07)"
                 }, report.Messages);
             }
@@ -74,7 +74,7 @@ namespace Retroboat.Tests
                 var report = StartupSync.Run(new RetroBatInstall(retrobat.Path), cloud.Path, retrobat.Combine("roms"));
 
                 Assert.False(report.HasWarnings);
-                Assert.Equal(new[] { "Nuvem: BIOS em dia", "Biblioteca na nuvem: 0 instalado(s), 1 para baixar ao jogar" }, report.Messages.ToArray());
+                Assert.Equal(new[] { "Nuvem: BIOS em dia", "Biblioteca na nuvem: 0 instalado(s), 1 para baixar" }, report.Messages.ToArray());
             }
         }
     }

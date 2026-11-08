@@ -7,6 +7,7 @@ using System.Threading;
 using System.Windows.Forms;
 using Retroboat.Cloud;
 using Retroboat.Es;
+using Retroboat.Launch;
 using Retroboat.Library;
 using Retroboat.Logging;
 using Retroboat.Saves;
@@ -16,10 +17,11 @@ using Retroboat.Themes;
 namespace Retroboat.Launcher
 {
     /// <summary>
-    /// Retroboat.exe: substitui o atalho do retrobat.exe. Prepara a biblioteca (RB-003), sincroniza
-    /// com a nuvem (BIOS) e abre o RetroBat de sempre; o resultado da sincronização aparece como
-    /// notificação no ES. Se algo der errado na preparação, o RetroBat abre mesmo assim com a
-    /// configuração anterior: o lançador nunca impede de jogar.
+    /// Retroboat.exe: substitui o atalho do retrobat.exe. Pergunta se abre o Google Drive se ele estiver
+    /// fechado, prepara a biblioteca (RB-003), sincroniza com a nuvem (BIOS) e abre o RetroBat de sempre; o
+    /// resultado da sincronização aparece como notificação no ES. Depois fica em segundo plano, sem janela,
+    /// acompanhando o Drive enquanto o ES estiver aberto (CloudWatcher). Se algo der errado na preparação, o
+    /// RetroBat abre mesmo assim com a configuração anterior: o lançador nunca impede de jogar.
     ///
     /// Argumentos próprios: --retrobat &lt;pasta&gt;, --setup (escolher a pasta de jogos de novo) e
     /// --no-launch (só preparar). Os demais são repassados ao retrobat.exe.
@@ -70,10 +72,14 @@ namespace Retroboat.Launcher
                 }
             }
 
+            if (!own.NoLaunch)
+                OfferToOpenCloudApp(install, settings);
+
             if (!PrepareLibrary(install, settings.RomsPath, CreateCommandWrapper(install, settings), showWarnings: firstRun || own.Setup))
                 return 0;
 
             ApplyThemeOverlays(install);
+            TurnOffEsBiosCheck(install, settings, settingsPath);
 
             var sync = RunStartupSync(install, settings);
 
@@ -86,23 +92,47 @@ namespace Retroboat.Launcher
             }
 
             int exitCode = StartRetroBat(install, passThrough);
-            if (exitCode == 0 && sync != null)
-                NotifyWhenEsIsReady(sync);
+            if (exitCode == 0 && WaitForEs())
+            {
+                // Um download interrompido na sessão anterior continua sozinho.
+                Retroboat.Downloads.DownloadProcess.EnsureRunning(install, AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/'));
+
+                if (sync != null)
+                    NotifyEs(sync);
+
+                CloudWatcher.Run(install, settings);
+            }
 
             return exitCode;
+        }
+
+        /// <summary>Antes de tudo, para a biblioteca, as BIOS e os memory cards já virem da nuvem. Falha aqui nunca impede de jogar.</summary>
+        static void OfferToOpenCloudApp(RetroBatInstall install, RetroboatSettings settings)
+        {
+            try
+            {
+                CloudStatusFile.ClearDeclined(install);
+                CloudAppPrompt.Ensure(install, settings, CloudNeed.Startup);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Falha ao oferecer abrir o Google Drive", ex);
+            }
         }
 
         /// <summary>
         /// Sistemas com jogos na nuvem abrem pelo retroboat-launch, que baixa o jogo antes do emulador; os
         /// que têm saves sincronizados (PS2), sempre, mesmo sem o Drive, para os memory cards acompanharem a
-        /// partida. O caminho é relativo a %HOME% (a pasta do ES), para o RetroBat continuar portátil.
+        /// partida. Com o Drive fechado, os sistemas vêm do índice deste PC: é o retroboat-launch que oferece
+        /// abrir o Drive ao apertar BAIXAR. O caminho é relativo a %HOME% (a pasta do ES), para o RetroBat
+        /// continuar portátil.
         /// </summary>
-        static CommandWrapper CreateCommandWrapper(RetroBatInstall install, RetroboatSettings settings)
+        internal static CommandWrapper CreateCommandWrapper(RetroBatInstall install, RetroboatSettings settings)
         {
             var exeDir = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
             if (!File.Exists(Path.Combine(exeDir, "retroboat-launch.exe")))
             {
-                Log.Warn("retroboat-launch.exe não encontrado ao lado do Retroboat.exe: jogos da nuvem não serão baixados ao jogar e os memory cards só sincronizam ao abrir o Retroboat.");
+                Log.Warn("retroboat-launch.exe não encontrado ao lado do Retroboat.exe: jogos da nuvem não serão baixados ao apertar BAIXAR e os memory cards só sincronizam ao abrir o Retroboat.");
                 return null;
             }
 
@@ -117,11 +147,13 @@ namespace Retroboat.Launcher
             var systems = new HashSet<string>(SaveRules.Systems, StringComparer.OrdinalIgnoreCase);
             try
             {
+                systems.UnionWith(CloudIndex.Load(CloudLibrarySync.IndexPath(install)).Entries.Select(e => e.System));
+
                 var cloud = CloudLocator.Locate(settings.CloudPath);
                 if (cloud != null && Directory.Exists(cloud.GamesPath))
                     systems.UnionWith(new CloudLibrary(cloud.GamesPath).GetGames().Select(g => g.System));
             }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
             {
                 Log.Warn("Não foi possível listar a biblioteca na nuvem: " + ex.Message);
             }
@@ -152,6 +184,26 @@ namespace Retroboat.Launcher
         }
 
         /// <summary>
+        /// Desliga, uma vez, o aviso de BIOS do ES, que acusa falta com uma BIOS válida. Com o ES aberto fica
+        /// para o próximo início, porque ele regrava o es_settings.cfg ao sair. Falha aqui nunca impede de jogar.
+        /// </summary>
+        static void TurnOffEsBiosCheck(RetroBatInstall install, RetroboatSettings settings, string settingsPath)
+        {
+            if (Process.GetProcessesByName("emulationstation").Length > 0)
+                return;
+
+            try
+            {
+                if (Retroboat.Bios.EsBiosCheck.TurnOffOnce(install, settings, settingsPath))
+                    Log.Info("Aviso de BIOS do ES desligado: o Retroboat confere a BIOS pelo conteúdo.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Falha ao desligar o aviso de BIOS do ES", ex);
+            }
+        }
+
+        /// <summary>
         /// Sincroniza com a nuvem antes do ES ler os arquivos. A janela de progresso só aparece se demorar.
         /// Falha na sincronização nunca impede de jogar.
         /// </summary>
@@ -162,11 +214,7 @@ namespace Retroboat.Launcher
 
             var worker = new Thread(() =>
             {
-                try
-                {
-                    var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
-                    report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media);
-                }
+                try { report = SyncWithCloud(install, settings); }
                 catch (Exception ex) { error = ex; }
             }) { IsBackground = true };
 
@@ -190,6 +238,18 @@ namespace Retroboat.Launcher
                 return null;
             }
 
+            LogReport(report);
+            return report;
+        }
+
+        internal static StartupSyncReport SyncWithCloud(RetroBatInstall install, RetroboatSettings settings)
+        {
+            var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
+            return StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media);
+        }
+
+        internal static void LogReport(StartupSyncReport report)
+        {
             foreach (var message in report.Messages)
             {
                 if (message.StartsWith("Atenção", StringComparison.Ordinal) || message.StartsWith("Nuvem: Google Drive", StringComparison.Ordinal))
@@ -249,22 +309,21 @@ namespace Retroboat.Launcher
                 foreach (var game in report.Library.PlaceholdersCreated) Log.Info("Jogo da nuvem no ES (marcador): " + game);
                 foreach (var game in report.Library.PlaceholdersRemoved) Log.Info("Saiu da nuvem, marcador removido: " + game);
             }
-
-            return report;
         }
 
-        /// <summary>
-        /// Mostra o resultado da sincronização como notificação do ES, pela API local dele. O lançador fica
-        /// em segundo plano, sem janela, até o ES subir (a intro do RetroBat leva alguns segundos).
-        /// </summary>
-        static void NotifyWhenEsIsReady(StartupSyncReport report)
+        /// <summary>O lançador fica em segundo plano, sem janela, até o ES subir (a intro do RetroBat leva alguns segundos).</summary>
+        static bool WaitForEs()
         {
-            if (!EsApi.WaitUntilRunning(TimeSpan.FromMinutes(3)))
-            {
-                Log.Warn("O ES não respondeu em 3 minutos; o resultado da sincronização ficou só no log.");
-                return;
-            }
+            if (EsApi.WaitUntilRunning(TimeSpan.FromMinutes(3)))
+                return true;
 
+            Log.Warn("O ES não respondeu em 3 minutos; o resultado da sincronização ficou só no log.");
+            return false;
+        }
+
+        /// <summary>Mostra o resultado da sincronização como notificação do ES, pela API local dele.</summary>
+        static void NotifyEs(StartupSyncReport report)
+        {
             // Dá tempo do ES sair da tela de carregamento, senão a notificação passa despercebida.
             Thread.Sleep(5000);
             if (EsApi.Notify(string.Join("\n", report.Messages)))
@@ -290,18 +349,7 @@ namespace Retroboat.Launcher
 
             try
             {
-                var result = new IsolatedLibrary(install).Apply(romsPath, wrapper: wrapper);
-                Log.Info(string.Format("Biblioteca: {0} sistemas, overlay {1}, emulatorLauncher.cfg {2}, {3} pastas criadas, {4} gamelists criados, movidos: {5}",
-                    result.SystemsMapped,
-                    result.OverlayWritten ? "gravado" : result.OverlayRemoved ? "removido" : "sem mudança",
-                    result.LauncherConfigUpdated ? "atualizado" : "sem mudança",
-                    result.FoldersCreated,
-                    result.GamelistsCreated,
-                    result.GamelistsMoved.Count == 0 ? "nenhum" : string.Join(", ", result.GamelistsMoved)));
-
-                foreach (var warning in result.Warnings)
-                    Log.Warn(warning);
-
+                var result = ApplyLibrary(install, romsPath, wrapper);
                 if (showWarnings && result.Warnings.Count > 0)
                     MessageBox.Show(string.Join("\r\n\r\n", result.Warnings), Title, MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
@@ -313,6 +361,23 @@ namespace Retroboat.Launcher
             }
 
             return true;
+        }
+
+        internal static ApplyResult ApplyLibrary(RetroBatInstall install, string romsPath, CommandWrapper wrapper)
+        {
+            var result = new IsolatedLibrary(install).Apply(romsPath, wrapper: wrapper);
+            Log.Info(string.Format("Biblioteca: {0} sistemas, overlay {1}, emulatorLauncher.cfg {2}, {3} pastas criadas, {4} gamelists criados, movidos: {5}",
+                result.SystemsMapped,
+                result.OverlayWritten ? "gravado" : result.OverlayRemoved ? "removido" : "sem mudança",
+                result.LauncherConfigUpdated ? "atualizado" : "sem mudança",
+                result.FoldersCreated,
+                result.GamelistsCreated,
+                result.GamelistsMoved.Count == 0 ? "nenhum" : string.Join(", ", result.GamelistsMoved)));
+
+            foreach (var warning in result.Warnings)
+                Log.Warn(warning);
+
+            return result;
         }
 
         static int StartRetroBat(RetroBatInstall install, IList<string> args)

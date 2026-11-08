@@ -27,7 +27,7 @@ namespace Retroboat.Launch
         int _selected;
         ushort _previousButtons;
 
-        public ChoiceForm(string title, string heading, string text, IReadOnlyList<string> options, bool canGoBack = true)
+        public ChoiceForm(string title, string heading, string text, IReadOnlyList<string> options, bool canGoBack = true, string hint = null)
         {
             Theme.ApplyFullScreen(this);
             Result = Back;
@@ -35,7 +35,7 @@ namespace Retroboat.Launch
             _title = Theme.MakeLabel(title, 16f, Theme.Muted);
             _heading = Theme.MakeLabel(heading, 28f, Theme.Foreground, FontStyle.Bold);
             _text = Theme.MakeLabel(text ?? "", 15f, Theme.Foreground);
-            _hint = Theme.MakeLabel(options.Count == 0 ? "" : "A ou Enter: escolher" + (canGoBack ? "   ·   B ou Esc: voltar" : ""), 13f, Theme.Muted);
+            _hint = Theme.MakeLabel(hint ?? (options.Count == 0 ? "" : "A ou Enter: escolher" + (canGoBack ? "   ·   B ou Esc: voltar" : "")), 13f, Theme.Muted);
             Controls.AddRange(new Control[] { _title, _heading, _text, _hint });
 
             for (int i = 0; i < options.Count; i++)
@@ -68,6 +68,8 @@ namespace Retroboat.Launch
 
             _gamepadTimer.Tick += (s, e) =>
             {
+                Theme.ReclaimFocus(this);
+
                 var buttons = GamepadButtons.Current();
                 var pressed = (ushort)(buttons & ~_previousButtons);
                 _previousButtons = buttons;
@@ -97,9 +99,10 @@ namespace Retroboat.Launch
         public int AutoCloseInterval { get; set; } = 2000;
 
         /// <summary>Mostra e espera a resposta.</summary>
-        public static int Ask(string title, string heading, string text, IReadOnlyList<string> options, Func<bool> autoClose = null, bool canGoBack = true)
+        public static int Ask(string title, string heading, string text, IReadOnlyList<string> options, Func<bool> autoClose = null, bool canGoBack = true,
+                              string hint = null, int autoCloseInterval = 2000)
         {
-            using (var form = new ChoiceForm(title, heading, text, options, canGoBack) { AutoClose = autoClose })
+            using (var form = new ChoiceForm(title, heading, text, options, canGoBack, hint) { AutoClose = autoClose, AutoCloseInterval = autoCloseInterval })
             {
                 Application.Run(form);
                 return form.Result;

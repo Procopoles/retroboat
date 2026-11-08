@@ -51,7 +51,9 @@ namespace Retroboat.Cloud
 
             if (report.Cloud == null || !report.Cloud.Exists)
             {
-                report.Messages.Add("Nuvem: Google Drive para computador não encontrado. Usando só o que está neste PC.");
+                report.Messages.Add(GoogleDriveApp.GetState(configuredCloudPath) == CloudAppState.Closed
+                    ? "Nuvem: Google Drive fechado. Usando só o que está neste PC."
+                    : "Nuvem: Google Drive para computador não encontrado. Usando só o que está neste PC.");
                 report.HasWarnings = true;
 
                 // Os jogos da nuvem continuam no ES; os gamelists acompanham o índice deste PC.
@@ -105,7 +107,7 @@ namespace Retroboat.Cloud
                     var library = report.Library;
                     if (library.InCloud + library.Installed + library.Corrupt > 0)
                     {
-                        report.Messages.Add("Biblioteca na nuvem: " + library.Installed + " instalado(s), " + library.InCloud + " para baixar ao jogar" +
+                        report.Messages.Add("Biblioteca na nuvem: " + library.Installed + " instalado(s), " + library.InCloud + " para baixar" +
                                             (library.Corrupt > 0 ? ", " + library.Corrupt + " corrompido(s)" : ""));
                         if (library.Corrupt > 0)
                             report.HasWarnings = true;

@@ -33,6 +33,12 @@ namespace Retroboat.Settings
         /// </summary>
         public bool AutoMedia { get; set; } = true;
 
+        /// <summary>Abrir o Google Drive sem perguntar, quando o Retroboat precisar dele e ele estiver fechado.</summary>
+        public bool CloudAppAutoOpen { get; set; }
+
+        /// <summary>A checagem de BIOS do ES já foi desligada neste PC; não desligar de novo.</summary>
+        public bool EsBiosCheckHandled { get; set; }
+
         public static string GetPath(RetroBatInstall install) => Path.Combine(install.RetroboatDataPath, FileName);
 
         public static RetroboatSettings Load(string path)
@@ -44,7 +50,9 @@ namespace Retroboat.Settings
                 CloudPath = Get(ini, "Cloud", "Path"),
                 CloudVideos = Get(ini, "Cloud", "Videos") == "1",
                 CloudManuals = Get(ini, "Cloud", "Manuals") == "1",
-                AutoMedia = Get(ini, "Media", "Automatic") != "0"
+                CloudAppAutoOpen = Get(ini, "Cloud", "AutoOpen") == "1",
+                AutoMedia = Get(ini, "Media", "Automatic") != "0",
+                EsBiosCheckHandled = Get(ini, "Bios", "EsCheckHandled") == "1"
             };
         }
 
@@ -65,10 +73,16 @@ namespace Retroboat.Settings
                 .AppendLine("; Capas e descrições dos jogos da nuvem sempre vêm. 1 = baixar também vídeos / manuais.")
                 .AppendLine("Videos=" + (CloudVideos ? "1" : "0"))
                 .AppendLine("Manuals=" + (CloudManuals ? "1" : "0"))
+                .AppendLine("; 1 = abrir o Google Drive sem perguntar quando ele estiver fechado. 0 = perguntar.")
+                .AppendLine("AutoOpen=" + (CloudAppAutoOpen ? "1" : "0"))
                 .AppendLine()
                 .AppendLine("[Media]")
                 .AppendLine("; 1 = capas, descrição, gênero, data e demais informações automáticas para jogos sem elas. 0 = desligado.")
-                .AppendLine("Automatic=" + (AutoMedia ? "1" : "0"));
+                .AppendLine("Automatic=" + (AutoMedia ? "1" : "0"))
+                .AppendLine()
+                .AppendLine("[Bios]")
+                .AppendLine("; 1 = o Retroboat já desligou o aviso de BIOS do ES neste PC. Religue pelo menu do ES, se quiser.")
+                .AppendLine("EsCheckHandled=" + (EsBiosCheckHandled ? "1" : "0"));
 
             File.WriteAllText(path, text.ToString(), new UTF8Encoding(false));
         }

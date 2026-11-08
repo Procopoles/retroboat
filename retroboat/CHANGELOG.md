@@ -32,8 +32,8 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-014: o tema padrão passa a ser o nosso fork do Carbon (`build.ini: theme_path`), no design da
   Steam (Big Picture): botão JOGAR ou BAIXAR com o status na seção do jogo, ícone de status nas
   visões em grade e ícone global de nuvem no cabeçalho.
-  - Com o Drive fechado, um jogo da nuvem mostra BAIXAR desativado e "Abra o Google Drive para
-    baixar", em vez de parecer pronto para baixar. Não é tratado como corrompido.
+  - Com o Drive fechado, um jogo da nuvem mostra "NA NUVEM · DRIVE FECHADO" e "Abre o Google Drive e
+    baixa ao jogar" (RB-019). Não é tratado como corrompido.
 - RB-017: o tema PlayStation-X ganha o mesmo status: o "Iniciar" do jogo em foco vira JOGAR, BAIXAR
   ou INDISPONÍVEL (visões ps4Style e single), barra de ação na visão detalhada, ícone de status na
   faixa de ícones de todas as visões em grade e ícone global de nuvem no cabeçalho.
@@ -55,6 +55,29 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
     o primeiro save, e num PC novo recebe o cartão da nuvem.
 - Design system do Retroboat (`design/design-system-steam.md`), com base no Steam Big Picture e
   nos tokens do próprio cliente Steam.
+
+- RB-018: o aviso falso de falta de BIOS ao abrir um jogo some: o lançador desliga a checagem do ES uma
+  vez por PC (ela só aceita uma BIOS de PS2 específica). A BIOS segue conferida pelo conteúdo na
+  notificação do início; quem quiser o aviso de volta religa no menu do ES.
+
+- RB-019: o Retroboat cuida do Google Drive sozinho.
+  - Com o Drive fechado, ele pergunta se abre: ao iniciar, ao apertar BAIXAR e ao abrir um jogo com memory
+    card. "Sempre abrir, sem perguntar" não pergunta mais; "Agora não" não insiste no memory card até o
+    próximo início. Se o Drive abrir por outro caminho, a pergunta some.
+  - O ícone de nuvem desligada ganha um X, nos dois temas.
+  - Com o ES aberto, a nuvem acompanha o Drive: quando ele conecta, sincroniza e o ES recarrega com os jogos
+    novos; quando desconecta, o ES recarrega com o X e avisa.
+  - BAIXAR continua ativo com o Drive fechado, e jogos da nuvem de sistemas que não são PS2 passam a chegar
+    à pergunta, em vez de abrir o emulador com um arquivo vazio.
+
+- RB-020: downloads em segundo plano, como na Steam.
+  - BAIXAR não prende mais a tela: o jogo entra numa fila e o ES volta em instantes. Dá para navegar, abrir outros jogos
+    e pôr mais jogos na fila. A fila continua na próxima abertura se o ES fechar.
+  - O download aparece no topo: a região dos ícones do cabeçalho gira, mostra status, nome, barra e tempo restante e volta
+    aos ícones, em qualquer tema. Não tira o foco e some com um jogo aberto.
+  - O jogo mostra BAIXANDO nos dois temas e vira JOGAR ao vivo quando termina, sem recarregar o ES.
+  - Sem o Google Drive, o download espera e continua sozinho quando ele voltar, inclusive se cair no meio.
+  - Apertar de novo em um jogo da fila oferece cancelar. A tela cheia de download saiu.
 
 ### Nos forks (ainda não usados pelo build)
 

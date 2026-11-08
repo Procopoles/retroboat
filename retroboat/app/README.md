@@ -8,7 +8,7 @@ do upstream (camada C0). Desenho em [../design/cloud-first.md](../design/cloud-f
 | `src/Retroboat.Core` | `Retroboat.Core.dll` | Biblioteca na nuvem (pasta do Google Drive para computador), instalação com progresso e retomada, verificação de integridade, biblioteca isolada (RB-003) |
 | `src/Retroboat.Cli` | `retroboat-cli.exe` | Linha de comando para testar e operar a biblioteca |
 | `src/Retroboat.Launcher` | `Retroboat.exe` | Lançador: prepara a biblioteca, sincroniza BIOS e jogos da nuvem e abre o `retrobat.exe` |
-| `src/Retroboat.Launch` | `retroboat-launch.exe` | Fica na frente do emulatorLauncher; baixa o jogo da nuvem com tela de progresso antes de abrir |
+| `src/Retroboat.Launch` | `retroboat-launch.exe` | Fica na frente do emulatorLauncher: BAIXAR põe o jogo na fila e volta para o ES. Com `--downloads`, é o serviço que baixa a fila e mostra o andamento no cabeçalho |
 | `tests/Retroboat.Core.Tests` | — | Testes (xUnit) |
 
 .NET Framework 4.8, igual ao resto do RetroBat. Para compilar, basta o .NET SDK (10 ou mais novo):
@@ -66,8 +66,14 @@ onde ficam os jogos e grava em `<RetroBat>\retroboat\retroboat.ini`. A cada iní
 de sistemas, a chave `roms=` e os gamelists locais, e então abre o `retrobat.exe` repassando os
 argumentos. Se a preparação falhar, o RetroBat abre mesmo assim com a configuração anterior.
 
-Argumentos próprios: `--setup` (escolher a pasta de novo), `--no-launch` (só preparar) e
-`--retrobat <pasta>`. Log em `<RetroBat>\retroboat\logs\launcher.log`.
+Argumentos próprios: `--setup` (escolher a pasta de novo), `--no-launch` (só preparar, sem perguntar
+nada e sem ficar em segundo plano) e `--retrobat <pasta>`. Log em
+`<RetroBat>\retroboat\logs\launcher.log`.
+
+Com o Google Drive fechado, o lançador pergunta se abre: ao iniciar, e o `retroboat-launch` ao apertar BAIXAR
+ou ao abrir um jogo com memory card. "Sempre abrir, sem perguntar" grava `AutoOpen=1`. Depois de abrir o
+RetroBat, o `Retroboat.exe` fica em segundo plano, sem janela, até o ES fechar: quando o Drive conecta, sincroniza e
+recarrega o ES; quando desconecta, recarrega o ES com o X na nuvem. Com jogo aberto ou scraper rodando, espera.
 
 Antes de abrir o RetroBat, o lançador também sincroniza com a nuvem: BIOS, os logins do ES
 (ScreenScraper, IGDB e RetroAchievements, em `retroboat\contas`; um PC sem login recebe o da
@@ -84,10 +90,16 @@ Path=
 Videos=0
 ; 1 = baixar também manuais e revistas (PDF).
 Manuals=0
+; 1 = abrir o Google Drive sem perguntar quando ele estiver fechado.
+AutoOpen=0
 
 [Media]
 ; 1 = capas, descrição, gênero, data e demais informações automáticas para jogos sem elas.
 Automatic=1
+
+[Bios]
+; 1 = o Retroboat já desligou o aviso de BIOS do ES neste PC (só acontece uma vez).
+EsCheckHandled=1
 ```
 
 Como na Steam, a página de um jogo mostra o conteúdo dele antes do download. Para todo jogo da
@@ -103,6 +115,28 @@ As capas automáticas não precisam de conta: o lançador procura o nome do arqu
 No-Intro/Redump) nos thumbnails do libretro, guarda a lista de nomes de cada sistema por uma semana
 em `retroboat\cache\libretro` e envia as imagens para o Drive. Descrição e vídeo vêm do scraper do
 ES, que precisa de uma conta gratuita no ScreenScraper (menu Procurar mídias de jogo, aba Contas).
+
+## Downloads em segundo plano
+
+Apertar BAIXAR não prende mais a tela. O `retroboat-launch` põe o jogo na fila e volta para o ES em instantes, com código
+de saída 1, para o ES não contar como partida nem mostrar erro. A pessoa continua navegando, abre outros jogos ou põe mais
+jogos na fila.
+
+- **Fila:** `retroboat\estado\downloads.xml`, um jogo por vez, na ordem em que entraram. Sobrevive ao fechamento do ES.
+- **Serviço:** `retroboat-launch --downloads`, sem janela própria, um só por vez. Sobe quando a fila tem jogo: no BAIXAR, ao
+  abrir qualquer jogo e na abertura do `Retroboat.exe`. Fecha quando a fila esvazia. Log em `retroboat\logs\downloads.log`.
+- **Cancelar:** apertar de novo em um jogo da fila abre a tela com "Continuar baixando" e "Cancelar o download". Num jogo em
+  arquivo solto, o que já foi copiado fica para retomar; um ZIP recomeça (o deflate não permite continuar no meio).
+- **Sem o Drive:** o jogo fica em AGUARDANDO e continua sozinho quando o Drive voltar, inclusive se ele cair no meio.
+- **ES fechou:** o serviço para em até 15 s e o jogo fica na fila; continua na próxima abertura.
+- **Com jogo aberto:** o download continua, com prioridade baixa, e a região do cabeçalho fica escondida. O PRONTO espera a volta ao ES.
+- **Quando termina:** o jogo vira JOGAR na hora, sem recarregar o ES nem mexer na posição do usuário (`POST /addgames`).
+  Se não deu certo, o motivo aparece como notificação no ES.
+
+O tema mostra BAIXANDO porque existe `retroboat\estado\baixando\<arquivo do jogo>`. O andamento fica na
+[região do cabeçalho](../design/design-system-steam.md#46-região-de-ícones-do-cabeçalho-download), uma janela do Retroboat
+por cima do ES, sem foco e sem clique, porque o tema do ES não recebe dados ao vivo. Exige o ES em tela cheia sem borda, que é
+como o RetroBat abre (`FullscreenBorderless=1`). Com o RB-010 (ES nativo), ela vira um componente do ES.
 
 ## Status nos temas
 

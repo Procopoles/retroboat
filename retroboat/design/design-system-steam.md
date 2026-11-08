@@ -124,12 +124,17 @@ valores acima são maiores.
 |---|---|---|---|
 | Instalado | ▶ `` | JOGAR | gradiente JOGAR |
 | Na nuvem | ⬇ `` | BAIXAR | gradiente INSTALAR |
-| Na nuvem, Drive fechado | ⬇ `` | BAIXAR | `disabled-bg`, texto a 50% |
+| Na nuvem, Drive fechado | ⬇ `` | BAIXAR | gradiente INSTALAR |
+| Baixando ou na fila | ⬇ `` | BAIXANDO | `neutral-7`, rótulo `accent` |
 | Corrompido na nuvem | ⚠ `` | INDISPONÍVEL | `disabled-bg`, texto a 50% |
 
-"Drive fechado" não é defeito: o jogo continua na nuvem, só não dá para baixar agora. Por isso a
-legenda usa `warning` ("NA NUVEM · DRIVE FECHADO") e o valor diz como resolver ("Abra o Google
-Drive para baixar"); vermelho fica só para corrompido. O selo da faixa (4.3) fica `neutral-10`.
+"Drive fechado" não é defeito: BAIXAR continua valendo, porque o Retroboat oferece abrir o Drive ao
+apertar. Por isso o botão fica ativo, a legenda usa `warning` ("NA NUVEM · DRIVE FECHADO") e o valor
+diz o que vai acontecer ("Abre o Google Drive e baixa"); vermelho fica só para corrompido.
+O selo da faixa (4.3) fica `neutral-10`.
+
+BAIXANDO é cinza porque não é uma ação nova: o jogo já está baixando. Apertar de novo abre a tela de cancelar, com
+"Continuar baixando" como opção inicial. O tema só mostra que está baixando; o andamento fica na região do cabeçalho (4.6).
 
 Altura de 48 px @1080p (0.044), largura mínima de 200 px (0.105 da largura em 16:9), raio 3 px,
 rótulo em maiúsculas, peso 700, `text-on-action`.
@@ -144,7 +149,10 @@ da arte do jogo). Fundo `neutral-6` a ~85%, raio 4 px.
               Pronto para jogar neste PC   (valor, text-body)
 
 [ ⬇ BAIXAR ]  NA NUVEM
-              Baixa na primeira vez que você jogar
+              Baixa em segundo plano
+
+[ ⬇ BAIXANDO ] BAIXANDO                      (legenda, accent)
+              O andamento aparece no topo da tela
 ```
 
 ### 4.3 Selo de status na faixa de informações
@@ -160,12 +168,47 @@ Canto superior direito, junto da bateria e da hora, como os ícones de sistema d
 | Estado | Ícone | Cor |
 |---|---|---|
 | Nuvem conectada | nuvem `` | `text-body` |
-| Sem nuvem (Drive não encontrado) | nuvem | `neutral-10`, opacidade 60% |
+| Sem nuvem (Drive fechado) | nuvem com um X por cima | nuvem `neutral-11`, X `neutral-2` |
+
+Só a cor não bastava: de longe, as duas nuvens pareciam iguais. O X é um glifo próprio (`&#xF00D;`),
+centrado sobre a nuvem, na cor do fundo, como um recorte.
 
 ### 4.5 Legenda + valor
 
 Padrão de informação do Big Picture: legenda curta em maiúsculas (`text-secondary`, 18 px, peso 500)
 sobre o valor (`text-body`, 22 px). Usado na barra de ação e em informações do jogo.
+
+### 4.6 Região de ícones do cabeçalho (download)
+
+O canto do cabeçalho com os ícones globais é uma região que gira: as duas faces são lados de um cubo, no eixo
+horizontal e dentro da própria região. A face de ícones é o cabeçalho de verdade do tema, então funciona em
+qualquer tema. Um download é estado global (a pessoa pode estar em outro jogo), por isso fica aqui, e não na
+seção do jogo; o status do jogo (BAIXANDO, em 4.1) continua na seção dele.
+
+```
+[ ★ 2026  ☁  15:24 ]  →  gira  →  [ ⬇ BAIXANDO  Nome do jogo                   45% ]
+                                  [   ▓▓▓▓▓▓▓▓▓░░░░░░░░░░░                         ]
+                                  [   1,9 GB de 4,3 GB · 12 MB/s · restam 3:10     ]
+```
+
+| Status | Legenda | Cor | Ícone | Linha de baixo |
+|---|---|---|---|---|
+| Lendo o jogo na nuvem | PREPARANDO | `accent` | seta | Lendo o jogo na nuvem |
+| Baixando | BAIXANDO | `accent` | seta | quanto, velocidade e tempo restante |
+| Sem o Google Drive | AGUARDANDO | `warning` | ! | Continua sozinho quando o Google Drive voltar |
+| Terminou | PRONTO | `ready` | check | Pronto para jogar neste PC |
+| Não deu certo | NÃO BAIXOU | `danger` | ! | Veja o motivo na notificação |
+
+- **Tempos:** barra por 10 s, ícones por 6 s. PRONTO e NÃO BAIXOU ficam 6 s e não esperam a vez, nem com os ícones à mostra.
+- **Movimento:** rotação de 450 ms, com aceleração e pouso, sem quique. É a exceção aos 200 ms em ease-out: são duas faces
+  passando pela região e, com ease-out, quase todo o giro acaba no primeiro décimo de segundo e não aparece.
+- **Forma:** fundo `neutral-4`, borda de 1 px `neutral-8`, raio 4 px, barra de 6 px em trilho `neutral-7`. Tamanhos a
+  1080 linhas: 76 px de altura, legenda 16 px, nome 20 px, porcentagem 19 px e detalhes 16 px. O texto é menor que a escala
+  do Big Picture (3.5) porque a faixa é estreita e foi pedida discreta.
+- **Quando aparece:** só com o ES em primeiro plano. Com jogo aberto, ela some; com o ES ocupado (scraper), espera, porque o
+  aviso dele fica no mesmo canto. Nunca pega o foco nem o clique: controle e teclado continuam indo para o ES.
+- **Posição:** tabela por tema em `HeaderRegion` (Core). No PlayStation-X ela começa logo depois do logo do tema, para não
+  cortar o nome dele ao meio; em tema desconhecido, canto superior direito.
 
 ## 5. Aplicação nos temas
 
@@ -204,6 +247,13 @@ nuvem), e não da descrição: o scraper do ES troca a descrição e apagava a l
   `!${variavel}` muda de sentido pela precedência dos operadores.
 - O estado da nuvem chega ao tema por um arquivo: o lançador cria
   `<RetroBat>\retroboat\estado\nuvem-conectada` quando acha o Drive e apaga quando não acha.
+- `exists()` guarda o resultado em cache até o ES recarregar ou voltar de um jogo, e `if=` só é avaliado ao
+  carregar o tema. Para o tema mudar com o ES aberto, o lançador chama `GET /reloadgames`.
+- Para só o status de um jogo mudar, sem recarregar nem mexer na posição do usuário: `POST /addgames/<sistema>` com o
+  nó da pasta raiz (`<gameList><folder><path>.</path></folder></gameList>`) limpa o cache e redesenha a lista. O gamelist é
+  regravado com o que o ES tem, sem perda. Um nó de jogo apagaria as datas do scraper e os campos que o ES não conhece.
+- O tema não recebe dados ao vivo: uma expressão só é avaliada quando o jogo selecionado muda. Por isso a região do
+  cabeçalho é desenhada pelo Retroboat, numa janela por cima do ES, e não pelo tema.
 - Uma visão personalizada (`customView ... inherits="grid"`) copia os elementos da base quando é
   lida. Um `<view name="grid">` lido depois ainda chega a ela, porque o ES repassa a definição às
   visões que herdam; um `<customView name="a, b">` (com vírgula e sem `inherits`) altera só as

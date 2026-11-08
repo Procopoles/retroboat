@@ -46,6 +46,17 @@ namespace Retroboat.Accounts
                 element.SetAttributeValue("value", value);
         }
 
+        /// <summary>Grava um valor booleano (&lt;bool name="..." value="..." /&gt;).</summary>
+        public void SetBool(string name, bool value)
+        {
+            var text = value ? "true" : "false";
+            var element = Find(name);
+            if (element == null)
+                _document.Root.Add(new XElement("bool", new XAttribute("name", name), new XAttribute("value", text)));
+            else
+                element.SetAttributeValue("value", text);
+        }
+
         public void Save()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_path));

@@ -13,7 +13,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 |---|---|---|---|
 | M0 | Fundações: build, provedor de pasta sobre o Google Drive para computador, verificação de integridade | RB-006 | base pronta; falta empacotar no build |
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
-| M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES e download ao jogar |
+| M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020) |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); outros saves não iniciados |
 | M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES (ScreenScraper, IGDB, RetroAchievements) prontas |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; falta o RB-010 |

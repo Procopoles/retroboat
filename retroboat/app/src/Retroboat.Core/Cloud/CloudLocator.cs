@@ -65,6 +65,13 @@ namespace Retroboat.Cloud
             return firstWithoutFolder;
         }
 
+        /// <summary>A pasta do Retroboat na nuvem está acessível agora.</summary>
+        public static bool IsAvailable(string configuredPath = null)
+        {
+            var location = Locate(configuredPath);
+            return location != null && location.Exists;
+        }
+
         public static IEnumerable<string> GetGoogleDriveRoots()
         {
             foreach (var drive in DriveInfo.GetDrives())

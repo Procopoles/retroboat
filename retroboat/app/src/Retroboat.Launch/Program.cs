@@ -1,10 +1,16 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Windows.Forms;
+using System.Xml.Linq;
 using Retroboat.Cloud;
+using Retroboat.Downloads;
 using Retroboat.Library;
 using Retroboat.Logging;
+using Retroboat.Media;
+using Retroboat.Settings;
+using Retroboat.Text;
 
 namespace Retroboat.Launch
 {
@@ -12,10 +18,11 @@ namespace Retroboat.Launch
     /// retroboat-launch.exe: fica na frente do emulatorLauncher no &lt;command&gt; dos sistemas que têm
     /// jogos ou saves na nuvem (overlay es_systems_retroboat.cfg). Uso: retroboat-launch "&lt;programa&gt;" &lt;argumentos&gt;.
     ///
-    /// Se o -rom é um marcador de jogo que só está na nuvem, baixa o jogo com uma tela de progresso. Se o
-    /// sistema tem saves sincronizados (memory cards do PCSX2), puxa os da nuvem antes, envia cada gravação
-    /// durante o jogo e o que faltar no fim (SaveFlow). Depois abre o programa com os mesmos argumentos e
-    /// devolve ao ES o código de saída dele.
+    /// Se o -rom é um marcador de jogo que só está na nuvem, oferece abrir o Google Drive se ele estiver
+    /// fechado, põe o jogo na fila de downloads e volta para o ES na hora: o download segue em segundo plano
+    /// (DownloadHost), e o usuário continua navegando. Se o sistema tem saves sincronizados (memory cards do
+    /// PCSX2), puxa os da nuvem antes, envia cada gravação durante o jogo e o que faltar no fim (SaveFlow).
+    /// Depois abre o programa com os mesmos argumentos e devolve ao ES o código de saída dele.
     /// </summary>
     static class Program
     {
@@ -31,14 +38,22 @@ namespace Retroboat.Launch
             }
 
             var install = RetroBatInstall.FindFrom(AppDomain.CurrentDomain.BaseDirectory);
+            bool isDownloadService = target == DownloadProcess.Argument;
             if (install != null)
-                Log.Init(Path.Combine(install.RetroboatDataPath, "logs", "launch.log"));
+                Log.Init(Path.Combine(install.RetroboatDataPath, "logs", isDownloadService ? "downloads.log" : "launch.log"));
+
+            if (isDownloadService)
+                return install != null ? DownloadHost.Run(install) : 1;
 
             Application.EnableVisualStyles();
 
             var rom = CommandLine.GetOption(args, "-rom");
-            if (install != null && rom != null && !InstallIfInCloud(install, rom))
-                return 1; // Download cancelado ou com erro: volta para o ES sem abrir o emulador.
+            if (install != null && rom != null && !ContinueToGame(install, rom))
+                return 1; // Código diferente de zero: o ES não conta como partida e não mostra erro.
+
+            // Uma fila que ficou de uma sessão anterior continua, mesmo com o RetroBat aberto sem o Retroboat.exe.
+            if (install != null)
+                DownloadProcess.EnsureRunning(install, ExeFolder);
 
             // Memory cards: puxa antes, envia cada gravação durante o jogo e o que faltar no fim.
             var saves = install != null ? SaveFlow.Before(install, args, rom) : null;
@@ -51,24 +66,26 @@ namespace Retroboat.Launch
             return saves.During(() => Run(target, targetArguments));
         }
 
-        /// <returns>false se o jogo precisava ser baixado e não foi.</returns>
-        static bool InstallIfInCloud(RetroBatInstall install, string rom)
+        static string ExeFolder => AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
+
+        /// <returns>false se o jogo é da nuvem: o BAIXAR foi atendido e o ES volta sem abrir o emulador.</returns>
+        static bool ContinueToGame(RetroBatInstall install, string rom)
         {
             try
             {
-                var installer = new OnDemandInstaller(install);
-                var entry = installer.FindPending(rom);
+                var entry = new OnDemandInstaller(install).FindPending(rom);
                 if (entry == null)
                     return true;
 
-                Log.Info("Baixando da nuvem antes de abrir: " + entry.System + "/" + entry.CloudName);
-                using (var form = new DownloadForm(installer, entry))
-                {
-                    Application.Run(form);
-                    var result = form.Result;
-                    Log.Info("Resultado: " + (result?.Outcome.ToString() ?? "janela fechada") + (result?.Message != null ? " (" + result.Message + ")" : ""));
-                    return result != null && result.Outcome == OnDemandOutcome.Installed;
-                }
+                var queue = new DownloadQueue(install);
+                var queued = queue.Find(entry.System + "/" + entry.CloudName);
+                if (queued != null)
+                    AskAboutDownload(queue, queued);
+                else
+                    StartDownload(install, queue, entry);
+
+                DownloadProcess.EnsureRunning(install, ExeFolder);
+                return false;
             }
             catch (Exception ex)
             {
@@ -76,6 +93,61 @@ namespace Retroboat.Launch
                 Log.Error("Falha ao verificar o jogo na nuvem", ex);
                 return true;
             }
+        }
+
+        /// <summary>Com o Drive fechado, pergunta se abre. Se ele não conectar, o jogo entra na fila e espera por ele.</summary>
+        static void StartDownload(RetroBatInstall install, DownloadQueue queue, CloudIndexEntry entry)
+        {
+            var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
+            if (CloudAppPrompt.Ensure(install, settings, CloudNeed.Download) == CloudAppAnswer.Declined)
+                return;
+
+            queue.Add(new DownloadItem
+            {
+                System = entry.System,
+                CloudName = entry.CloudName,
+                LocalName = entry.LocalName,
+                Title = GameTitle(install, entry)
+            });
+
+            Log.Info("Na fila de downloads: " + entry.System + "/" + entry.CloudName);
+        }
+
+        /// <summary>O jogo já está baixando e o usuário apertou de novo: é aqui que dá para cancelar.</summary>
+        static void AskAboutDownload(DownloadQueue queue, DownloadItem item)
+        {
+            bool isCurrent = queue.Items().FirstOrDefault()?.Key == item.Key;
+            string text = isCurrent ? "O download continua enquanto você navega." : "Este jogo está na fila e baixa depois dos que vêm antes dele.";
+            if (queue.TryReadProgress(item, out long done, out long total) && total > 0)
+                text = Format.Percent(done, total) + "   ·   " + Format.Bytes(done) + " de " + Format.Bytes(total) + "\r\n\r\n" + text;
+
+            const int cancelOption = 1;
+            int answer = ChoiceForm.Ask("Baixando da nuvem", item.Title, text, new[] { "Continuar baixando", "Cancelar o download" });
+            if (answer == cancelOption)
+                queue.Remove(item.Key);
+        }
+
+        /// <summary>O nome que o usuário vê no ES; sem gamelist, o do arquivo.</summary>
+        static string GameTitle(RetroBatInstall install, CloudIndexEntry entry)
+        {
+            try
+            {
+                var systems = GameMedia.SystemNamesByFolder(install);
+                var systemName = systems.TryGetValue(entry.System, out var name) ? name : entry.System;
+                var path = Path.Combine(install.GamelistsPath, systemName, "gamelist.xml");
+                if (File.Exists(path))
+                {
+                    var title = (string)CloudLibrarySync.FindGame(XDocument.Load(path), entry.LocalName)?.Element("name");
+                    if (!string.IsNullOrWhiteSpace(title))
+                        return title;
+                }
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
+            {
+                Log.Warn("Nome do jogo não encontrado no gamelist: " + ex.Message);
+            }
+
+            return Path.GetFileNameWithoutExtension(entry.LocalName);
         }
 
         static int Run(string target, string arguments)

@@ -24,6 +24,9 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-015 | Conteúdo dos jogos na nuvem: metadados e mídia compartilhados, mídia fora da pasta de jogos | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
 | RB-016 | ES não compila com o Visual Studio 2026 (MSVC 14.50): falta `#include <chrono>` em `Log.cpp` | ES (Batocera) | C1 | média | baixo | sim | em andamento |
 | RB-017 | Tema PlayStation-X com o status do Retroboat (Baixar/Jogar, nuvem, Drive fechado) | es-theme-PlayStation-X (clone local) | C1 no tema (2 linhas no `theme.xml`) | média | baixo (semântico: médio) | não | em andamento |
+| RB-018 | Aviso falso de BIOS ao abrir jogo: o lançador desliga a checagem do ES uma vez | retroboat/app | C0 | — | nenhum (semântico: baixo) | não | em andamento |
+| RB-019 | Google Drive fechado: perguntar, abrir e acompanhar com o ES aberto | retroboat/app e `status.xml` dos temas (RB-014, RB-017) | C0 | — | nenhum (semântico: baixo) | não | em andamento |
+| RB-020 | Downloads em segundo plano: fila, serviço e região de ícones que gira no cabeçalho | retroboat/app e `status.xml` dos temas (RB-014, RB-017) | C0 | — | nenhum (semântico: médio) | não | em andamento |
 
 ---
 
@@ -328,7 +331,8 @@ o histórico.
   BAIXAR desativado, "NA NUVEM · DRIVE FECHADO" em amarelo e "Abra o Google Drive para baixar"; o
   ícone da faixa fica cinza. O lançador já tratava esse caso como "não disponível" (e não como
   corrompido): `OnDemandInstaller` responde "Abra o Google Drive e tente de novo" e o jogo continua
-  na nuvem. Validado com o ES real na visão detailed.
+  na nuvem. Validado com o ES real na visão detailed. O RB-019 reativou o BAIXAR, porque agora o
+  Retroboat oferece abrir o Drive.
 
 ## RB-017 — Status do Retroboat no tema PlayStation-X
 
@@ -379,6 +383,68 @@ o histórico.
     na lista de vigilância.
 - **Upstreamável:** não (depende do lançador do Retroboat).
 
+## RB-018 — Aviso falso de BIOS ao abrir jogo
+
+- **Onde:** `retroboat/app` (`Bios\EsBiosCheck`, `Accounts\EsSettings`, lançador). Nada no upstream.
+- **Problema:** com uma BIOS de PS2 válida e usada pelo PCSX2 (ex.: `SCPH-39001_BIOS_V7_USA_160.BIN`), o ES
+  avisa "THE SYSTEM HAS MISSING BIOS FILE(S)" a cada jogo. Ele pergunta ao `batocera-systems.exe`, cuja lista
+  embutida só tem, no PS2, `bios/pcsx2/bios/ps2-0230a-20080220.bin`.
+- **Correção:** o lançador grava `CheckBiosesAtLaunch=false` no `es_settings.cfg` uma única vez por PC
+  (`[Bios] EsCheckHandled` no `retroboat.ini`), com o ES fechado. Quem religar em "CHECK BIOS FILES BEFORE
+  RUNNING A GAME" não é contrariado. A BIOS continua conferida pelo conteúdo na notificação do início (RB-013).
+- **Limite conhecido:** a chave vale para todos os sistemas, e o catálogo do Retroboat só cobre o PS2. Um
+  sistema fora do catálogo sem BIOS deixa de avisar antes do jogo. Resolve de vez ao corrigir a lista do
+  `batocera-systems` ou ao aumentar o catálogo.
+- **Classificação:** camada C0, risco de merge nenhum.
+- **Risco semântico:** baixo: se o ES renomear a chave, o aviso volta, sem conflito de merge.
+- **Upstreamável:** não; o que serve ao upstream é aceitar as outras BIOS no `batocera-systems`.
+- **Como testar:** fechar o ES, abrir pelo `Retroboat.exe` e abrir um jogo de PS2: o jogo abre sem o aviso.
+
+## RB-019 — Google Drive fechado: perguntar, abrir e acompanhar
+
+- **Onde:** `retroboat/app` (`Cloud\GoogleDriveApp`, `Cloud\CloudStatusFile`, `Es\EsApi`, `Retroboat.Launch\CloudAppPrompt`,
+  `Retroboat.Launcher\CloudWatcher`) e os `status.xml` dos temas (RB-014, RB-017). Nada no upstream.
+- **Problema:** com o Drive fechado, o Retroboat só avisava "Abra o Google Drive e tente de novo". O ícone de nuvem
+  desligada só mudava de cor, e não dava para diferenciar. Abrir ou fechar o Drive com o ES aberto não mudava
+  nada até reiniciar. Com o Drive fechado no início, sistemas com jogos na nuvem (fora o PS2) ficavam sem o
+  `retroboat-launch`, e o marcador vazio ia direto para o emulador.
+- **Correção:**
+  - `CloudAppPrompt`: pergunta em tela cheia, com controle, com "Abrir o Google Drive", "Sempre abrir, sem perguntar"
+    (`[Cloud] AutoOpen=1`) e "Agora não". Aparece ao iniciar, ao apertar BAIXAR e ao abrir um jogo com memory card.
+    "Agora não" não pergunta de novo para memory card até o próximo início; BAIXAR pergunta sempre, porque
+    sem o Drive o jogo não abre. A pergunta some se o Drive abrir por outro caminho. Sem o Drive instalado, ou com
+    `[Cloud] Path` num disco que está lá, não há pergunta.
+  - `GoogleDriveApp`: acha a versão mais nova em `%ProgramFiles%\Google\Drive File Stream` e abre com
+    `--startup_mode`, o mesmo argumento da inicialização do Windows (fica na bandeja, sem janela).
+  - `CloudWatcher`: o `Retroboat.exe` fica em segundo plano enquanto o ES estiver aberto e confere o Drive a cada
+    5 s. Mudou (duas leituras iguais, por causa da montagem): sincroniza se conectou, recarrega o ES
+    (`GET /reloadgames`) e notifica. Com jogo aberto ou scraper rodando (`/isIdle`), espera.
+  - Temas: nuvem `neutral-11` com um X `neutral-2` por cima. BAIXAR fica ativo com o Drive fechado.
+  - `CreateCommandWrapper` também lê os sistemas do índice local, para o `retroboat-launch` estar lá com o Drive fechado.
+- **Decisões:**
+  - Com o ES aberto, a pergunta não aparece quando o Drive fecha: uma tela por cima tiraria o foco de quem está
+    navegando ou jogando. Fica a notificação, o X e a pergunta ao apertar BAIXAR.
+  - O ícone não muda por `<visible>`: o `exists()` do ES guarda o resultado em cache (`FileCache`) até o próximo reset,
+    que só acontece em reload e ao voltar de um jogo. Por isso o `/reloadgames`, que fecha um menu aberto e leva o
+    cursor para o primeiro jogo da lista.
+  - O Drive puxa o foco ao abrir. `Form.Activate` sozinho é negado pelo Windows, então as telas usam
+    `AttachThreadInput` por 15 s depois de abrir o Drive (`Theme.HoldFocus`).
+- **Classificação:** camada C0, risco de merge nenhum (RB-014 e RB-017: arquivos só nossos).
+- **Risco semântico:** se o Google mudar a pasta de instalação ou o nome do processo, o Retroboat volta a só avisar,
+  sem pergunta. Se o ES mudar `/reloadgames` ou `/isIdle`, o ícone fica parado até reiniciar.
+- **Upstreamável:** não.
+- **Limite conhecido:** só o Google Drive para computador. Com a conta sem login, o Drive abre, não conecta e a
+  tela explica depois de 60 s; a janela de login dele fica atrás da tela do Retroboat até lá.
+- **Validado em 07/11/2026** com o ES real e o Drive real. O X, nos dois temas; o resto, no PlayStation-X:
+  pergunta com "Sempre abrir" no início e "Agora não" ao apertar BAIXAR; X e notificação cerca de 12 s depois de o
+  Drive fechar com o ES aberto; BAIXAR abrindo o Drive e começando o download, com o foco de volta; cancelar mantém
+  o marcador; Drive abrindo com o ES aberto sincroniza, traz os jogos e acende a nuvem; o `Retroboat.exe` sai sozinho
+  cerca de 15 s depois do ES fechar. Não exercitados: a pergunta do memory card, a conta sem login, a resposta
+  "Abrir o Google Drive" (mesmo caminho de "Sempre abrir"), o controle (só teclado) e a barra de ação na visão
+  detalhada do Carbon com o texto novo.
+- **Como testar:** com o Drive fechado, abrir o `Retroboat.exe`: a pergunta aparece. Responder "Agora não", ver o X no
+  cabeçalho e abrir o Drive pela mão: em cerca de 10 s o ES recarrega com a nuvem acesa.
+
 ## RB-007 — ExoDOS ignora a pasta de jogos configurada (candidato)
 
 - **Onde:** `emulatorLauncher/Generators/ExoDOS.Generator.cs:483` (6 alterações/ano), `RetroBat-Official/emulatorlauncher`.
@@ -410,3 +476,46 @@ o histórico.
 - **Upstreamável:** sim/não; link do PR quando enviado.
 - **Como testar:** passos curtos.
 ```
+
+## RB-020 — Downloads em segundo plano e região de ícones que gira
+
+- **Onde:** `retroboat/app`: `Core\Downloads` (fila, serviço, rotação, posição da região), `Retroboat.Launch\DownloadHost`,
+  `HeaderBar` e `HeaderBarFace`, e os `status.xml` dos temas (RB-014, RB-017). A `DownloadForm` saiu. Nada no upstream.
+- **Pedido (07/11/2026):** continuar navegando durante um download. O andamento aparece discreto no topo: a região dos
+  ícones gira, mostra a barra com o título e volta aos ícones, com status de baixando.
+- **Como funciona:**
+  - O ES só continua quando o programa que ele abriu termina. Por isso o `retroboat-launch` põe o jogo na fila, inicia o
+    serviço (`--downloads`, um processo à parte) e sai com código 1: o ES não conta partida, e só mostra erro de 200 a 300.
+  - Fila em `estado\downloads.xml`, protegida por um mutex, porque dois processos a usam. Tirar o jogo da fila é o pedido
+    para cancelar. Um arquivo por jogo em `estado\baixando` serve ao `exists()` do tema.
+  - O índice (`biblioteca-nuvem.xml`) é lido de novo antes de gravar: a sincronização do `CloudWatcher` pode ter
+    rodado durante o download.
+  - `OnDemandOutcome.CloudUnavailable`: sem o Drive, ou com ele caindo no meio, o serviço espera e tenta de novo.
+- **Decisões:**
+  - **Janela por cima do ES, e não dentro dele.** O tema não recebe dados ao vivo: `<visible>` e `<text>` só são
+    reavaliados quando o jogo selecionado muda, `exists()` tem cache e `/reloadgames` fecharia menus. A alternativa é
+    um componente no `Window.cpp` do fork do ES, mas o build usa o ES oficial até as credenciais de API
+    (RB-011) e trocar agora perderia os scrapers. Quando o RB-010 existir, a região vira um componente do ES e a janela sai.
+  - **A face de ícones é uma foto do cabeçalho**, tirada na hora de girar. Serve para qualquer tema sem desenhar ícones de
+    novo, e com os ícones à mostra a janela nem existe na tela: o que aparece é o ES de verdade.
+  - **A captura enxerga janelas em camadas** no Windows 11, mesmo sem `CAPTUREBLT`. Na volta, a janela sai das capturas por
+    60 ms (`WDA_EXCLUDEFROMCAPTURE`), para a foto não ser dela mesma. Sem esse recurso (Windows antigo), vale a foto da ida.
+  - **O download continua com um jogo aberto**, em prioridade baixa. A Steam pausa por padrão; aqui, pausar faria o jogo
+    demorar mais para chegar, e o Drive já limita a velocidade.
+  - **Rotação de 450 ms com aceleração e pouso**, e não 200 ms em ease-out: com ease-out, o giro acabava em 100 ms e não aparecia.
+- **Classificação:** camada C0, risco de merge nenhum.
+- **Risco semântico:** médio. Depende de o ES continuar: (1) esperando só o processo que abriu, sem job object; (2) tratando
+  código de saída 1 como erro silencioso, sem contar partida; (3) com `POST /addgames` limpando o cache e redesenhando a lista;
+  (4) em janela sem borda, senão a janela do Retroboat não aparece por cima. Uma mudança de layout de um tema não dá conflito,
+  mas pode deixar a região fora do lugar (tabela em `HeaderRegion`).
+- **Upstreamável:** não.
+- **Testado em 07/11/2026** com o ES oficial real e o `retroboat-launch` de verdade, numa cópia isolada com nuvem simulada em
+  pasta local, em janela (1280x720) e em tela cheia sem borda (1920x1080, Windows em 125%), nos dois temas:
+  - BAIXAR volta ao ES em cerca de 2 s (inclui a animação de abertura do ES), o botão vira BAIXANDO e, ao terminar, JOGAR ao vivo;
+  - nomes com apóstrofo e vírgula; fila com dois jogos; jogo novo durante o PRONTO; cancelar pela tela um jogo da fila;
+  - sem a nuvem: AGUARDANDO; ES fechado e aberto de novo: a fila continua; jogo zerado na nuvem: NÃO BAIXOU e notificação;
+  - o foco fica no ES, e a região some quando outra janela vem para a frente;
+  - gamelist com campos desconhecidos e datas do scraper: idêntico depois do `POST /addgames`.
+- **Ainda não testado no app:** com o Google Drive de verdade, o download continuando com um emulador aberto e a tela de cancelar no jogo que está baixando (esse caso só nos testes automáticos do serviço).
+- **Efeitos conhecidos do ES, que só o RB-010 resolve:** apertar BAIXAR passa pela animação de abertura de jogo e reinicia a
+  música, com o aviso do nome dela.

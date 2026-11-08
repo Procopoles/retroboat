@@ -14,8 +14,14 @@ Tokens e regras: retroboat/design/design-system-steam.md no repositório do Retr
 
 O jogo está na nuvem quando o arquivo dele tem 0 bytes (é o marcador que o lançador cria). A
 descrição não serve para isso: o scraper do ES a troca. "Corrompido" vem da descrição, que só o
-lançador escreve. Sem o arquivo nuvem-conectada (Drive fechado), o jogo da nuvem aparece com BAIXAR
-desativado e "Abra o Google Drive para baixar": não dá para baixar agora, mas não é defeito.
+lançador escreve. Sem o arquivo nuvem-conectada (Drive fechado), o cabeçalho mostra a nuvem com um X e
+o jogo da nuvem avisa "Abre o Google Drive e baixa": ao apertar BAIXAR, o Retroboat oferece
+abrir o Drive. O lançador recarrega o ES quando o estado muda.
+
+Enquanto o jogo baixa, em segundo plano, existe retroboat\estado\baixando\<arquivo do jogo>: o botão vira
+BAIXANDO (cinza, porque não é uma ação nova) e o andamento fica na região do cabeçalho, que o Retroboat
+desenha por cima do ES. exists() fica em cache até o ES voltar de um jogo; o Retroboat limpa esse cache
+quando o download termina ou falha (POST /addgames), e o filesize() do marcador não tem cache.
 
 Diferenças em relação ao Carbon:
 - Fonte SST, a do tema, no lugar da Cabin.
@@ -33,6 +39,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
     <rbGame>(!{game:folder} &amp;&amp; !{game:placeholder})</rbGame>
     <rbMarker>(filesize({game:path}) == 0 &amp;&amp; !isdirectory({game:path}))</rbMarker>
     <rbCorrupt>(startswith({game:desc}, "Corrompido na nuvem"))</rbCorrupt>
+    <rbDownloading>(exists("${themePath}/../../../../retroboat/estado/baixando/" + {game:rom}))</rbDownloading>
   </variables>
 
   <!-- Cabeçalho: estado global da nuvem, entre "★ 2026" e o relógio. Nas telas mais quadradas o tema
@@ -56,6 +63,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <glowOffset>3 2</glowOffset>
       <zIndex>99</zIndex>
     </text>
+    <!-- Drive fechado: a nuvem com um X, que dá para ver de longe (a cor sozinha não diferenciava). -->
     <text name="rbCloudOffline" extra="true" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
       <text>&#xF0C2;</text>
       <pos>0.9285 0.066</pos>
@@ -66,9 +74,24 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <alignment>center</alignment>
       <fontSize>0.03</fontSize>
       <fontSize ifSubset="aspect-ratio:4-3|5-4|3-2">0.026</fontSize>
-      <color>67707B</color>
-      <opacity>0.6</opacity>
+      <color>8B929A</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
       <zIndex>99</zIndex>
+    </text>
+    <text name="rbCloudOfflineX" extra="true" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
+      <text>&#xF00D;</text>
+      <pos>0.9285 0.0675</pos>
+      <pos ifSubset="aspect-ratio:16-10|5-3">0.934 0.0675</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4|3-2">0.604 0.0295</pos>
+      <origin>0.5 0.5</origin>
+      <size>0.035 0.05</size>
+      <alignment>center</alignment>
+      <fontSize>0.019</fontSize>
+      <fontSize ifSubset="aspect-ratio:4-3|5-4|3-2">0.0165</fontSize>
+      <color>0E141B</color>
+      <zIndex>100</zIndex>
     </text>
   </view>
 
@@ -87,14 +110,20 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
         <text>&#xF0ED;</text>
         <fontSize>0.028</fontSize>
         <color>1A9FFF</color>
-        <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+        <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; !${rbDownloading}</visible>
       </text>
       <!-- Drive fechado: o jogo continua na nuvem, só não dá para baixar agora (não é defeito). -->
       <text name="rbBadgeCloudOffline" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
         <text>&#xF0ED;</text>
         <fontSize>0.028</fontSize>
         <color>67707B</color>
-        <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+        <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; !${rbDownloading}</visible>
+      </text>
+      <text name="rbBadgeDownloading">
+        <text>&#xF019;</text>
+        <fontSize>0.028</fontSize>
+        <color>1A9FFF</color>
+        <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; ${rbDownloading}</visible>
       </text>
       <text name="rbBadgeInstalled">
         <text>&#xF058;</text>
@@ -118,7 +147,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <visible>{system:total} &gt; 0 &amp;&amp; !${rbGame}</visible>
     </text>
 
-    <image name="rbPlayButton, rbDownloadButton, rbUnavailableButton" extra="true">
+    <image name="rbPlayButton, rbDownloadButton, rbDownloadingButton, rbUnavailableButton" extra="true">
       <path>${themePath}/_theme_inc/images/pixel-blanco.png</path>
       <pos>0.165 0.424</pos>
       <size>0.16 0.05</size>
@@ -130,7 +159,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <size ifSubset="aspect-ratio:21-9">0.12 0.05</size>
       <zIndex>59</zIndex>
     </image>
-    <text name="rbPlayLabel, rbDownloadLabel, rbUnavailableLabel" extra="true">
+    <text name="rbPlayLabel, rbDownloadLabel, rbDownloadingLabel, rbUnavailableLabel" extra="true">
       <pos>0.165 0.424</pos>
       <size>0.16 0.05</size>
       <size ifSubset="aspect-ratio:4-3">0.216 0.05</size>
@@ -145,7 +174,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <color>FFFFFF</color>
       <zIndex>59</zIndex>
     </text>
-    <text name="rbPlayCaption, rbDownloadCaption, rbUnavailableCaption" extra="true">
+    <text name="rbPlayCaption, rbDownloadCaption, rbDownloadingCaption, rbUnavailableCaption" extra="true">
       <pos>0.335 0.501</pos>
       <x ifSubset="aspect-ratio:4-3">0.390</x>
       <x ifSubset="aspect-ratio:5-4">0.405</x>
@@ -162,7 +191,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <glowOffset>3 2</glowOffset>
       <zIndex>99</zIndex>
     </text>
-    <text name="rbPlayValue, rbDownloadValue, rbUnavailableValue" extra="true">
+    <text name="rbPlayValue, rbDownloadValue, rbDownloadingValue, rbUnavailableValue" extra="true">
       <pos>0.335 0.529</pos>
       <x ifSubset="aspect-ratio:4-3">0.390</x>
       <x ifSubset="aspect-ratio:5-4">0.405</x>
@@ -187,7 +216,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <visible>{system:total} &gt; 0 &amp;&amp; !${rbGame}</visible>
     </text>
 
-    <image name="rbPlayButton, rbDownloadButton, rbUnavailableButton" extra="true">
+    <image name="rbPlayButton, rbDownloadButton, rbDownloadingButton, rbUnavailableButton" extra="true">
       <path>${themePath}/_theme_inc/images/pixel-blanco.png</path>
       <pos>0.025 0.31</pos>
       <size>0.13 0.055</size>
@@ -195,7 +224,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <roundCorners>3</roundCorners>
       <zIndex>59</zIndex>
     </image>
-    <text name="rbPlayLabel, rbDownloadLabel, rbUnavailableLabel" extra="true">
+    <text name="rbPlayLabel, rbDownloadLabel, rbDownloadingLabel, rbUnavailableLabel" extra="true">
       <pos>0.025 0.31</pos>
       <size>0.13 0.055</size>
       <size ifSubset="aspect-ratio:4-3|5-4">0.15 0.055</size>
@@ -205,7 +234,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <color>FFFFFF</color>
       <zIndex>59</zIndex>
     </text>
-    <text name="rbPlayCaption, rbDownloadCaption, rbUnavailableCaption" extra="true">
+    <text name="rbPlayCaption, rbDownloadCaption, rbDownloadingCaption, rbUnavailableCaption" extra="true">
       <pos>0.17 0.311</pos>
       <x ifSubset="aspect-ratio:4-3|5-4">0.19</x>
       <size>0.5 0.026</size>
@@ -217,7 +246,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <glowOffset>3 2</glowOffset>
       <zIndex>99</zIndex>
     </text>
-    <text name="rbPlayValue, rbDownloadValue, rbUnavailableValue" extra="true">
+    <text name="rbPlayValue, rbDownloadValue, rbDownloadingValue, rbUnavailableValue" extra="true">
       <pos>0.17 0.335</pos>
       <x ifSubset="aspect-ratio:4-3|5-4">0.19</x>
       <size>0.5 0.032</size>
@@ -258,7 +287,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <size>0.42 0.07</size>
       <zIndex>92</zIndex>
     </image>
-    <image name="rbPlayButton, rbDownloadButton, rbUnavailableButton" extra="true">
+    <image name="rbPlayButton, rbDownloadButton, rbDownloadingButton, rbUnavailableButton" extra="true">
       <path>${themePath}/_theme_inc/images/pixel-blanco.png</path>
       <roundCorners>3</roundCorners>
       <pos>0.557 0.65</pos>
@@ -268,7 +297,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <size ifSubset="aspect-ratio:4-3|5-4">0.14 0.048</size>
       <zIndex>93</zIndex>
     </image>
-    <text name="rbPlayLabel, rbDownloadLabel, rbUnavailableLabel" extra="true">
+    <text name="rbPlayLabel, rbDownloadLabel, rbDownloadingLabel, rbUnavailableLabel" extra="true">
       <pos>0.557 0.65</pos>
       <pos ifSubset="aspect-ratio:4-3|5-4">0.557 0.513</pos>
       <origin>0 0.5</origin>
@@ -280,7 +309,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <color>FFFFFF</color>
       <zIndex>94</zIndex>
     </text>
-    <text name="rbPlayCaption, rbDownloadCaption, rbUnavailableCaption" extra="true">
+    <text name="rbPlayCaption, rbDownloadCaption, rbDownloadingCaption, rbUnavailableCaption" extra="true">
       <pos>0.69 0.634</pos>
       <pos ifSubset="aspect-ratio:4-3|5-4">0.71 0.497</pos>
       <origin>0 0.5</origin>
@@ -291,7 +320,7 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <color>8B929A</color>
       <zIndex>94</zIndex>
     </text>
-    <text name="rbPlayValue, rbDownloadValue, rbUnavailableValue" extra="true">
+    <text name="rbPlayValue, rbDownloadValue, rbDownloadingValue, rbUnavailableValue" extra="true">
       <pos>0.69 0.664</pos>
       <pos ifSubset="aspect-ratio:4-3|5-4">0.71 0.527</pos>
       <origin>0 0.5</origin>
@@ -315,10 +344,10 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <pos>0.32 0.29</pos>
       <maxSize>0.2 0.25</maxSize>
     </video>
-    <image name="rbActionBar, rbPlayButton, rbDownloadButton, rbUnavailableButton" extra="true">
+    <image name="rbActionBar, rbPlayButton, rbDownloadButton, rbDownloadingButton, rbUnavailableButton" extra="true">
       <visible>false</visible>
     </image>
-    <text name="rbPlayLabel, rbDownloadLabel, rbUnavailableLabel, rbPlayCaption, rbDownloadCaption, rbUnavailableCaption, rbPlayValue, rbDownloadValue, rbUnavailableValue" extra="true">
+    <text name="rbPlayLabel, rbDownloadLabel, rbDownloadingLabel, rbUnavailableLabel, rbPlayCaption, rbDownloadCaption, rbDownloadingCaption, rbUnavailableCaption, rbPlayValue, rbDownloadValue, rbDownloadingValue, rbUnavailableValue" extra="true">
       <visible>false</visible>
     </text>
   </customView>
@@ -349,22 +378,43 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
 
     <!-- Na nuvem: BAIXAR -->
     <image name="rbDownloadButton" extra="true">
-      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; !${rbDownloading}</visible>
       <color>3A9BED</color>
       <colorEnd>235DCE</colorEnd>
       <gradientType>horizontal</gradientType>
     </image>
     <text name="rbDownloadLabel" extra="true">
-      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; !${rbDownloading}</visible>
       <text>&#xF019;  BAIXAR</text>
     </text>
     <text name="rbDownloadCaption" extra="true">
-      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; !${rbDownloading}</visible>
       <text>NA NUVEM</text>
     </text>
     <text name="rbDownloadValue" extra="true">
-      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt}</visible>
-      <text>Baixa na primeira vez que você jogar</text>
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; !${rbDownloading}</visible>
+      <text>Baixa em segundo plano</text>
+    </text>
+
+    <!-- Baixando em segundo plano: BAIXANDO -->
+    <image name="rbDownloadingButton" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; ${rbDownloading}</visible>
+      <color>2D323D</color>
+    </image>
+    <text name="rbDownloadingLabel" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; ${rbDownloading}</visible>
+      <text>&#xF019;  BAIXANDO</text>
+      <fontSize>0.021</fontSize>
+      <color>1A9FFF</color>
+    </text>
+    <text name="rbDownloadingCaption" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; ${rbDownloading}</visible>
+      <text>BAIXANDO</text>
+      <color>1A9FFF</color>
+    </text>
+    <text name="rbDownloadingValue" extra="true">
+      <visible>${rbGame} &amp;&amp; ${rbMarker} &amp;&amp; !${rbCorrupt} &amp;&amp; ${rbDownloading}</visible>
+      <text>O andamento aparece no topo da tela</text>
     </text>
 
     <!-- Corrompido na nuvem: INDISPONÍVEL -->
@@ -389,22 +439,18 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
     </text>
   </customView>
 
-  <!-- Drive fechado (o lançador não achou o Google Drive): o jogo da nuvem não dá para baixar agora.
-       Não é defeito, então nada de vermelho: BAIXAR desativado e um aviso de como resolver. -->
+  <!-- Drive fechado (o lançador não achou o Google Drive): BAIXAR continua valendo, porque o Retroboat
+       oferece abrir o Drive ao apertar. Não é defeito, então nada de vermelho: só um aviso em amarelo. -->
   <customView name="detailed, ps4Style, single" if='!exists(${themePath} + "/../../../../retroboat/estado/nuvem-conectada")'>
-    <image name="rbDownloadButton" extra="true">
-      <color>2E3136</color>
-      <colorEnd>2E3136</colorEnd>
-    </image>
-    <text name="rbDownloadLabel" extra="true">
-      <color>FFFFFF80</color>
-    </text>
     <text name="rbDownloadCaption" extra="true">
       <text>NA NUVEM · DRIVE FECHADO</text>
       <color>FFC82C</color>
     </text>
     <text name="rbDownloadValue" extra="true">
-      <text>Abra o Google Drive para baixar</text>
+      <text>Abre o Google Drive e baixa</text>
+    </text>
+    <text name="rbDownloadingValue" extra="true">
+      <text>Continua quando o Google Drive voltar</text>
     </text>
   </customView>
 </theme>

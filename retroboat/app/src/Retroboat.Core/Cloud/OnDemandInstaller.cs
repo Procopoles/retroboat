@@ -14,6 +14,8 @@ namespace Retroboat.Cloud
         Cancelled,
         /// <summary>O arquivo na nuvem está danificado; o jogo fica marcado como corrompido.</summary>
         Corrupt,
+        /// <summary>Sem o Google Drive agora; o que já foi copiado continua valendo para retomar.</summary>
+        CloudUnavailable,
         Failed
     }
 
@@ -32,8 +34,8 @@ namespace Retroboat.Cloud
     }
 
     /// <summary>
-    /// Instala um jogo da nuvem na hora de jogar: o ES abriu um marcador vazio, o retroboat-launch
-    /// baixa o jogo de verdade no lugar dele e só então chama o emulatorLauncher.
+    /// Instala um jogo da nuvem: o ES abriu um marcador vazio, e o serviço de downloads (DownloadService) baixa o
+    /// jogo de verdade no lugar dele. O ES passa a ver o jogo quando o arquivo final ganha o nome do marcador.
     /// </summary>
     public sealed class OnDemandInstaller
     {
@@ -68,11 +70,13 @@ namespace Retroboat.Cloud
             return entry != null && entry.State != CloudGameState.Installed ? entry : null;
         }
 
+        public CloudIndexEntry FindEntry(string system, string cloudName) => _index.Find(system, cloudName);
+
         public OnDemandResult Install(CloudIndexEntry entry, IProgress<TransferProgress> progress, CancellationToken cancellationToken)
         {
             var location = CloudLocator.Locate(_settings.CloudPath);
             if (location == null || !location.Exists)
-                return new OnDemandResult(OnDemandOutcome.Failed, "O Google Drive para computador não está disponível. Abra o Google Drive e tente de novo.");
+                return new OnDemandResult(OnDemandOutcome.CloudUnavailable, "O Google Drive para computador não está disponível.");
 
             var game = new CloudLibrary(location.GamesPath).Find(entry.System + "/" + entry.CloudName);
             if (game == null)
@@ -99,8 +103,7 @@ namespace Retroboat.Cloud
 
                     entry.State = CloudGameState.Installed;
                     entry.Problem = null;
-                    _index.Set(entry);
-                    _index.Save();
+                    SaveEntry(entry);
                     return new OnDemandResult(OnDemandOutcome.Installed);
 
                 case InstallOutcome.Cancelled:
@@ -113,6 +116,10 @@ namespace Retroboat.Cloud
                     if (result.Error != null && result.Error.Contains("CRC-32"))
                         return MarkCorrupt(entry, "o conteúdo do ZIP no Drive não confere (CRC)");
 
+                    // O Drive caiu no meio da cópia: não é defeito do jogo.
+                    if (!CloudLocator.IsAvailable(_settings.CloudPath))
+                        return new OnDemandResult(OnDemandOutcome.CloudUnavailable, "O Google Drive desconectou durante o download.");
+
                     return new OnDemandResult(OnDemandOutcome.Failed, "Não foi possível baixar o jogo: " + result.Error + ".");
             }
         }
@@ -121,9 +128,19 @@ namespace Retroboat.Cloud
         {
             entry.State = CloudGameState.Corrupt;
             entry.Problem = problem;
-            _index.Set(entry);
-            _index.Save();
+            SaveEntry(entry);
             return new OnDemandResult(OnDemandOutcome.Corrupt, "Este jogo está corrompido na nuvem: " + problem + ". Substitua o arquivo no Drive para poder jogar.");
+        }
+
+        /// <summary>
+        /// Lê o índice de novo antes de gravar: um download demora, e a sincronização com a nuvem pode ter
+        /// atualizado o arquivo no meio dele.
+        /// </summary>
+        void SaveEntry(CloudIndexEntry entry)
+        {
+            var index = CloudIndex.Load(_index.Path);
+            index.Set(entry);
+            index.Save();
         }
     }
 }

@@ -11,4 +11,12 @@
     <ProjectReference Include="..\Retroboat.Core\Retroboat.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- As mesmas telas para controle do retroboat-launch: a pergunta sobre o Google Drive é igual nos dois. -->
+    <Compile Include="..\Retroboat.Launch\ChoiceForm.cs" Link="Telas\ChoiceForm.cs" />
+    <Compile Include="..\Retroboat.Launch\CloudAppPrompt.cs" Link="Telas\CloudAppPrompt.cs" />
+    <Compile Include="..\Retroboat.Launch\GamepadButtons.cs" Link="Telas\GamepadButtons.cs" />
+    <Compile Include="..\Retroboat.Launch\Theme.cs" Link="Telas\Theme.cs" />
+  </ItemGroup>
+
 </Project>
