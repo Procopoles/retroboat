@@ -24,25 +24,63 @@ namespace Retroboat.Config
         public static IReadOnlyList<IConfigSource> EsSources(RetroBatInstall install) =>
             new IConfigSource[] { new EsSettingsConfig(install), new EsInputConfig(install) };
 
-        public static IReadOnlyList<EmulatorConfigSource> EmulatorSources(RetroBatInstall install, string system = null, string emulator = null) =>
-            (system == null ? EmulatorConfigRules.All : EmulatorConfigRules.For(system, emulator)).Select(r => new EmulatorConfigSource(install, r)).ToList();
+        /// <summary>
+        /// Os emuladores de &lt;RetroBat&gt;emulators: os com regra própria (PCSX2) e todos os outros pela regra genérica.
+        /// Os que ainda não foram baixados pelo RetroBat ficam de fora sozinhos (IsAvailable).
+        /// </summary>
+        public static IReadOnlyList<IEmulatorConfigSource> EmulatorSources(RetroBatInstall install)
+        {
+            var sources = new List<IEmulatorConfigSource>(EmulatorConfigRules.All.Select(r => new EmulatorConfigSource(install, r)));
+            var root = Path.Combine(install.Root, "emulators");
+            if (!Directory.Exists(root))
+                return sources;
+
+            foreach (var dir in Directory.GetDirectories(root).OrderBy(d => d, StringComparer.OrdinalIgnoreCase))
+            {
+                var folder = Path.GetFileName(dir);
+                if (!sources.Any(s => string.Equals(s.Folder, folder, StringComparison.OrdinalIgnoreCase)))
+                    sources.Add(new AutoEmulatorConfigSource(install, folder));
+            }
+
+            return sources;
+        }
+
+        /// <summary>
+        /// Os emuladores que o jogo pode usar, pelo -emulator que o ES passa: "libretro" é o RetroArch; "dolphin" é o
+        /// dolphin-emu (e o dolphin-triforce); "pcsx2" também é o pcsx2-16. Sem -emulator, ou se nenhuma pasta bate,
+        /// todos: sincronizar um emulador a mais não faz mal.
+        /// </summary>
+        public static IReadOnlyList<IEmulatorConfigSource> EmulatorSources(RetroBatInstall install, string emulator)
+        {
+            var all = EmulatorSources(install);
+            if (string.IsNullOrWhiteSpace(emulator))
+                return all;
+
+            var name = emulator.Trim();
+            if (string.Equals(name, "libretro", StringComparison.OrdinalIgnoreCase))
+                name = "retroarch";
+
+            var matching = all.Where(s => s.Folder.StartsWith(name, StringComparison.OrdinalIgnoreCase)).ToList();
+            return matching.Count > 0 ? matching : all;
+        }
 
         /// <summary>Todas as fontes, para o CLI.</summary>
         public static IReadOnlyList<IConfigSource> AllSources(RetroBatInstall install) =>
-            EsSources(install).Concat(EmulatorSources(install)).ToList();
+            EsSources(install).Concat(EmulatorSources(install).Where(s => s.IsAvailable)).ToList();
 
         /// <summary>Ao abrir o Retroboat, quando o Drive conecta com o ES aberto e quando o ES fecha.</summary>
         public static List<ConfigSyncResult> SyncAll(RetroBatInstall install, string cloudRetroboatPath, string pcName = null)
         {
             var esMode = IsEsRunning() ? ConfigSyncMode.SendOnly : ConfigSyncMode.Full;
             var results = EsSources(install).Select(s => Run(install, cloudRetroboatPath, s, esMode, pcName)).ToList();
-            results.AddRange(EmulatorSources(install).Select(s => Run(install, cloudRetroboatPath, s, s.IsRunning() ? ConfigSyncMode.SendOnly : ConfigSyncMode.Full, pcName)));
+            results.AddRange(EmulatorSources(install).Where(s => s.IsAvailable).Select(s => Run(install, cloudRetroboatPath, s, s.IsRunning() ? ConfigSyncMode.SendOnly : ConfigSyncMode.Full, pcName)));
             return results;
         }
 
         /// <summary>Antes do jogo, com o emulador ainda fechado: o que o emulador vai ler já vem da nuvem.</summary>
         public static List<ConfigSyncResult> BeforeGame(RetroBatInstall install, string cloudRetroboatPath, string system, string emulator, string pcName = null) =>
-            EmulatorSources(install, system, emulator)
+            EmulatorSources(install, emulator)
+                .Where(s => s.IsAvailable)
                 .Select(s => Run(install, cloudRetroboatPath, s, s.IsRunning() ? ConfigSyncMode.SendOnly : ConfigSyncMode.Full, pcName))
                 .ToList();
 

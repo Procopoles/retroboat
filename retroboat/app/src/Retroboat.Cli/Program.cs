@@ -322,14 +322,25 @@ Opções gerais:
             foreach (var source in CloudConfigs.AllSources(install))
             {
                 var sourceMode = mode;
-                if (mode == ConfigSyncMode.Full && (source is EmulatorConfigSource emulator ? emulator.IsRunning() : CloudConfigs.IsEsRunning()))
+                if (mode == ConfigSyncMode.Full && (source is IEmulatorConfigSource emulator ? emulator.IsRunning() : CloudConfigs.IsEsRunning()))
                 {
                     sourceMode = ConfigSyncMode.SendOnly;
                     Console.WriteLine(source.DisplayName + ": o programa está aberto; só envia, e o que veio da nuvem espera ele fechar.");
                 }
 
                 var sync = new ConfigSync(source, install.RetroboatDataPath, location.RetroboatPath, options.Value("--pc"));
-                var result = sync.Sync(sourceMode);
+                ConfigSyncResult result;
+                try
+                {
+                    result = sync.Sync(sourceMode);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidOperationException || ex is System.Xml.XmlException)
+                {
+                    Console.WriteLine(source.DisplayName + ": ERRO: " + ex.Message);
+                    problems++;
+                    continue;
+                }
+
                 Console.WriteLine(source.DisplayName + " (" + sync.PcName + "): " + source.Root);
                 Console.WriteLine("  nuvem: " + sync.CloudFolder);
                 if (result.Skipped)

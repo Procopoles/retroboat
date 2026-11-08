@@ -74,6 +74,94 @@ namespace Retroboat.Config
             return values;
         }
 
+        /// <summary>
+        /// As linhas de cada seção que não são chave = valor, comentário, cabeçalho nem linha em branco (códigos de
+        /// cheat, o [autoexec] do DOSBox), na ordem do arquivo. Só as seções que têm alguma.
+        /// </summary>
+        public List<KeyValuePair<string, List<string>>> RawLines()
+        {
+            var sections = new List<KeyValuePair<string, List<string>>>();
+            var index = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+            string section = "";
+            foreach (var line in _lines)
+            {
+                if (TryParseSection(line, out var name))
+                {
+                    section = name;
+                    continue;
+                }
+
+                if (!IsRawLine(line))
+                    continue;
+
+                if (!index.TryGetValue(section, out var list))
+                {
+                    list = new List<string>();
+                    index[section] = list;
+                    sections.Add(new KeyValuePair<string, List<string>>(section, list));
+                }
+
+                list.Add(line);
+            }
+
+            return sections;
+        }
+
+        /// <summary>Troca as linhas da seção que não são chave (RawLines); nulo as remove. A seção é criada no fim, se faltar.</summary>
+        public void SetLines(string section, IList<string> lines)
+        {
+            bool remove = lines == null || lines.Count == 0;
+            int bodyStart = 0;
+            if (section.Length > 0)
+            {
+                int header = FindSection(section);
+                if (header < 0)
+                {
+                    if (remove)
+                        return;
+
+                    if (_lines.Count > 0 && _lines[_lines.Count - 1].Trim().Length > 0)
+                        _lines.Add("");
+
+                    _lines.Add("[" + section + "]");
+                    _lines.AddRange(lines);
+                    return;
+                }
+
+                bodyStart = header + 1;
+            }
+
+            int end = NextSection(bodyStart);
+            int insertAt = -1;
+            for (int i = end - 1; i >= bodyStart; i--)
+            {
+                if (IsRawLine(_lines[i]))
+                {
+                    _lines.RemoveAt(i);
+                    end--;
+                    insertAt = i;
+                }
+            }
+
+            if (remove)
+                return;
+
+            if (insertAt < 0)
+            {
+                insertAt = end;
+                while (insertAt > bodyStart && _lines[insertAt - 1].Trim().Length == 0)
+                    insertAt--;
+            }
+
+            _lines.InsertRange(insertAt, lines);
+        }
+
+        static bool IsRawLine(string line)
+        {
+            var trimmed = line.TrimStart();
+            return trimmed.Length > 0 && trimmed[0] != ';' && trimmed[0] != '#' && !TryParseSection(line, out _) && !TryParseKey(line, out _, out _);
+        }
+
         /// <summary>Troca todos os valores da chave; nulo remove a chave. A seção é criada no fim, se faltar.</summary>
         public void Set(string section, string key, IList<string> values)
         {

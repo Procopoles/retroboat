@@ -33,6 +33,10 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   configurações do PCSX2 (o `PCSX2.ini`, os ajustes por jogo e os perfis de controle) vão para o
   Drive (`retroboat\configuracoes`). Um PC novo recebe tudo; uma mudança num PC chega aos outros, e
   o que depende da máquina (tela, áudio, pastas, janelas, senhas) fica em cada PC.
+- RB-005 (configurações de todos os emuladores): os outros emuladores entram por uma regra genérica,
+  sem lista: RetroArch (PS1 e Dreamcast), Dolphin (GameCube), DuckStation, Flycast e qualquer outro
+  que o RetroBat baixar. Vão as opções, os ajustes por jogo e os remaps; ficam no PC caminhos,
+  monitor, janelas, dispositivos, drivers e logins.
 - RB-014: o tema padrão passa a ser o nosso fork do Carbon (`build.ini: theme_path`), no design da
   Steam (Big Picture): botão JOGAR ou BAIXAR com o status na seção do jogo, ícone de status nas
   visões em grade e ícone global de nuvem no cabeçalho.

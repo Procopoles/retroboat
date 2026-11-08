@@ -226,6 +226,8 @@ dele) só existe nesses arquivos. Os emuladores, como programas, continuam por P
 | Controles | `es_input.cfg` | cada `<inputConfig>`, pelo tipo e GUID | — |
 | PCSX2 | `emulators\pcsx2\inis\PCSX2.ini` | cada chave (valores repetidos andam juntos) | `[Folders]`, `[GameList]`, `[MemoryCards]`, `[Filenames]`, `[AutoUpdater]`, `[DEV9/Eth]`, janelas, `Adapter`, `FullscreenMode`, dispositivo de áudio, login do RetroAchievements, caminhos absolutos |
 | PCSX2 | `gamesettings\*.ini`, `inputprofiles\*.ini` | o arquivo inteiro | — |
+| Outros emuladores (regra genérica) | `emulators\<qualquer>\`: `.ini`, `.cfg`, `.conf`, `.opt`, `.rmp` | cada chave; as linhas que não são chave, por seção | caminhos absolutos, monitor, janela, geometria, placa de vídeo, dispositivo, driver, "último", "recente", histórico, login, senha, token; pastas de BIOS, firmware, chaves, NAND, saves, cache, shaders, jogos instalados e recursos do emulador |
+| Outros emuladores (regra genérica) | `.json`, `.xml`, `.yml`, `.yaml`, `.toml` | o arquivo inteiro | o arquivo todo, se tiver caminho absoluto ou login |
 
 - **Na nuvem:** `retroboat\configuracoes\<fonte>\<PC>.xml`, um por PC, com a última versão de cada
   entrada que aquele PC mudou (valor ou "removido") e quando. Vale a mais nova entre os PCs.
@@ -245,8 +247,14 @@ dele) só existe nesses arquivos. Os emuladores, como programas, continuam por P
 - **Segurança:** cópia de cada arquivo em `retroboat\historico\configuracoes` antes de gravar (as 10
   últimas); arquivo de outro PC no meio do envio pelo Drive é pulado; arquivo da nuvem não sai da
   pasta da regra (nada de `..\`).
-- **Ainda não:** outros emuladores (o catálogo `EmulatorConfigRules` cresce sem mexer no motor),
-  coleções personalizadas (listas de caminhos deste PC), favoritos e tempo jogado.
+- **Regra genérica (mesmo dia):** vale para qualquer emulador já baixado, sem lista, com alta
+  compatibilidade; uma exceção ganha regra própria só quando precisar. Cada arquivo da raiz do emulador
+  é um grupo, e nas subpastas o grupo é a pasta: apagar um ajuste por jogo apaga nos outros PCs, e um
+  arquivo principal ou uma pasta que sumiu volta da nuvem. A versão do formato (`SettingsVersion` e
+  parecidas) separa PCs com versões diferentes; um arquivo com versão que ainda não existe espera o
+  emulador criá-lo. Mais de 1.000 arquivos de configuração numa pasta de emulador param a sincronização
+  dele com um aviso. Todos os sistemas abrem pelo `retroboat-launch`.
+- **Ainda não:** coleções personalizadas (listas de caminhos deste PC), favoritos e tempo jogado.
 
 ## 6. Como aparece no ES
 

@@ -147,12 +147,10 @@ namespace Retroboat.Launcher
         }
 
         /// <summary>
-        /// Sistemas com jogos na nuvem abrem pelo retroboat-launch, que baixa o jogo antes do emulador; os
-        /// que têm saves sincronizados (PS2), sempre, mesmo sem o Drive, para os memory cards acompanharem a
-        /// partida, e os que têm configurações de emulador na nuvem (PS2), para o emulador abrir com elas. Com o
-        /// Drive fechado, os sistemas vêm do índice deste PC: é o retroboat-launch que oferece
-        /// abrir o Drive ao apertar BAIXAR. O caminho é relativo a %HOME% (a pasta do ES), para o RetroBat
-        /// continuar portátil.
+        /// Todos os sistemas abrem pelo retroboat-launch: ele baixa o jogo que só está na nuvem, acompanha a
+        /// partida com os memory cards (PS2) e abre o emulador com as configurações da nuvem, que valem para
+        /// qualquer emulador (regra genérica). Sem o Drive, ele só passa adiante. O caminho é relativo a %HOME%
+        /// (a pasta do ES), para o RetroBat continuar portátil.
         /// </summary>
         internal static CommandWrapper CreateCommandWrapper(RetroBatInstall install, RetroboatSettings settings)
         {
@@ -171,22 +169,7 @@ namespace Retroboat.Launcher
             else
                 launcherPath = Path.Combine(exeDir, "retroboat-launch.exe");
 
-            var systems = new HashSet<string>(SaveRules.Systems, StringComparer.OrdinalIgnoreCase);
-            systems.UnionWith(Retroboat.Config.EmulatorConfigRules.Systems);
-            try
-            {
-                systems.UnionWith(CloudIndex.Load(CloudLibrarySync.IndexPath(install)).Entries.Select(e => e.System));
-
-                var cloud = CloudLocator.Locate(settings.CloudPath);
-                if (cloud != null && Directory.Exists(cloud.GamesPath))
-                    systems.UnionWith(new CloudLibrary(cloud.GamesPath).GetGames().Select(g => g.System));
-            }
-            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
-            {
-                Log.Warn("Não foi possível listar a biblioteca na nuvem: " + ex.Message);
-            }
-
-            return new CommandWrapper(launcherPath, systems);
+            return new CommandWrapper(launcherPath);
         }
 
         /// <summary>

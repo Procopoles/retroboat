@@ -15,7 +15,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
 | M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020) |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); outros saves não iniciados |
-| M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES prontas; opções do ES, controles e configurações do PCSX2 prontos (08/11/2026, falta testar com o ES e o PCSX2 em dois PCs); coleções, favoritos e tempo jogado não iniciados |
+| M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES prontas; opções do ES, controles e configurações de todos os emuladores prontos (08/11/2026: PCSX2 com regra própria, os outros pela regra genérica; falta testar com o ES e os emuladores em dois PCs); coleções, favoritos e tempo jogado não iniciados |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; RB-010 pronto no fork e testado numa cópia isolada (08/11/2026); a pasta `build` usa o nosso ES desde 08/11/2026 (o oficial ficou em `emulationstation.oficial.exe`), sem o scraper do ES e o RetroAchievements até termos chaves próprias (RB-011); falta testar com o Drive real, gamepad e tela cheia |
 
 M0 e M1 podem andar em paralelo. Código em [app/](app/README.md).
@@ -153,8 +153,24 @@ Depende do fork e do build do ES (RB-011).
     tema escolhido, controle de cada jogador e senhas;
   - um PC novo recebe tudo; mudou nos dois PCs, vale a mudança mais nova; arquivo apagado ou emulador
     reinstalado volta da nuvem, sem apagar nada nos outros PCs.
-- **Falta:** testar com o ES e o PCSX2 abrindo de verdade em dois PCs; outros emuladores; coleções
-  personalizadas, favoritos e tempo jogado.
+- **Regra genérica para os outros emuladores** (08/11/2026; decisão do mesmo dia: uma regra que vale
+  para qualquer emulador, com alta compatibilidade, e exceções ganham código próprio só quando precisarem):
+  - entra todo emulador já baixado em `emulators\`, sem lista: RetroArch (PS1 e Dreamcast, por padrão no
+    RetroBat), Dolphin (GameCube), DuckStation, Flycast e os demais;
+  - arquivos de configuração (`.ini`, `.cfg`, `.conf`, `.opt`, `.rmp`, `.json`, `.xml`, `.yml`, `.toml`) fora
+    das pastas que nunca são configuração (BIOS, firmware, chaves, NAND, saves, cache, shaders, jogos
+    instalados, o que vem com o emulador);
+  - fica no PC o que tem caminho absoluto, monitor, janela, placa de vídeo, dispositivo, driver,
+    histórico, login, senha e token;
+  - uma chave de versão do formato (`SettingsVersion` e parecidas) separa PCs com versões diferentes do
+    emulador, como no PCSX2;
+  - todos os sistemas passam a abrir pelo `retroboat-launch`, para qualquer emulador sincronizar antes e
+    depois do jogo;
+  - testado com 12 testes automáticos (227 no total) e com os arquivos reais do RetroArch deste build em
+    dois PCs simulados: as 3.256 chaves portáveis do `retroarch.cfg` chegaram iguais, as 145 do PC
+    ficaram no PC, e nenhuma senha, token ou caminho foi para a nuvem.
+- **Falta:** testar com o ES e os emuladores abrindo de verdade em dois PCs; coleções personalizadas,
+  favoritos e tempo jogado.
 
 ## Etapa 2: redesign visual e de UX
 

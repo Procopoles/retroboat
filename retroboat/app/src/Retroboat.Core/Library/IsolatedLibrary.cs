@@ -28,24 +28,27 @@ namespace Retroboat.Library
     }
 
     /// <summary>
-    /// Coloca o retroboat-launch na frente do comando dos sistemas que têm jogos na nuvem, para baixar o
-    /// jogo antes de o emulatorLauncher abri-lo.
+    /// Coloca o retroboat-launch na frente do comando dos sistemas, para baixar o jogo da nuvem e sincronizar os
+    /// saves e as configurações do emulador antes de o emulatorLauncher abri-lo.
     /// </summary>
     public sealed class CommandWrapper
     {
-        public CommandWrapper(string launcherPath, IEnumerable<string> systemFolders)
+        /// <param name="systemFolders">Só estes sistemas; nulo: todos.</param>
+        public CommandWrapper(string launcherPath, IEnumerable<string> systemFolders = null)
         {
             LauncherPath = launcherPath;
-            SystemFolders = new HashSet<string>(systemFolders, StringComparer.OrdinalIgnoreCase);
+            SystemFolders = systemFolders == null ? null : new HashSet<string>(systemFolders, StringComparer.OrdinalIgnoreCase);
         }
 
         /// <summary>Caminho como o ES entende, ex.: %HOME%\..\retroboat\retroboat-launch.exe.</summary>
         public string LauncherPath { get; }
+
+        /// <summary>Nulo: todos os sistemas.</summary>
         public ISet<string> SystemFolders { get; }
 
         public string Wrap(SystemFolder system)
         {
-            if (string.IsNullOrWhiteSpace(system.Command) || !SystemFolders.Contains(system.Folder))
+            if (string.IsNullOrWhiteSpace(system.Command) || (SystemFolders != null && !SystemFolders.Contains(system.Folder)))
                 return null;
 
             var quoted = "\"" + LauncherPath + "\"";

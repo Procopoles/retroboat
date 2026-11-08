@@ -51,7 +51,7 @@ retroboat-cli saves status --retrobat <pasta>             memory cards: o que mu
 retroboat-cli saves sync --retrobat <pasta> [--keep local|cloud]   sincroniza (conflitos só com --keep)
 retroboat-cli saves history <cartão> --retrobat <pasta>   versões do cartão na nuvem
 retroboat-cli config status --retrobat <pasta>            configurações: o que iria e viria, sem mudar nada
-retroboat-cli config sync --retrobat <pasta>              sincroniza opções do ES, controles e PCSX2
+retroboat-cli config sync --retrobat <pasta>              sincroniza opções do ES, controles e emuladores
 retroboat-cli themes status --retrobat <pasta>            temas suportados com ou sem o status do Retroboat
 retroboat-cli themes apply --retrobat <pasta>             põe o status de volta nos temas (Carbon, PlayStation-X)
 ```
@@ -79,7 +79,7 @@ recarrega o ES; quando desconecta, recarrega o ES com o X na nuvem. Com jogo abe
 
 Antes de abrir o RetroBat, o lançador também sincroniza com a nuvem: BIOS, os logins do ES
 (ScreenScraper, IGDB e RetroAchievements, em `retroboat\contas`; um PC sem login recebe o da
-nuvem), as configurações (opções do ES, controles e PCSX2, em `retroboat\configuracoes`), a biblioteca (jogos da nuvem como marcadores) e o conteúdo dos jogos. A mídia que o scraper do ES grava na pasta de jogos
+nuvem), as configurações (opções do ES, controles e emuladores, em `retroboat\configuracoes`), a biblioteca (jogos da nuvem como marcadores) e o conteúdo dos jogos. A mídia que o scraper do ES grava na pasta de jogos
 vai para `.emulationstation\media\<sistema>`. Nome, descrição, capas e demais metadados que um PC
 tem e os outros não vão para `retroboat\midia\<sistema>` no Drive. Nos outros PCs, eles preenchem
 só os campos vazios. Imagens sempre vêm; vídeos e manuais são opcionais:
@@ -125,7 +125,11 @@ As configurações dos emuladores e dos jogos vão para `retroboat\configuracoes
 - **opções do ES** (`es_settings.cfg`): globais, por sistema e por jogo, que o emulatorLauncher aplica no emulador a cada
   jogo, e as preferências do ES;
 - **controles** configurados no ES (`es_input.cfg`);
-- **PCSX2**: o `PCSX2.ini` chave a chave, os ajustes por jogo (`gamesettings`) e os perfis de controle (`inputprofiles`).
+- **PCSX2**: o `PCSX2.ini` chave a chave, os ajustes por jogo (`gamesettings`) e os perfis de controle (`inputprofiles`);
+- **os outros emuladores**, pela regra genérica: todo emulador já baixado em `emulators\` (RetroArch, Dolphin,
+  DuckStation, Flycast…). `.ini`, `.cfg`, `.conf`, `.opt` e `.rmp` vão chave a chave; `.json`, `.xml`, `.yml` e `.toml`
+  vão inteiros, só sem caminho e sem login. Pastas de BIOS, firmware, chaves, NAND, saves, cache, shaders, jogos
+  instalados e o que vem com o emulador ficam de fora.
 
 Fica em cada PC o que depende da máquina: tela, monitor, áudio, placa de vídeo, pastas, janelas, o tema escolhido, o controle
 de cada jogador e as senhas (as contas têm sincronização própria). Um PC novo recebe tudo da nuvem; se a mesma opção mudou em
@@ -141,8 +145,9 @@ dois PCs, vale a mudança mais nova.
 Cada PC grava só o próprio `<PC>.xml` na nuvem. O estado da última sincronização fica em
 `<RetroBat>\retroboat\configuracoes-sync`, e uma cópia de cada arquivo, antes de ser trocado, em
 `<RetroBat>\retroboat\historico\configuracoes` (as 10 últimas). Um arquivo apagado ou um emulador reinstalado recebe as
-configurações da nuvem de volta, sem apagar nada nos outros PCs. Novos emuladores entram no catálogo
-`Config\EmulatorConfig.cs` (`EmulatorConfigRules`).
+configurações da nuvem de volta, sem apagar nada nos outros PCs. Emuladores novos entram sozinhos pela
+regra genérica (`Config\AutoEmulatorConfig.cs`); um emulador com armadilha própria ganha regra em `EmulatorConfigRules`.
+Por isso todos os sistemas abrem pelo `retroboat-launch`.
 
 ## Downloads em segundo plano
 

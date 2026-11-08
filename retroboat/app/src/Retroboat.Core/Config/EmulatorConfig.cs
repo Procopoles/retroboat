@@ -122,16 +122,12 @@ namespace Retroboat.Config
         /// <item>gamesettings\*.ini, as configurações por jogo (por serial e CRC do disco), inteiros;</item>
         /// <item>inputprofiles\*.ini, os perfis de controle criados no PCSX2, inteiros.</item>
         /// </list>
-        /// O PCSX2 1.6 (pcsx2-16) e o núcleo libretro gravam em outro lugar e ainda não entram.
+        /// O PCSX2 1.6 (pcsx2-16) e o RetroArch entram pela regra genérica (AutoEmulatorRules).
         /// </summary>
         public static readonly EmulatorConfigRule Pcsx2 = CreatePcsx2();
 
+        /// <summary>Emuladores com regra própria. Os outros seguem a regra genérica (AutoEmulatorRules).</summary>
         public static readonly IReadOnlyList<EmulatorConfigRule> All = new[] { Pcsx2 };
-
-        public static IReadOnlyList<EmulatorConfigRule> For(string system, string emulator) => All.Where(r => r.AppliesTo(system, emulator)).ToList();
-
-        /// <summary>Sistemas com configurações de emulador na nuvem: o comando deles passa pelo retroboat-launch.</summary>
-        public static IEnumerable<string> Systems => All.Select(r => r.System).Distinct(StringComparer.OrdinalIgnoreCase);
 
         static EmulatorConfigRule CreatePcsx2()
         {
@@ -158,7 +154,7 @@ namespace Retroboat.Config
     /// </list>
     /// Só grava com o emulador fechado (antes e depois do jogo): ele regrava os .ini ao sair.
     /// </summary>
-    public sealed class EmulatorConfigSource : IConfigSource
+    public sealed class EmulatorConfigSource : IEmulatorConfigSource
     {
         const string IniPrefix = "ini|";
         const string FilePrefix = "file|";
@@ -172,6 +168,7 @@ namespace Retroboat.Config
         }
 
         public EmulatorConfigRule Rule => _rule;
+        public string Folder => _rule.Folder;
         public string Name => _rule.Emulator;
         public string DisplayName => _rule.DisplayName;
         public string Root { get; }
