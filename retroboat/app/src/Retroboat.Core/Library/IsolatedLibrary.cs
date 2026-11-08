@@ -163,6 +163,12 @@ namespace Retroboat.Library
                         : "Só a pasta \"" + folders[0] + "\" vai para " + romsRoot + "; as outras continuam na pasta padrão do RetroBat."));
             }
 
+            return FirstPerName(systems);
+        }
+
+        /// <summary>Um sistema por nome: o primeiro, o único que o overlay consegue mover (ver WithoutDuplicateNames).</summary>
+        public static List<SystemFolder> FirstPerName(IEnumerable<SystemFolder> systems)
+        {
             return systems.GroupBy(s => s.Name, StringComparer.Ordinal).Select(g => g.First()).ToList();
         }
 

@@ -269,6 +269,13 @@ namespace Retroboat.Launcher
                     Log.Info(message);
             }
 
+            if (report.Folders != null)
+            {
+                if (report.Folders.SystemsCreated.Count > 0)
+                    Log.Info("Pastas de console criadas no Drive: " + string.Join(", ", report.Folders.SystemsCreated));
+                foreach (var problem in report.Folders.Errors) Log.Warn("Pasta no Drive: " + problem);
+            }
+
             if (report.Bios != null)
             {
                 foreach (var file in report.Bios.Organized) Log.Info("BIOS organizada no Drive: " + file);

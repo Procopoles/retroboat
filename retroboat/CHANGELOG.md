@@ -92,6 +92,11 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   - Sem o Google Drive, o download espera e continua sozinho quando ele voltar, inclusive se cair no meio.
   - Apertar de novo em um jogo da fila oferece cancelar. A tela cheia de download saiu.
 
+- RB-004: a pasta de jogos do Drive (`retroboat\jogos`) ganha as mesmas pastas de console do `roms` do RetroBat
+  (`psx`, `n64`, `gc`...), uma por sistema, a cada início. Para pôr um jogo na nuvem basta soltá-lo na pasta do
+  console, sem criar pasta. Sistema novo do RetroBat ganha a pasta sozinho; nenhuma é apagada. Com o Drive aberto e
+  sem a pasta `retroboat`, ela também é criada, inclusive quando o Drive conecta com o ES aberto.
+
 ### Nos forks (ainda não usados pelo build)
 
 - RB-011: build Windows do EmulationStation no fork `retroboat-emulationstation`, com o mesmo

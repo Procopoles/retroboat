@@ -9,16 +9,20 @@ namespace Retroboat.Cloud
     /// </summary>
     public sealed class CloudLocation
     {
-        public CloudLocation(string retroboatPath, string source)
+        public CloudLocation(string retroboatPath, string source, bool isConfigured = false)
         {
             RetroboatPath = retroboatPath;
             Source = source;
+            IsConfigured = isConfigured;
         }
 
         public string RetroboatPath { get; }
 
         /// <summary>De onde veio o caminho: "configurado" ou "Google Drive (G:\)".</summary>
         public string Source { get; }
+
+        /// <summary>Caminho do [Cloud] Path do retroboat.ini, e não o "Meu Drive" achado pelo Retroboat.</summary>
+        public bool IsConfigured { get; }
 
         public string GamesPath => Path.Combine(RetroboatPath, CloudLocator.GamesFolderName);
 
@@ -45,7 +49,7 @@ namespace Retroboat.Cloud
         public static CloudLocation Locate(string configuredPath = null)
         {
             if (!string.IsNullOrWhiteSpace(configuredPath))
-                return new CloudLocation(Path.GetFullPath(configuredPath), "configurado");
+                return new CloudLocation(Path.GetFullPath(configuredPath), "configurado", isConfigured: true);
 
             CloudLocation firstWithoutFolder = null;
             foreach (var driveRoot in GetGoogleDriveRoots())

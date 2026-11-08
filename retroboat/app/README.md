@@ -77,6 +77,12 @@ ou ao abrir um jogo com memory card. "Sempre abrir, sem perguntar" grava `AutoOp
 RetroBat, o `Retroboat.exe` fica em segundo plano, sem janela, até o ES fechar: quando o Drive conecta, sincroniza e
 recarrega o ES; quando desconecta, recarrega o ES com o X na nuvem. Com jogo aberto ou scraper rodando, espera.
 
+No Drive, `retroboat\jogos` tem as mesmas pastas de console do `roms` do RetroBat (`psx`, `n64`, `gc`,
+`gameandwatch`...), uma por sistema do `es_systems.cfg`: para pôr um jogo na nuvem, basta soltá-lo na pasta do
+console. O lançador cria as que faltam a cada início (um sistema novo do RetroBat ganha a pasta sozinho) e nunca
+apaga nenhuma. Com o Drive aberto e sem a pasta `retroboat`, ela também é criada; um `[Cloud] Path` configurado
+à mão não é criado, porque ali a pasta faltando quer dizer disco desconectado.
+
 Antes de abrir o RetroBat, o lançador também sincroniza com a nuvem: BIOS, os logins do ES
 (ScreenScraper, IGDB e RetroAchievements, em `retroboat\contas`; um PC sem login recebe o da
 nuvem), as configurações (opções do ES, controles e emuladores, em `retroboat\configuracoes`), a biblioteca (jogos da nuvem como marcadores) e o conteúdo dos jogos. A mídia que o scraper do ES grava na pasta de jogos

@@ -14,6 +14,7 @@ namespace Retroboat.Cloud
     public sealed class StartupSyncReport
     {
         public CloudLocation Cloud { get; set; }
+        public CloudFoldersResult Folders { get; set; }
         public BiosSyncResult Bios { get; set; }
         public CloudLibrarySyncResult Library { get; set; }
         public MediaRelocationResult Relocation { get; set; }
@@ -44,6 +45,19 @@ namespace Retroboat.Cloud
         {
             var report = new StartupSyncReport { Cloud = CloudLocator.Locate(configuredCloudPath) };
             var localBios = Path.Combine(install.Root, "bios");
+
+            // Pastas do Drive no formato do RetroBat (jogos\psx, jogos\n64...): a pessoa só solta o jogo na pasta do
+            // console. Com o Drive aberto e sem a pasta do Retroboat, ela também é criada.
+            report.Folders = CloudFolders.Ensure(install, report.Cloud);
+            if (report.Folders.RootCreated)
+                report.Messages.Add("Nuvem: pasta retroboat criada no Google Drive");
+            if (report.Folders.SystemsCreated.Count > 0)
+                report.Messages.Add("Nuvem: " + report.Folders.SystemsCreated.Count + " pasta(s) de console criada(s) em retroboat\\jogos");
+            if (report.Folders.Errors.Count > 0)
+            {
+                report.Messages.Add("Atenção: não foi possível criar " + report.Folders.Errors.Count + " pasta(s) no Drive. Detalhes no log do Retroboat.");
+                report.HasWarnings = true;
+            }
 
             // Ícone de nuvem do cabeçalho do tema.
             CloudStatusFile.Write(install, report.Cloud != null && report.Cloud.Exists);
