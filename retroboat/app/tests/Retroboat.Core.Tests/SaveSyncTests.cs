@@ -682,9 +682,11 @@ namespace Retroboat.Tests
 
                 Assert.Equal(dir.Combine("meus-saves"), SaveRules.GetSavesPath(install));
                 Assert.Equal(new[] { "Black (USA).ps2" }, SaveRules.Pcsx2ActiveCards(install));
-                Assert.Single(SaveRules.For("ps2", "pcsx2"));
-                Assert.Single(SaveRules.For("ps2", ""));
-                Assert.Empty(SaveRules.For("ps2", "libretro"));
+                // Os cartões do PCSX2 e, pela regra genérica, o resto da pasta do PS2 (save states, PCSX2 1.6).
+                Assert.Equal(new[] { @"ps2\pcsx2\memcards", "ps2" }, SaveRules.For("ps2", "pcsx2").Select(r => r.Folder));
+                Assert.Equal(2, SaveRules.For("ps2", "").Count);
+                Assert.Equal("ps2", Assert.Single(SaveRules.For("ps2", "libretro")).Folder);
+                Assert.Empty(SaveRules.For("switch", "ryujinx"));
             }
         }
     }

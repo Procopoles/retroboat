@@ -13,8 +13,9 @@ using Retroboat.Text;
 namespace Retroboat.Launch
 {
     /// <summary>
-    /// Memory cards (e outros saves) na nuvem em volta de uma partida. O emulador cria, escolhe e grava os
-    /// cartões; o Retroboat:
+    /// Saves na nuvem em volta de uma partida: os memory cards do PCSX2 (regra própria) e a pasta de saves do
+    /// sistema (regra genérica: saves do jogo, memory cards, VMUs e save states de qualquer emulador). O emulador
+    /// cria, escolhe e grava os arquivos; o Retroboat:
     /// <list type="bullet">
     /// <item>antes de abrir: avisa se outro PC está jogando com eles e puxa a versão mais nova;</item>
     /// <item>durante: envia cada gravação poucos segundos depois que o emulador para de gravar;</item>
@@ -24,8 +25,8 @@ namespace Retroboat.Launch
     /// </summary>
     sealed class SaveFlow
     {
-        const string Title = "Memory cards na nuvem";
-        const string Busy = "Sincronizando memory cards...";
+        const string Title = "Saves na nuvem";
+        const string Busy = "Sincronizando os saves...";
         static readonly TimeSpan PollEvery = TimeSpan.FromSeconds(2);
         static readonly TimeSpan MaxWait = TimeSpan.FromMinutes(2);
 
@@ -47,25 +48,38 @@ namespace Retroboat.Launch
             try
             {
                 var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
-                CloudAppPrompt.Ensure(install, settings, CloudNeed.Saves);
+
+                // Com o Drive fechado, só pergunta se este sistema já usa a nuvem aqui (ou é o PS2): abrir um jogo de um
+                // sistema que nunca teve save não vale uma pergunta.
+                if (rules.Any(r => r.AlwaysAskForCloud || SaveSync.HasSyncedItems(install.RetroboatDataPath, r)))
+                    CloudAppPrompt.Ensure(install, settings, CloudNeed.Saves);
 
                 var cloud = CloudLocator.Locate(settings.CloudPath);
                 if (cloud == null || !cloud.Exists)
                 {
-                    Log.Warn("Google Drive indisponível: o jogo abre com os memory cards deste PC, que vão para a nuvem na próxima vez que o Retroboat abrir com o Drive.");
+                    Log.Warn("Google Drive indisponível: o jogo abre com os saves deste PC, que vão para a nuvem na próxima vez que o Retroboat abrir com o Drive.");
                     return null;
                 }
 
                 var savesPath = SaveRules.GetSavesPath(install);
                 var game = string.IsNullOrEmpty(rom) ? null : Path.GetFileNameWithoutExtension(rom);
 
+                bool playAnyway = false;
                 foreach (var rule in rules)
                 {
                     var sync = new SaveSync(savesPath, install.RetroboatDataPath, cloud.RetroboatPath, rule);
                     foreach (var item in sync.UnsupportedItems())
                         Log.Warn(rule.DisplayName + ": " + item);
 
-                    if (!CheckLock(sync) || !SyncWithChoices(sync, beforeGame: true))
+                    // "Jogar mesmo assim" vale para todas as regras do jogo: o PS2 tem duas (cartões e o resto).
+                    if (!playAnyway && !CheckLock(sync, out playAnyway))
+                    {
+                        flow.Cancelled = true;
+                        flow.FinishSessions();
+                        return flow;
+                    }
+
+                    if (!SyncWithChoices(sync, beforeGame: true))
                     {
                         flow.Cancelled = true;
                         flow.FinishSessions();
@@ -80,7 +94,7 @@ namespace Retroboat.Launch
             }
             catch (Exception ex)
             {
-                Log.Error("Falha ao sincronizar os memory cards antes do jogo; o jogo abre com os deste PC", ex);
+                Log.Error("Falha ao sincronizar os saves antes do jogo; o jogo abre com os deste PC", ex);
                 flow.FinishSessions();
                 return null;
             }
@@ -130,8 +144,9 @@ namespace Retroboat.Launch
         }
 
         /// <returns>false se o usuário preferiu voltar.</returns>
-        static bool CheckLock(SaveSync sync)
+        static bool CheckLock(SaveSync sync, out bool playAnyway)
         {
+            playAnyway = false;
             var other = sync.FindActiveLock();
             if (other == null)
                 return true;
@@ -147,6 +162,7 @@ namespace Retroboat.Launch
 
             Log.Info(sync.Rule.DisplayName + ": em uso no " + other.Pc + " (renovado " + other.HeartbeatUtc.ToLocalTime().ToString("HH:mm") + "): " +
                      (choice == 1 ? "jogar mesmo assim" : choice == ChoiceForm.AutoClosed ? "a trava saiu" : "voltou ao ES"));
+            playAnyway = choice == 1;
             return choice == 1 || choice == ChoiceForm.AutoClosed;
         }
 
@@ -188,7 +204,7 @@ namespace Retroboat.Launch
                         "Nuvem   ·   salvo " + When(conflict.Cloud.TimeUtc) + " no " + conflict.Cloud.Pc
                     };
 
-                    int choice = ChoiceForm.Ask(Title, "O " + rule.ItemName + " " + conflict.Name + " mudou neste PC e na nuvem",
+                    int choice = ChoiceForm.Ask(Title, "O " + rule.ItemName + " " + Path.GetFileName(conflict.Name) + " mudou neste PC e na nuvem",
                         "Escolha qual versão usar. A outra fica guardada na nuvem, em conflitos." + (beforeGame ? "" : " B ou Esc: decidir na próxima vez."),
                         options);
 
@@ -224,7 +240,7 @@ namespace Retroboat.Launch
                 return true;
 
             int choice = ChoiceForm.Ask(Title, item + " danificado neste PC",
-                string.Join(" ", result.DamagedHere) + ". Se o emulador oferecer formatar o cartão, os saves dele se perdem. As cópias anteriores estão em " +
+                string.Join(" ", result.DamagedHere) + ". Se o emulador oferecer formatar o cartão ou apagar o save, ele se perde. As cópias anteriores estão em " +
                 "retroboat\\historico e podem voltar com retroboat-cli saves restore.",
                 beforeGame ? new[] { "Voltar", "Jogar mesmo assim" } : new[] { "Continuar" });
 
@@ -258,7 +274,7 @@ namespace Retroboat.Launch
         static void Safe(string when, Action action)
         {
             try { action(); }
-            catch (Exception ex) { Log.Error("Falha na sincronização dos memory cards " + when, ex); }
+            catch (Exception ex) { Log.Error("Falha na sincronização dos saves " + when, ex); }
         }
     }
 }

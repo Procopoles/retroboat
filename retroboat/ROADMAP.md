@@ -14,7 +14,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 | M0 | Fundações: build, provedor de pasta sobre o Google Drive para computador, verificação de integridade | RB-006 | base pronta; falta empacotar no build |
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
 | M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020) |
-| M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); outros saves não iniciados |
+| M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); saves de todos os sistemas pela regra genérica (08/11/2026; falta testar com os emuladores em dois PCs; PS3, Switch, Wii U, Xbox, Vita, PS4 e 3DS ainda fora) |
 | M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES prontas; opções do ES, controles e configurações de todos os emuladores prontos (08/11/2026: PCSX2 com regra própria, os outros pela regra genérica; falta testar com o ES e os emuladores em dois PCs); coleções, favoritos e tempo jogado não iniciados |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; RB-010 pronto no fork e testado numa cópia isolada (08/11/2026); a pasta `build` usa o nosso ES desde 08/11/2026 (o oficial ficou em `emulationstation.oficial.exe`), sem o scraper do ES e o RetroAchievements até termos chaves próprias (RB-011); falta testar com o Drive real, gamepad e tela cheia |
 
@@ -138,7 +138,33 @@ Depende do fork e do build do ES (RB-011).
   Testado com um pen drive simulado (`subst P:`) arrancado durante o jogo e religado depois.
 - **Falta:** testar com o PCSX2 de verdade (instalar o PCSX2 pela primeira abertura de um jogo de
   PS2 no ES e salvar num jogo) e confirmar que o validador aceita os cartões que ele cria; cartões em
-  pasta (`folder`); save states; outros emuladores.
+  pasta (`folder`). Save states e os outros emuladores entraram pela regra genérica (abaixo).
+
+### Saves de todos os sistemas (08/11/2026)
+
+- **Decisão:** uma regra genérica, como nas configurações: a pasta `saves\<sistema>` inteira, de
+  qualquer emulador, sem lista. Pedido inicial: PS1, GameCube e Dreamcast; vale para todos.
+- **O que vai:** saves do jogo (`.srm`), memory cards (DuckStation, Beetle PSX), saves do GameCube no
+  `User\GC` do Dolphin, VMUs do Dreamcast, NVRAM e EEPROM do arcade e save states, cada arquivo com a
+  mesma base dos memory cards do PS2: versões no Drive, trava entre PCs, tela de conflito, histórico
+  local, envio a cada gravação durante o jogo, arquivo vazio ou zerado recusado.
+- **O que fica:** pastas de BIOS, firmware, chaves, jogos instalados, capas, capturas e caches;
+  arquivos de mais de 256 MB; os memory cards do PCSX2, que têm a regra própria.
+- **Arquivos que vieram com o RetroBat** (~1.800 neste build: NVRAM do MAME, EEPROM do Naomi e do
+  Atomiswave) nunca sobem. Só entra o que mudou depois que a sincronização começou neste PC, ou o
+  que já está na nuvem. Num PC novo, o arquivo de fábrica é trocado pela versão da nuvem sem
+  perguntar, e o de fábrica fica no histórico.
+- **Tamanho na nuvem:** ficam as 10 versões mais novas de cada arquivo (cada PC apaga só as próprias
+  antigas), porque save state é grande. Os memory cards do PS2 continuam com todas.
+- **Ainda fora:** PS3, Switch, Wii U, Xbox, Xbox 360, Vita, PS4 e 3DS. Os emuladores deles guardam,
+  junto com os saves, jogos instalados, updates, firmware ou as chaves do console; cada um precisa de
+  uma regra própria que pegue só os saves.
+- **Testado:** 9 testes automáticos (236 no total) e uma cópia da pasta `saves` real deste build
+  (161 MB) em dois PCs simulados: na primeira passada nada subiu; depois de "jogar" no A, subiram só
+  os 5 arquivos mudados (save e save state de PS1, save de GameCube, VMU de Dreamcast e uma EEPROM
+  de Naomi), o B recebeu os 5 iguais, e a segunda passada não mudou nada. Todos os sistemas em cerca
+  de 1 s.
+- **Falta:** testar com os emuladores de verdade (RetroArch, Dolphin, Flycast) em dois PCs.
 
 ### Configurações na nuvem (08/11/2026)
 

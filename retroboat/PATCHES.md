@@ -15,7 +15,7 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-006 | Base da nuvem: provedor de pasta (Google Drive para computador, NAS), verificação de integridade, lançador, `retroboat-launch` | retroboat/app | C0 | — | nenhum | não | em andamento |
 | RB-007 | ExoDOS cria atalhos em `retrobat\roms` ignorando a chave `roms=` | emulatorlauncher | C1 | média | baixo | sim | candidato |
 | RB-008 | Opção para o `retrobat.exe` esperar um `AppLauncher` terminar antes de abrir o ES | retrobat-executable | C1 | média | baixo | sim | candidato |
-| RB-009 | Saves e memory cards na nuvem: sync por jogo, conflito, offline, snapshots | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
+| RB-009 | Saves e memory cards na nuvem: sync por jogo, conflito, offline, snapshots (PS2 com regra própria; os outros sistemas pela regra genérica) | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
 | RB-010 | Nuvem nativa no ES: BAIXAR sem abrir o jogo, região do cabeçalho, status ao vivo, lista esmaecida | ES (Batocera), retroboat/app e `status.xml` dos temas | C1 (32 linhas de gancho em 10 arquivos) | média | médio | não | em andamento |
 | RB-011 | Build Windows do ES no nosso fork (GitHub Actions) | ES (Batocera) | C0 | — | nenhum | não | em andamento |
 | RB-012 | Sistema Ghostship cadastrado com o nome "starship" (nome duplicado no `es_systems.cfg`) | retrobat | C1 | ALTA | médio | sim | candidato |
@@ -211,6 +211,20 @@ o histórico.
   cópia zerada, de qualquer lado, é substituída pela boa do outro lado, mesmo que pareça mais nova.
 
 ## RB-009 — Memory cards do PS2 na nuvem (primeira parte dos saves)
+
+- **Regra genérica (08/11/2026):** os saves de todos os sistemas (`SaveRules.Generic`): a pasta
+  `saves\<sistema>` inteira, com as subpastas de cada emulador, no mesmo motor dos memory cards
+  (`SaveRule.Recursive`; o nome de cada arquivo é o caminho relativo). Fora: pastas de BIOS,
+  firmware, chaves, jogos instalados, capas, capturas e caches, arquivos de mais de 256 MB e as pastas
+  de uma regra própria (`pcsx2\memcards`). Só entra o que mudou depois que a regra começou a valer
+  no PC (`OnlyChangedHere`, data em `saves-sync.xml`), então o que veio com o RetroBat nunca sobe; num
+  PC novo, o arquivo de fábrica dá lugar ao da nuvem sem conflito. Ficam as 10 versões mais novas de
+  cada arquivo na nuvem (`CloudVersionsKept`; cada PC apaga só as suas). Com o Drive fechado, só
+  pergunta se o sistema já tem saves sincronizados neste PC. PS3, Switch, Wii U, Xbox, Xbox 360, Vita,
+  PS4 e 3DS ficam fora (`SystemsNotYetSupported`): os saves deles dividem a pasta com jogos
+  instalados, firmware ou chaves. Testado com 9 testes automáticos e uma cópia da pasta `saves` real
+  em dois PCs simulados. **Risco semântico médio:** se o emulatorLauncher mudar onde um emulador grava,
+  o save novo entra sozinho se ficar em `saves\<sistema>`; fora dela, não.
 
 - **Onde:** `retroboat/app` (`Saves\SaveRules`, `SaveSync`, `SaveSession`; `Retroboat.Launch`:
   `SaveFlow`, `ChoiceForm`; `Cloud\StartupSync`; comandos `saves` do CLI). Nada no upstream.

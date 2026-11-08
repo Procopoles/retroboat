@@ -238,6 +238,10 @@ namespace Retroboat.Saves
         string PcsFolder => Path.Combine(CloudFolder, PcsFolderName);
         string OwnPcPath => Path.Combine(PcsFolder, PcName + ".xml");
 
+        /// <summary>Já sincronizou algum arquivo desta regra neste PC: o sistema usa a nuvem aqui.</summary>
+        public static bool HasSyncedItems(string retroboatDataPath, SaveRule rule) =>
+            SaveSyncState.Load(Path.Combine(retroboatDataPath, StateFileName)).Names(rule.Folder).Any();
+
         /// <summary>Planeja e aplica. Conflitos sem escolha ficam para depois; nada é perdido.</summary>
         public SaveSyncResult Sync(Func<SaveItemPlan, ConflictChoice?> resolve = null) => Apply(Plan(), resolve);
 
@@ -254,6 +258,7 @@ namespace Retroboat.Saves
                 return new List<SaveItemPlan>();
 
             var state = SaveSyncState.Load(_statePath);
+            var since = TrackedSince(state);
             var announced = ReadAnnouncedVersions();
             var names = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -263,24 +268,52 @@ namespace Retroboat.Saves
             }
             else
             {
-                names.UnionWith(LocalItems().Select(Path.GetFileName));
-                if (Directory.Exists(CloudFolder))
-                {
-                    names.UnionWith(Directory.GetDirectories(CloudFolder).Select(Path.GetFileName)
-                        .Where(n => !n.Equals(PcsFolderName, StringComparison.OrdinalIgnoreCase)));
-                }
-
-                names.UnionWith(state.Names(Rule.Folder));
+                var synced = new HashSet<string>(state.Names(Rule.Folder), StringComparer.OrdinalIgnoreCase);
+                names.UnionWith(LocalItems().Where(path => since == null || File.GetLastWriteTimeUtc(path) > since.Value || synced.Contains(ItemName(path)))
+                    .Select(ItemName));
+                names.UnionWith(CloudItems());
+                names.UnionWith(synced);
             }
 
-            return names.Select(name => PlanItem(name, state.Get(Rule.Folder, name), announced, sessionItems, trustDates)).ToList();
+            return names.Select(name => PlanItem(name, state.Get(Rule.Folder, name), announced, sessionItems, trustDates, since)).ToList();
         }
 
-        SaveItemPlan PlanItem(string name, SyncedItem synced, Dictionary<string, string> announced, ICollection<string> sessionItems, bool trustDates)
+        /// <summary>
+        /// Desde quando o que muda aqui conta (OnlyChangedHere): a primeira vez que a regra rodou neste PC. Nulo nas
+        /// regras sem essa marca.
+        /// </summary>
+        DateTime? TrackedSince(SaveSyncState state)
+        {
+            if (!Rule.OnlyChangedHere)
+                return null;
+
+            if (state.TrackedSince == null)
+            {
+                state.TrackedSince = _utcNow();
+                state.Save();
+            }
+
+            return state.TrackedSince;
+        }
+
+        SaveItemPlan PlanItem(string name, SyncedItem synced, Dictionary<string, string> announced, ICollection<string> sessionItems, bool trustDates, DateTime? since)
         {
             var plan = new SaveItemPlan { Name = name, LocalPath = Path.Combine(LocalFolder, name), Cloud = LatestVersion(name) };
 
             var local = new FileInfo(plan.LocalPath);
+            if (local.Exists && synced == null && since != null && local.LastWriteTimeUtc <= since.Value)
+            {
+                // Veio com o RetroBat (ou é de antes do Retroboat) e não mudou aqui: a nuvem vale, sem conflito. O
+                // arquivo deste PC fica no histórico.
+                plan.LocalModifiedUtc = local.LastWriteTimeUtc;
+                plan.LocalSha1 = Sha1(ReadShared(local.FullName));
+                bool cloudData = plan.Cloud != null && !plan.Cloud.Deleted;
+                plan.Action = !cloudData ? SaveAction.None : SaveAction.Download;
+                if (cloudData && TryReadGood(plan.Cloud, out _) is byte[] same && Sha1(same) == plan.LocalSha1)
+                    plan.Action = SaveAction.Record;
+                return plan;
+            }
+
             if (local.Exists)
             {
                 plan.LocalModifiedUtc = local.LastWriteTimeUtc;
@@ -371,10 +404,14 @@ namespace Retroboat.Saves
         public SaveSyncResult Apply(IEnumerable<SaveItemPlan> plans, Func<SaveItemPlan, ConflictChoice?> resolve = null, bool uploadOnly = false)
         {
             var result = new SaveSyncResult();
+            var list = plans.ToList();
+            if (list.Count == 0)
+                return result; // Nada a fazer: o estado nem é regravado (são centenas de sistemas ao abrir o Retroboat).
+
             var state = SaveSyncState.Load(_statePath);
             var sent = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-            foreach (var plan in plans)
+            foreach (var plan in list)
             {
                 try
                 {
@@ -480,6 +517,24 @@ namespace Retroboat.Saves
             state.Set(Rule.Folder, plan.Name, new SyncedItem { Version = id, Sha1 = Sha1(data), Length = data.Length, ModifiedTicks = before == after ? after.Ticks : 0 });
             sent[plan.Name] = id;
             result.Uploaded.Add(plan.Name);
+            PruneOwnVersions(plan.Name);
+        }
+
+        /// <summary>
+        /// Com CloudVersionsKept, apaga as versões antigas que este PC enviou (cada PC só mexe nos próprios arquivos na
+        /// nuvem). Ficam as mais novas de todos os PCs, então a mais nova nunca sai.
+        /// </summary>
+        void PruneOwnVersions(string name)
+        {
+            if (Rule.CloudVersionsKept == null)
+                return;
+
+            foreach (var old in History(name).Skip(Math.Max(1, Rule.CloudVersionsKept.Value)).Where(v => string.Equals(v.Pc, PcName, StringComparison.OrdinalIgnoreCase)))
+            {
+                try { File.Delete(old.Path); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
 
         void UploadDeletion(SaveItemPlan plan, SaveSyncState state, SaveSyncResult result, Dictionary<string, string> sent)
@@ -489,6 +544,7 @@ namespace Retroboat.Saves
             state.Set(Rule.Folder, plan.Name, new SyncedItem { Version = id, Deleted = true });
             sent[plan.Name] = id;
             result.DeletedInCloud.Add(plan.Name);
+            PruneOwnVersions(plan.Name);
         }
 
         void Download(SaveItemPlan plan, SaveSyncState state, SaveSyncResult result, Dictionary<string, string> sent)
@@ -525,7 +581,7 @@ namespace Retroboat.Saves
         void PlaceLocal(SaveItemPlan plan, SaveVersion version, byte[] data, SaveSyncState state, Dictionary<string, string> sent)
         {
             if (File.Exists(plan.LocalPath))
-                Snapshot(plan.LocalPath);
+                Snapshot(plan.Name, plan.LocalPath);
 
             WriteAtomically(plan.LocalPath, data);
             var id = version.Id;
@@ -598,7 +654,7 @@ namespace Retroboat.Saves
 
         void DeleteLocal(SaveItemPlan plan, SaveSyncState state, SaveSyncResult result)
         {
-            Snapshot(plan.LocalPath);
+            Snapshot(plan.Name, plan.LocalPath);
             File.Delete(plan.LocalPath);
             state.Set(Rule.Folder, plan.Name, new SyncedItem { Version = plan.Cloud.Id, Deleted = true });
             result.DeletedLocal.Add(plan.Name);
@@ -765,7 +821,7 @@ namespace Retroboat.Saves
             var state = SaveSyncState.Load(_statePath);
             var plan = new SaveItemPlan { Name = name, LocalPath = Path.Combine(LocalFolder, name), Cloud = LatestVersion(name) };
             if (File.Exists(plan.LocalPath))
-                Snapshot(plan.LocalPath);
+                Snapshot(plan.Name, plan.LocalPath);
 
             WriteAtomically(plan.LocalPath, data);
             var id = NewVersionId(plan, state);
@@ -786,12 +842,127 @@ namespace Retroboat.Saves
             if (!Directory.Exists(LocalFolder))
                 return Enumerable.Empty<string>();
 
-            return Directory.GetFiles(LocalFolder, Rule.Pattern).Where(MatchesPattern);
+            if (!Rule.Recursive)
+                return Directory.GetFiles(LocalFolder, Rule.Pattern).Where(MatchesPattern);
+
+            var files = new List<string>();
+            WalkLocal(LocalFolder, "", 0, files);
+            return files;
+        }
+
+        const int MaxDepth = 12;
+
+        void WalkLocal(string dir, string relative, int depth, List<string> files)
+        {
+            foreach (var file in Directory.GetFiles(dir))
+            {
+                var name = Path.GetFileName(file);
+                if (name.EndsWith(PartSuffix, StringComparison.OrdinalIgnoreCase) || !IsValidName(relative.Length == 0 ? name : relative + "\\" + name))
+                    continue;
+
+                var info = new FileInfo(file);
+                if ((info.Attributes & FileAttributes.ReparsePoint) != 0 || (Rule.MaxFileBytes != null && info.Length > Rule.MaxFileBytes.Value))
+                    continue;
+
+                files.Add(file);
+            }
+
+            if (depth >= MaxDepth)
+                return;
+
+            foreach (var sub in Directory.GetDirectories(dir))
+            {
+                var name = Path.GetFileName(sub);
+                var subRelative = relative.Length == 0 ? name : relative + "\\" + name;
+                if (IsSkippedFolder(name, subRelative) || (new DirectoryInfo(sub).Attributes & FileAttributes.ReparsePoint) != 0)
+                    continue;
+
+                WalkLocal(sub, subRelative, depth + 1, files);
+            }
+        }
+
+        bool IsSkippedFolder(string name, string relative) =>
+            Rule.SkippedFolderNames.Contains(name)
+            || Rule.ExcludedFolders.Any(e => string.Equals(e, relative, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Nome do arquivo na regra: o caminho relativo à pasta dela ("mednafen\sstates\Jogo.state1"). Nas regras de
+        /// uma pasta só, o nome do arquivo.
+        /// </summary>
+        public string ItemName(string localPath)
+        {
+            if (!Rule.Recursive)
+                return Path.GetFileName(localPath);
+
+            var root = Path.GetFullPath(LocalFolder).TrimEnd('\\') + "\\";
+            var full = Path.GetFullPath(localPath);
+            return full.StartsWith(root, StringComparison.OrdinalIgnoreCase) ? full.Substring(root.Length) : Path.GetFileName(localPath);
+        }
+
+        /// <summary>Um nome que fica dentro da pasta da regra e fora das pastas que nunca são saves.</summary>
+        bool IsValidName(string name)
+        {
+            if (string.IsNullOrEmpty(name) || Path.IsPathRooted(name) || name.IndexOf('/') >= 0)
+                return false;
+
+            var parts = name.Split('\\');
+            for (int i = 0; i < parts.Length; i++)
+            {
+                var part = parts[i];
+                if (part.Length == 0 || part == "." || part == ".." || part.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                    return false;
+
+                if (i < parts.Length - 1 && IsSkippedFolder(part, string.Join("\\", parts, 0, i + 1)))
+                    return false;
+            }
+
+            return Rule.Recursive || parts.Length == 1;
+        }
+
+        /// <summary>
+        /// Arquivos que têm versões na nuvem. Numa regra de pasta inteira, a pasta de um arquivo na nuvem tem as versões
+        /// dele (e talvez conflitos\); as outras pastas são as subpastas do emulador.
+        /// </summary>
+        IEnumerable<string> CloudItems()
+        {
+            if (!Directory.Exists(CloudFolder))
+                return Enumerable.Empty<string>();
+
+            if (!Rule.Recursive)
+            {
+                return Directory.GetDirectories(CloudFolder).Select(Path.GetFileName)
+                    .Where(n => !n.Equals(PcsFolderName, StringComparison.OrdinalIgnoreCase));
+            }
+
+            var items = new List<string>();
+            WalkCloud(CloudFolder, "", 0, items);
+            return items;
+        }
+
+        void WalkCloud(string dir, string relative, int depth, List<string> items)
+        {
+            foreach (var sub in Directory.GetDirectories(dir))
+            {
+                var name = Path.GetFileName(sub);
+                var subRelative = relative.Length == 0 ? name : relative + "\\" + name;
+                if (IsSkippedFolder(name, subRelative))
+                    continue;
+
+                if (Directory.GetFiles(sub).Any(f => SaveVersion.TryParse(f) != null) || Directory.Exists(Path.Combine(sub, ConflictsFolderName)))
+                {
+                    if (IsValidName(subRelative))
+                        items.Add(subRelative);
+                }
+                else if (depth < MaxDepth)
+                {
+                    WalkCloud(sub, subRelative, depth + 1, items);
+                }
+            }
         }
 
         IEnumerable<string> LocalFolderItems()
         {
-            if (!Directory.Exists(LocalFolder))
+            if (!Directory.Exists(LocalFolder) || Rule.Recursive)
                 return Enumerable.Empty<string>();
 
             return Directory.GetDirectories(LocalFolder, Rule.Pattern).Where(MatchesPattern);
@@ -914,15 +1085,15 @@ namespace Retroboat.Saves
 
         // ---- Arquivos ----
 
-        /// <summary>Cópia local antes de substituir ou apagar; ficam as 20 mais recentes de cada arquivo.</summary>
-        void Snapshot(string localPath)
+        /// <summary>Cópia local antes de substituir ou apagar; ficam as mais recentes de cada arquivo (SnapshotsKept, 20 nos memory cards).</summary>
+        void Snapshot(string name, string localPath)
         {
-            var folder = Path.Combine(_historyRoot, Path.GetFileName(localPath));
+            var folder = Path.Combine(_historyRoot, name);
             Directory.CreateDirectory(folder);
             var target = Path.Combine(folder, _utcNow().ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture) + Path.GetExtension(localPath));
             File.Copy(localPath, target, true);
 
-            foreach (var old in Directory.GetFiles(folder).OrderByDescending(f => f, StringComparer.Ordinal).Skip(SnapshotsKept))
+            foreach (var old in Directory.GetFiles(folder).OrderByDescending(f => f, StringComparer.Ordinal).Skip(Rule.SnapshotsKept))
                 File.Delete(old);
         }
 
@@ -1026,6 +1197,9 @@ namespace Retroboat.Saves
         readonly Dictionary<string, SyncedItem> _items = new Dictionary<string, SyncedItem>(StringComparer.OrdinalIgnoreCase);
         string _path;
 
+        /// <summary>Quando as regras genéricas começaram a valer neste PC (SaveRule.OnlyChangedHere).</summary>
+        public DateTime? TrackedSince { get; set; }
+
         /// <summary>
         /// Se o arquivo estiver danificado (gravação cortada), usa a cópia anterior (.bak); sem nenhum dos dois,
         /// começa do zero: o SHA-1 dos dois lados decide e nada é perdido, no máximo um conflito a mais.
@@ -1048,6 +1222,10 @@ namespace Retroboat.Saves
         static SaveSyncState Parse(string path, XDocument document)
         {
             var state = new SaveSyncState { _path = path };
+            var since = (long?)document.Root.Attribute("trackedSince");
+            if (since != null)
+                state.TrackedSince = new DateTime(since.Value, DateTimeKind.Utc);
+
             foreach (var element in document.Root.Elements("item"))
             {
                 state._items[Key((string)element.Attribute("folder"), (string)element.Attribute("name"))] = new SyncedItem
@@ -1072,7 +1250,7 @@ namespace Retroboat.Saves
 
         public void Save()
         {
-            var root = new XElement("savesSync", _items.OrderBy(i => i.Key, StringComparer.OrdinalIgnoreCase).Select(i =>
+            var root = new XElement("savesSync", TrackedSince != null ? new XAttribute("trackedSince", TrackedSince.Value.Ticks) : null, _items.OrderBy(i => i.Key, StringComparer.OrdinalIgnoreCase).Select(i =>
             {
                 var parts = i.Key.Split('|');
                 return new XElement("item",

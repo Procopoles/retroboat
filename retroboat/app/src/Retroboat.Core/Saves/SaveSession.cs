@@ -50,7 +50,7 @@ namespace Retroboat.Saves
             foreach (var path in _sync.LocalItems())
             {
                 var info = new FileInfo(path);
-                _trackers[info.Name] = new Tracker { Length = info.Length, Modified = info.LastWriteTimeUtc, Sha1 = InSyncAtStart, Pushed = InSyncAtStart, Existed = true };
+                _trackers[_sync.ItemName(path)] = new Tracker { Length = info.Length, Modified = info.LastWriteTimeUtc, Sha1 = InSyncAtStart, Pushed = InSyncAtStart, Existed = true };
             }
 
             _started = true;
@@ -107,11 +107,12 @@ namespace Retroboat.Saves
             foreach (var path in localItems)
             {
                 var info = new FileInfo(path);
-                present.Add(info.Name);
-                if (!_trackers.TryGetValue(info.Name, out var tracker))
+                var name = _sync.ItemName(path);
+                present.Add(name);
+                if (!_trackers.TryGetValue(name, out var tracker))
                 {
                     // Cartão novo, criado pelo emulador durante o jogo.
-                    _trackers[info.Name] = tracker = new Tracker { ChangedAt = now };
+                    _trackers[name] = tracker = new Tracker { ChangedAt = now };
                 }
 
                 tracker.Existed = true;
@@ -119,7 +120,7 @@ namespace Retroboat.Saves
 
                 // A data basta depois que o emulador fecha o arquivo; o cartão do slot é lido sempre.
                 bool metadataChanged = info.Length != tracker.Length || info.LastWriteTimeUtc != tracker.Modified;
-                if (metadataChanged || active.Contains(info.Name) || tracker.Sha1 == null)
+                if (metadataChanged || active.Contains(name) || tracker.Sha1 == null)
                 {
                     string sha;
                     try { sha = Hash(path); }

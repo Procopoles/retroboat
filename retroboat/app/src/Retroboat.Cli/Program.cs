@@ -304,7 +304,8 @@ Opções gerais:
                 throw new InvalidOperationException("Pasta do Retroboat na nuvem não encontrada. Use --cloud <pasta>.");
 
             var savesPath = SaveRules.GetSavesPath(install);
-            return SaveRules.All.Select(rule => new SaveSync(savesPath, install.RetroboatDataPath, location.RetroboatPath, rule, options.Value("--pc"))).ToList();
+            return SaveRules.AllFor(savesPath, Path.Combine(location.RetroboatPath, "saves"))
+                .Select(rule => new SaveSync(savesPath, install.RetroboatDataPath, location.RetroboatPath, rule, options.Value("--pc"))).ToList();
         }
 
         /// <summary>

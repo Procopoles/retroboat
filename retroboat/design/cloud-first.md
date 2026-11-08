@@ -141,6 +141,18 @@ catálogo cresce sem tocar no motor.
 **Segurança dos saves:** antes de sobrescrever qualquer save local, o motor guarda um snapshot
 local. Save é dado insubstituível, então um bug de sincronização não pode apagar progresso.
 
+**Regra genérica (implementada em 08/11/2026, RB-009):** em vez de um catálogo por emulador, uma
+regra por sistema cobre a pasta `saves\<sistema>` inteira (as 60 famílias acima que gravam lá), no
+mesmo motor dos memory cards. O nome de cada arquivo é o caminho relativo
+(`mednafen\sstates\Jogo.state1`); na nuvem, cada arquivo tem a pasta das versões dele no mesmo
+caminho. Ficam de fora as pastas de BIOS, firmware, chaves, jogos instalados, capas, capturas e
+caches, arquivos de mais de 256 MB e as pastas de uma regra própria. Só entra o que mudou neste PC
+depois que a regra começou a valer aqui (os ~1.800 arquivos de NVRAM e EEPROM que vêm com o RetroBat
+nunca sobem); num PC novo, um arquivo de fábrica dá lugar ao da nuvem sem conflito. Ficam as 10
+versões mais novas de cada arquivo na nuvem. PS3, Switch, Wii U, Xbox, Vita, PS4 e 3DS ficam fora
+até terem regra própria, pelos avisos da tabela. As 54 famílias que gravam em `emulators\<emu>\`
+continuam sem saves na nuvem.
+
 ## 4a. Biblioteca na nuvem, fase 1 (RB-004, implementada em 25/10/2026)
 
 - **Marcadores:** a cada início, o lançador lista `retroboat\jogos` no Drive (só metadados) e cria, na

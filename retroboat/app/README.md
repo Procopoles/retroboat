@@ -199,6 +199,24 @@ Os `status.xml` são editados e testados nos clones dos temas (`..\es-theme-carb
 `..\es-theme-PlayStation-X`) e copiados para cá. O teste `Bundled_overlays_match_the_theme_clones`
 falha se a cópia do app ficar diferente da do clone.
 
+## Saves de todos os sistemas
+
+A pasta de saves de cada sistema (`<RetroBat>\saves\<sistema>`, com as subpastas de cada emulador) vai para
+`retroboat\saves\<sistema>` no Drive, do mesmo jeito que os memory cards abaixo: antes do jogo puxa, durante
+envia cada gravação, ao fechar envia o resto e libera a trava, e o `Retroboat.exe` envia ao abrir o que ficou de uma
+partida sem o Drive. Vale para qualquer emulador: saves do jogo (`.srm`), memory cards do DuckStation e do Beetle PSX,
+saves do GameCube no Dolphin, VMUs do Dreamcast, NVRAM e EEPROM do arcade e save states.
+
+- **Fica no PC:** pastas de BIOS, firmware, chaves, jogos instalados, capas, capturas e caches; arquivos de mais de
+  256 MB.
+- **O que veio com o RetroBat** não sobe: só entra o que mudou depois que a sincronização começou neste PC, ou o que
+  já está na nuvem. Num PC novo, o arquivo de fábrica dá lugar ao da nuvem sem perguntar.
+- **Na nuvem** ficam as 10 versões mais novas de cada arquivo; cópias locais antes de trocar, em
+  `<RetroBat>\retroboat\historico` (as 5 últimas).
+- **Ainda fora:** PS3, Switch, Wii U, Xbox, Xbox 360, Vita, PS4 e 3DS, que guardam jogos instalados, firmware ou chaves
+  junto com os saves.
+- Com o Drive fechado, só pergunta se abre o Drive quando o sistema já tem saves sincronizados neste PC (ou é PS2).
+
 ## Memory cards
 
 Os memory cards do PS2 são do emulador: o PCSX2 cria, escolhe e grava os cartões em

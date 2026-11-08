@@ -210,7 +210,7 @@ namespace Retroboat.Cloud
         {
             var total = new SaveSyncResult();
             var savesPath = SaveRules.GetSavesPath(install);
-            foreach (var rule in SaveRules.All)
+            foreach (var rule in SaveRules.AllFor(savesPath, Path.Combine(cloudRetroboatPath, "saves")))
             {
                 try
                 {

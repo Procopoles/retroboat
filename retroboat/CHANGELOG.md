@@ -33,6 +33,11 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   configurações do PCSX2 (o `PCSX2.ini`, os ajustes por jogo e os perfis de controle) vão para o
   Drive (`retroboat\configuracoes`). Um PC novo recebe tudo; uma mudança num PC chega aos outros, e
   o que depende da máquina (tela, áudio, pastas, janelas, senhas) fica em cada PC.
+- RB-009 (saves de todos os sistemas): a pasta `saves` de cada sistema vai para o Drive pela mesma
+  base dos memory cards do PS2: saves do jogo, memory cards, VMUs, NVRAM e save states de qualquer
+  emulador (PS1, GameCube, Dreamcast e os outros), com trava, conflito e histórico. O que veio com o
+  RetroBat não sobe; ficam as 10 versões mais novas de cada arquivo. PS3, Switch, Wii U, Xbox, Vita,
+  PS4 e 3DS ainda não entram.
 - RB-005 (configurações de todos os emuladores): os outros emuladores entram por uma regra genérica,
   sem lista: RetroArch (PS1 e Dreamcast), Dolphin (GameCube), DuckStation, Flycast e qualquer outro
   que o RetroBat baixar. Vão as opções, os ajustes por jogo e os remaps; ficam no PC caminhos,
