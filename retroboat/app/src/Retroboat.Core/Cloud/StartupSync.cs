@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Retroboat.Accounts;
 using Retroboat.Bios;
+using Retroboat.Config;
 using Retroboat.Library;
 using Retroboat.Media;
 using Retroboat.Saves;
@@ -20,6 +21,7 @@ namespace Retroboat.Cloud
         public AutoMediaResult AutoMedia { get; set; }
         public AutoInfoResult AutoInfo { get; set; }
         public AccountSyncResult Accounts { get; set; }
+        public List<ConfigSyncResult> Configs { get; set; } = new List<ConfigSyncResult>();
         public SaveSyncResult Saves { get; set; }
         public IReadOnlyList<BiosReport> BiosStatus { get; set; } = new List<BiosReport>();
 
@@ -31,8 +33,9 @@ namespace Retroboat.Cloud
     }
 
     /// <summary>
-    /// O que o Retroboat sincroniza com a nuvem antes de abrir o RetroBat: BIOS, contas, memory cards (o que
-    /// ficou de uma sessão offline) e a biblioteca de jogos (marcadores dos jogos que ainda não foram baixados).
+    /// O que o Retroboat sincroniza com a nuvem antes de abrir o RetroBat: BIOS, contas, configurações (opções do ES,
+    /// controles, emuladores), memory cards (o que ficou de uma sessão offline) e a biblioteca de jogos (marcadores
+    /// dos jogos que ainda não foram baixados).
     /// </summary>
     public static class StartupSync
     {
@@ -95,6 +98,13 @@ namespace Retroboat.Cloud
                         report.HasWarnings = true;
                     }
                 }
+
+                // Opções do ES (globais, por sistema e por jogo), controles e configurações dos emuladores. Com o ES ou o
+                // emulador aberto, aquela parte só envia: o que veio da nuvem espera ele fechar.
+                report.Configs = CloudConfigs.SyncAll(install, report.Cloud.RetroboatPath);
+                report.Messages.AddRange(CloudConfigs.Describe(report.Configs));
+                if (CloudConfigs.HasErrors(report.Configs))
+                    report.HasWarnings = true;
 
                 // Memory cards: envia o que ficou de uma partida offline e baixa o que chegou. Conflitos ficam para
                 // a abertura do jogo, onde dá para perguntar. Com um jogo aberto neste PC, não mexe nos cartões.

@@ -28,14 +28,15 @@ namespace Retroboat.Launcher
         // O ES leva um instante para recarregar; notificação antes disso passa despercebida.
         static readonly TimeSpan AfterReload = TimeSpan.FromSeconds(3);
 
-        public static void Run(RetroBatInstall install, RetroboatSettings settings)
+        /// <returns>true se acompanhou até o ES fechar; false se outro lançador já estava acompanhando.</returns>
+        public static bool Run(RetroBatInstall install, RetroboatSettings settings)
         {
             using (var mutex = new Mutex(false, SingleInstance))
             {
                 try
                 {
                     if (!mutex.WaitOne(0))
-                        return;
+                        return false;
                 }
                 catch (AbandonedMutexException)
                 {
@@ -47,6 +48,7 @@ namespace Retroboat.Launcher
                     Log.Info("Acompanhando o Google Drive enquanto o ES estiver aberto.");
                     Watch(install, settings);
                     Log.Info("ES fechado: fim do acompanhamento do Google Drive.");
+                    return true;
                 }
                 finally
                 {

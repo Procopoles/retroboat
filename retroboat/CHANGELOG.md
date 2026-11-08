@@ -29,6 +29,10 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-005 (contas): os logins do ES (ScreenScraper, IGDB, RetroAchievements) vão para o Drive
   (`retroboat\contas`). Um PC sem login recebe o da nuvem ao abrir; uma troca de login chega aos
   outros PCs.
+- RB-005 (configurações): as opções do ES (globais, por sistema e por jogo), os controles e as
+  configurações do PCSX2 (o `PCSX2.ini`, os ajustes por jogo e os perfis de controle) vão para o
+  Drive (`retroboat\configuracoes`). Um PC novo recebe tudo; uma mudança num PC chega aos outros, e
+  o que depende da máquina (tela, áudio, pastas, janelas, senhas) fica em cada PC.
 - RB-014: o tema padrão passa a ser o nosso fork do Carbon (`build.ini: theme_path`), no design da
   Steam (Big Picture): botão JOGAR ou BAIXAR com o status na seção do jogo, ícone de status nas
   visões em grade e ícone global de nuvem no cabeçalho.

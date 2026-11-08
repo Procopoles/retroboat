@@ -15,7 +15,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
 | M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020) |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); outros saves não iniciados |
-| M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES (ScreenScraper, IGDB, RetroAchievements) prontas |
+| M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES prontas; opções do ES, controles e configurações do PCSX2 prontos (08/11/2026, falta testar com o ES e o PCSX2 em dois PCs); coleções, favoritos e tempo jogado não iniciados |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; RB-010 pronto no fork e testado numa cópia isolada (08/11/2026); falta o build usar o nosso ES |
 
 M0 e M1 podem andar em paralelo. Código em [app/](app/README.md).
@@ -113,8 +113,8 @@ Depende do fork e do build do ES (RB-011).
   consertada neste teste).
 - **Falta testar:** abrir o jogo baixado no PCSX2 pelo ES (o PCSX2 ainda não está instalado na
   build; o emulatorLauncher se oferece para baixá-lo na primeira vez).
-- **Configurações por jogo (M4) ainda não existem no código.** Os memory cards (M3) vieram logo
-  depois, na seção abaixo.
+- **Configurações por jogo (M4):** vieram em 08/11/2026 (seção "Configurações na nuvem" abaixo). Os
+  memory cards (M3) vieram logo depois deste teste, na seção abaixo.
 
 ### Memory cards do PS2 na nuvem (25/10/2026)
 
@@ -139,6 +139,22 @@ Depende do fork e do build do ES (RB-011).
 - **Falta:** testar com o PCSX2 de verdade (instalar o PCSX2 pela primeira abertura de um jogo de
   PS2 no ES e salvar num jogo) e confirmar que o validador aceita os cartões que ele cria; cartões em
   pasta (`folder`); save states; outros emuladores.
+
+### Configurações na nuvem (08/11/2026)
+
+- **Decisão:** vão as opções do ES e também os arquivos do próprio emulador, começando pelo PCSX2. Os
+  emuladores (programas) continuam por PC.
+- **Pronto e testado** (215 testes automáticos, mais um teste pelo CLI com cópias dos arquivos deste PC
+  e um PC novo com os arquivos de fábrica):
+  - opções do ES globais, por sistema e por jogo, e as preferências do ES;
+  - controles configurados no ES;
+  - `PCSX2.ini` chave a chave, ajustes por jogo e perfis de controle do PCSX2;
+  - fica em cada PC o que depende da máquina: tela, monitor, áudio, placa de vídeo, pastas, janelas,
+    tema escolhido, controle de cada jogador e senhas;
+  - um PC novo recebe tudo; mudou nos dois PCs, vale a mudança mais nova; arquivo apagado ou emulador
+    reinstalado volta da nuvem, sem apagar nada nos outros PCs.
+- **Falta:** testar com o ES e o PCSX2 abrindo de verdade em dois PCs; outros emuladores; coleções
+  personalizadas, favoritos e tempo jogado.
 
 ## Etapa 2: redesign visual e de UX
 

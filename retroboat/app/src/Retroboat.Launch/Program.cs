@@ -21,7 +21,8 @@ namespace Retroboat.Launch
     /// Se o -rom é um marcador de jogo que só está na nuvem, oferece abrir o Google Drive se ele estiver
     /// fechado, põe o jogo na fila de downloads e volta para o ES na hora: o download segue em segundo plano
     /// (DownloadHost), e o usuário continua navegando. Se o sistema tem saves sincronizados (memory cards do
-    /// PCSX2), puxa os da nuvem antes, envia cada gravação durante o jogo e o que faltar no fim (SaveFlow).
+    /// PCSX2), puxa os da nuvem antes, envia cada gravação durante o jogo e o que faltar no fim (SaveFlow). As
+    /// configurações do emulador vêm da nuvem antes e vão para lá depois (ConfigFlow).
     /// Depois abre o programa com os mesmos argumentos e devolve ao ES o código de saída dele.
     /// </summary>
     static class Program
@@ -61,13 +62,18 @@ namespace Retroboat.Launch
 
             // Memory cards: puxa antes, envia cada gravação durante o jogo e o que faltar no fim.
             var saves = install != null ? SaveFlow.Before(install, args, rom) : null;
-            if (saves == null)
-                return Run(target, targetArguments);
-
-            if (saves.Cancelled)
+            if (saves != null && saves.Cancelled)
                 return 1;
 
-            return saves.During(() => Run(target, targetArguments));
+            // Configurações: o emulador abre com as da nuvem, e o que mudou nos menus do ES e do emulador vai para lá.
+            Func<int> run = () => Run(target, targetArguments);
+            if (install != null)
+            {
+                var emulator = run;
+                run = () => ConfigFlow.Around(install, args, emulator);
+            }
+
+            return saves == null ? run() : saves.During(run);
         }
 
         static string ExeFolder => AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');

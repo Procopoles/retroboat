@@ -216,6 +216,38 @@ Risco semântico (para o registro de patches): chaves novas que o upstream criar
 `es_settings.cfg` e que dependem da máquina precisam entrar na lista "fica no PC". O
 `upstream-check.sh` deve passar a alertar quando o emulatorLauncher introduzir chaves novas.
 
+**Implementado em 08/11/2026 (RB-005).** Decisão do mesmo dia: vão também os arquivos do próprio
+emulador, começando pelo PCSX2, porque o que a pessoa muda no menu do emulador (e os ajustes por jogo
+dele) só existe nesses arquivos. Os emuladores, como programas, continuam por PC.
+
+| Fonte | Arquivo | Entrada | Fica no PC |
+|---|---|---|---|
+| Opções do ES | `es_settings.cfg` | cada chave, com o tipo (`bool:true`, `string:2`) | tela, monitor, áudio, `INPUT P*`, `videomode`/`MonitorIndex`/`GPUIndex` em qualquer nível, `ThemeSet`, `LastSystem`, coleções personalizadas, caminhos absolutos, contas e senhas |
+| Controles | `es_input.cfg` | cada `<inputConfig>`, pelo tipo e GUID | — |
+| PCSX2 | `emulators\pcsx2\inis\PCSX2.ini` | cada chave (valores repetidos andam juntos) | `[Folders]`, `[GameList]`, `[MemoryCards]`, `[Filenames]`, `[AutoUpdater]`, `[DEV9/Eth]`, janelas, `Adapter`, `FullscreenMode`, dispositivo de áudio, login do RetroAchievements, caminhos absolutos |
+| PCSX2 | `gamesettings\*.ini`, `inputprofiles\*.ini` | o arquivo inteiro | — |
+
+- **Na nuvem:** `retroboat\configuracoes\<fonte>\<PC>.xml`, um por PC, com a última versão de cada
+  entrada que aquele PC mudou (valor ou "removido") e quando. Vale a mais nova entre os PCs.
+- **Neste PC:** `retroboat\configuracoes-sync\<fonte>.xml` com o hash de cada entrada na última
+  sincronização. Mudou só aqui, vai; mudou só na nuvem, vem; mudou nos dois, vale a mudança mais nova
+  (a data do arquivo local contra a da entrada na nuvem).
+- **PC novo e arquivo que sumiu:** na primeira vez, e quando um arquivo ou pasta já sincronizado some
+  (apagado, emulador reinstalado), vale a nuvem. Assim os valores de fábrica de um PC novo não
+  apagam a configuração dos outros.
+- **Quando:** ao abrir o `Retroboat.exe` (ES fechado: tudo); antes do jogo, o emulador recebe e envia
+  (ele ainda está fechado); durante o jogo, as opções e os controles mudados nos menus do ES vão para
+  a nuvem, sem gravar nada aqui, porque o ES regrava os arquivos dele; depois do jogo, o emulador
+  envia; quando o ES fecha, o ES recebe também. O que chegou com o ES aberto vale na próxima abertura.
+- **Versão do formato:** o PCSX2 zera o `PCSX2.ini` (e pergunta) quando `[UI] SettingsVersion` falta
+  ou é de outra versão. As chaves dele só vão e vêm entre PCs com a mesma versão, e o Retroboat grava
+  a versão ao criar o arquivo, porque o emulatorLauncher não grava.
+- **Segurança:** cópia de cada arquivo em `retroboat\historico\configuracoes` antes de gravar (as 10
+  últimas); arquivo de outro PC no meio do envio pelo Drive é pulado; arquivo da nuvem não sai da
+  pasta da regra (nada de `..\`).
+- **Ainda não:** outros emuladores (o catálogo `EmulatorConfigRules` cresce sem mexer no motor),
+  coleções personalizadas (listas de caminhos deste PC), favoritos e tempo jogado.
+
 ## 6. Como aparece no ES
 
 | Fase | Como | Camada |

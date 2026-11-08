@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -57,6 +58,50 @@ namespace Retroboat.Accounts
                 element.SetAttributeValue("value", text);
         }
 
+        /// <summary>Tipos de valor do es_settings.cfg (nomes dos elementos).</summary>
+        public static readonly string[] Types = { "bool", "int", "float", "string" };
+
+        /// <summary>Todas as chaves, com o tipo (bool, int, float ou string) e o valor, na ordem do arquivo.</summary>
+        public IEnumerable<(string Type, string Name, string Value)> Entries()
+        {
+            foreach (var element in _document.Root.Elements())
+            {
+                var name = (string)element.Attribute("name");
+                if (!string.IsNullOrEmpty(name) && Types.Contains(element.Name.LocalName))
+                    yield return (element.Name.LocalName, name, (string)element.Attribute("value") ?? "");
+            }
+        }
+
+        /// <summary>Grava a chave com o tipo dado, trocando a que existir (mesmo de outro tipo).</summary>
+        public void SetTyped(string type, string name, string value)
+        {
+            if (!Types.Contains(type))
+                throw new ArgumentException("Tipo de valor desconhecido no es_settings.cfg: " + type, nameof(type));
+
+            var existing = FindAll(name).ToList();
+            if (existing.Count == 1 && existing[0].Name.LocalName == type)
+            {
+                existing[0].SetAttributeValue("value", value);
+                return;
+            }
+
+            var element = new XElement(type, new XAttribute("name", name), new XAttribute("value", value));
+            if (existing.Count > 0)
+                existing[0].AddBeforeSelf(element);
+            else
+                _document.Root.Add(element);
+
+            foreach (var old in existing)
+                old.Remove();
+        }
+
+        /// <summary>Remove a chave (de qualquer tipo): o ES volta ao padrão dele.</summary>
+        public void Remove(string name)
+        {
+            foreach (var element in FindAll(name).ToList())
+                element.Remove();
+        }
+
         public void Save()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(_path));
@@ -71,7 +116,9 @@ namespace Retroboat.Accounts
             File.Move(temp, _path);
         }
 
-        XElement Find(string name) =>
-            _document.Root.Elements().FirstOrDefault(e => string.Equals((string)e.Attribute("name"), name, StringComparison.Ordinal));
+        XElement Find(string name) => FindAll(name).FirstOrDefault();
+
+        IEnumerable<XElement> FindAll(string name) =>
+            _document.Root.Elements().Where(e => string.Equals((string)e.Attribute("name"), name, StringComparison.Ordinal));
     }
 }

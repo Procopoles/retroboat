@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using Retroboat.Bios;
 using Retroboat.Cloud;
+using Retroboat.Config;
 using Retroboat.Integrity;
 using Retroboat.Library;
 using Retroboat.Saves;
@@ -47,6 +48,10 @@ Memory cards na nuvem (retroboat\saves no Drive; o emulador gerencia os cartões
   retroboat-cli saves verify --retrobat <pasta do RetroBat>
   retroboat-cli saves restore <cartão> [<id da cópia>] --retrobat <pasta do RetroBat>   (com o emulador fechado)
   retroboat-cli saves lock|unlock --retrobat <pasta do RetroBat> [--pc NOME] [--game NOME]   (para testes)
+
+Configurações na nuvem (retroboat\configuracoes no Drive: opções do ES, controles, PCSX2):
+  retroboat-cli config status --retrobat <pasta do RetroBat> [--pc NOME]
+  retroboat-cli config sync --retrobat <pasta do RetroBat> [--pc NOME]   (com o ES e os emuladores fechados)
 
 Biblioteca isolada (RB-003):
   retroboat-cli library apply --retrobat <pasta do RetroBat> [--roms <pasta de jogos>] [--dry-run] [--no-folders]
@@ -90,6 +95,8 @@ Opções gerais:
                     case "saves history": return SavesHistory(options);
                     case "saves verify": return SavesVerify(options);
                     case "saves restore": return SavesRestore(options);
+                    case "config status": return ConfigCommand(options, ConfigSyncMode.DryRun);
+                    case "config sync": return ConfigCommand(options, ConfigSyncMode.Full);
                     case "saves lock": return SavesLock(options, locked: true);
                     case "saves unlock": return SavesLock(options, locked: false);
                     default:
@@ -298,6 +305,52 @@ Opções gerais:
 
             var savesPath = SaveRules.GetSavesPath(install);
             return SaveRules.All.Select(rule => new SaveSync(savesPath, install.RetroboatDataPath, location.RetroboatPath, rule, options.Value("--pc"))).ToList();
+        }
+
+        /// <summary>
+        /// config status: o que iria e viria, sem mudar nada. config sync: sincroniza tudo; com o ES ou o emulador aberto,
+        /// aquela parte só envia, como no lançador.
+        /// </summary>
+        static int ConfigCommand(Options options, ConfigSyncMode mode)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            var location = CloudLocator.Locate(options.Value("--cloud"));
+            if (location == null || !location.Exists)
+                throw new InvalidOperationException("Pasta do Retroboat na nuvem não encontrada. Use --cloud <pasta>.");
+
+            int problems = 0;
+            foreach (var source in CloudConfigs.AllSources(install))
+            {
+                var sourceMode = mode;
+                if (mode == ConfigSyncMode.Full && (source is EmulatorConfigSource emulator ? emulator.IsRunning() : CloudConfigs.IsEsRunning()))
+                {
+                    sourceMode = ConfigSyncMode.SendOnly;
+                    Console.WriteLine(source.DisplayName + ": o programa está aberto; só envia, e o que veio da nuvem espera ele fechar.");
+                }
+
+                var sync = new ConfigSync(source, install.RetroboatDataPath, location.RetroboatPath, options.Value("--pc"));
+                var result = sync.Sync(sourceMode);
+                Console.WriteLine(source.DisplayName + " (" + sync.PcName + "): " + source.Root);
+                Console.WriteLine("  nuvem: " + sync.CloudFolder);
+                if (result.Skipped)
+                {
+                    Console.WriteLine("  não está neste PC (emulador ainda não instalado?)");
+                    continue;
+                }
+
+                string received = mode == ConfigSyncMode.DryRun ? "da nuvem:" : "recebido:", sent = mode == ConfigSyncMode.DryRun ? "para a nuvem:" : "enviado:";
+                foreach (var id in result.Received) Console.WriteLine("  " + received.PadRight(14) + id);
+                foreach (var id in result.Sent) Console.WriteLine("  " + sent.PadRight(14) + id);
+                foreach (var id in result.Pending) Console.WriteLine("  " + "esperando:".PadRight(14) + id);
+                foreach (var item in result.Conflicts) Console.WriteLine("  " + "nos dois:".PadRight(14) + item);
+                foreach (var error in result.Errors) Console.WriteLine("  ERRO: " + error);
+                if (!result.HasChanges && result.Pending.Count == 0 && result.Errors.Count == 0)
+                    Console.WriteLine("  em dia");
+
+                problems += result.Errors.Count;
+            }
+
+            return problems > 0 ? ExitError : ExitOk;
         }
 
         static int SavesStatus(Options options)

@@ -50,11 +50,13 @@ retroboat-cli bios organize [--dry-run]                   só organiza as BIOS s
 retroboat-cli saves status --retrobat <pasta>             memory cards: o que mudou aqui, na nuvem ou nos dois
 retroboat-cli saves sync --retrobat <pasta> [--keep local|cloud]   sincroniza (conflitos só com --keep)
 retroboat-cli saves history <cartão> --retrobat <pasta>   versões do cartão na nuvem
+retroboat-cli config status --retrobat <pasta>            configurações: o que iria e viria, sem mudar nada
+retroboat-cli config sync --retrobat <pasta>              sincroniza opções do ES, controles e PCSX2
 retroboat-cli themes status --retrobat <pasta>            temas suportados com ou sem o status do Retroboat
 retroboat-cli themes apply --retrobat <pasta>             põe o status de volta nos temas (Carbon, PlayStation-X)
 ```
 
-`--pc NOME` nos comandos `saves` faz a pasta valer como outro PC, para testar dois PCs numa máquina só.
+`--pc NOME` nos comandos `saves` e `config` faz a pasta valer como outro PC, para testar dois PCs numa máquina só.
 `saves lock` e `saves unlock` existem só para testar a trava.
 
 Códigos de saída: 0 ok, 1 erro, 2 uso incorreto, 3 jogo corrompido encontrado, 130 cancelado.
@@ -77,7 +79,7 @@ recarrega o ES; quando desconecta, recarrega o ES com o X na nuvem. Com jogo abe
 
 Antes de abrir o RetroBat, o lançador também sincroniza com a nuvem: BIOS, os logins do ES
 (ScreenScraper, IGDB e RetroAchievements, em `retroboat\contas`; um PC sem login recebe o da
-nuvem), a biblioteca (jogos da nuvem como marcadores) e o conteúdo dos jogos. A mídia que o scraper do ES grava na pasta de jogos
+nuvem), as configurações (opções do ES, controles e PCSX2, em `retroboat\configuracoes`), a biblioteca (jogos da nuvem como marcadores) e o conteúdo dos jogos. A mídia que o scraper do ES grava na pasta de jogos
 vai para `.emulationstation\media\<sistema>`. Nome, descrição, capas e demais metadados que um PC
 tem e os outros não vão para `retroboat\midia\<sistema>` no Drive. Nos outros PCs, eles preenchem
 só os campos vazios. Imagens sempre vêm; vídeos e manuais são opcionais:
@@ -115,6 +117,32 @@ As capas automáticas não precisam de conta: o lançador procura o nome do arqu
 No-Intro/Redump) nos thumbnails do libretro, guarda a lista de nomes de cada sistema por uma semana
 em `retroboat\cache\libretro` e envia as imagens para o Drive. Descrição e vídeo vêm do scraper do
 ES, que precisa de uma conta gratuita no ScreenScraper (menu Procurar mídias de jogo, aba Contas).
+
+## Configurações na nuvem
+
+As configurações dos emuladores e dos jogos vão para `retroboat\configuracoes` no Drive e voltam em todo PC:
+
+- **opções do ES** (`es_settings.cfg`): globais, por sistema e por jogo, que o emulatorLauncher aplica no emulador a cada
+  jogo, e as preferências do ES;
+- **controles** configurados no ES (`es_input.cfg`);
+- **PCSX2**: o `PCSX2.ini` chave a chave, os ajustes por jogo (`gamesettings`) e os perfis de controle (`inputprofiles`).
+
+Fica em cada PC o que depende da máquina: tela, monitor, áudio, placa de vídeo, pastas, janelas, o tema escolhido, o controle
+de cada jogador e as senhas (as contas têm sincronização própria). Um PC novo recebe tudo da nuvem; se a mesma opção mudou em
+dois PCs, vale a mudança mais nova.
+
+- **Ao abrir o `Retroboat.exe`:** tudo, antes do ES abrir.
+- **Antes do jogo:** o emulador recebe o que mudou em outro PC e envia o que mudou aqui. O que mudou nos menus do ES vai para a
+  nuvem durante o jogo.
+- **Depois do jogo:** o que mudou nos menus do emulador vai para a nuvem.
+- **Quando o ES fecha:** o ES recebe o que outro PC mudou, e isso vale na próxima abertura. Com o ES aberto, os arquivos dele
+  não são gravados, porque ele os regrava.
+
+Cada PC grava só o próprio `<PC>.xml` na nuvem. O estado da última sincronização fica em
+`<RetroBat>\retroboat\configuracoes-sync`, e uma cópia de cada arquivo, antes de ser trocado, em
+`<RetroBat>\retroboat\historico\configuracoes` (as 10 últimas). Um arquivo apagado ou um emulador reinstalado recebe as
+configurações da nuvem de volta, sem apagar nada nos outros PCs. Novos emuladores entram no catálogo
+`Config\EmulatorConfig.cs` (`EmulatorConfigRules`).
 
 ## Downloads em segundo plano
 

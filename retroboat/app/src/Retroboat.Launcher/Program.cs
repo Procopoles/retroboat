@@ -101,10 +101,35 @@ namespace Retroboat.Launcher
                 if (sync != null)
                     NotifyEs(sync);
 
-                CloudWatcher.Run(install, settings);
+                if (CloudWatcher.Run(install, settings))
+                    SyncConfigsAfterEs(install, settings);
             }
 
             return exitCode;
+        }
+
+        /// <summary>
+        /// Com o ES fechado, as opções e os controles mudados nos menus vão para a nuvem, e o que outro PC mudou
+        /// enquanto este jogava fica gravado para a próxima abertura. Falha aqui só vai para o log.
+        /// </summary>
+        static void SyncConfigsAfterEs(RetroBatInstall install, RetroboatSettings settings)
+        {
+            try
+            {
+                var cloud = CloudLocator.Locate(settings.CloudPath);
+                if (cloud == null || !cloud.Exists)
+                {
+                    Log.Info("ES fechado sem o Google Drive: as configurações vão para a nuvem na próxima abertura do Retroboat.");
+                    return;
+                }
+
+                Log.Info("ES fechado: sincronizando as configurações.");
+                Retroboat.Config.CloudConfigs.SyncAll(install, cloud.RetroboatPath);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Falha ao sincronizar as configurações depois de fechar o ES", ex);
+            }
         }
 
         /// <summary>Antes de tudo, para a biblioteca, as BIOS e os memory cards já virem da nuvem. Falha aqui nunca impede de jogar.</summary>
@@ -124,7 +149,8 @@ namespace Retroboat.Launcher
         /// <summary>
         /// Sistemas com jogos na nuvem abrem pelo retroboat-launch, que baixa o jogo antes do emulador; os
         /// que têm saves sincronizados (PS2), sempre, mesmo sem o Drive, para os memory cards acompanharem a
-        /// partida. Com o Drive fechado, os sistemas vêm do índice deste PC: é o retroboat-launch que oferece
+        /// partida, e os que têm configurações de emulador na nuvem (PS2), para o emulador abrir com elas. Com o
+        /// Drive fechado, os sistemas vêm do índice deste PC: é o retroboat-launch que oferece
         /// abrir o Drive ao apertar BAIXAR. O caminho é relativo a %HOME% (a pasta do ES), para o RetroBat
         /// continuar portátil.
         /// </summary>
@@ -146,6 +172,7 @@ namespace Retroboat.Launcher
                 launcherPath = Path.Combine(exeDir, "retroboat-launch.exe");
 
             var systems = new HashSet<string>(SaveRules.Systems, StringComparer.OrdinalIgnoreCase);
+            systems.UnionWith(Retroboat.Config.EmulatorConfigRules.Systems);
             try
             {
                 systems.UnionWith(CloudIndex.Load(CloudLibrarySync.IndexPath(install)).Entries.Select(e => e.System));

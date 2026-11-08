@@ -11,7 +11,7 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-002 | ES ignora todos os overlays seguintes quando um `es_systems_*.cfg` é inválido | ES (Batocera) | C1 | média | baixo | sim | candidato |
 | RB-003 | Biblioteca isolada: pasta de jogos escolhida pelo usuário, gamelists e mídia fora dela | retrobat (+ componente novo) | C0 | — | nenhum (semântico: baixo) | não | em andamento |
 | RB-004 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar (integração C0 com o ES) | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
-| RB-005 | Perfil e configurações na nuvem: chaves portáveis, controles, metadados, estatísticas | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
+| RB-005 | Perfil e configurações na nuvem: contas, opções do ES, controles, configurações dos emuladores (PCSX2), estatísticas | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
 | RB-006 | Base da nuvem: provedor de pasta (Google Drive para computador, NAS), verificação de integridade, lançador, `retroboat-launch` | retroboat/app | C0 | — | nenhum | não | em andamento |
 | RB-007 | ExoDOS cria atalhos em `retrobat\roms` ignorando a chave `roms=` | emulatorlauncher | C1 | média | baixo | sim | candidato |
 | RB-008 | Opção para o `retrobat.exe` esperar um `AppLauncher` terminar antes de abrir o ES | retrobat-executable | C1 | média | baixo | sim | candidato |
@@ -148,6 +148,41 @@ o histórico.
 - **Risco semântico baixo:** depende dos nomes das chaves no `es_settings.cfg`
   (`GuiScraperStart::loadAccountsPage`, `GuiRetroAchievementsSettings`). Chave renomeada no
   upstream deixa de sincronizar sem conflito de merge; os dois arquivos entram na lista de vigilância.
+
+## RB-005 — Configurações do ES, dos controles e dos emuladores na nuvem (08/11/2026)
+
+- **Onde:** `retroboat/app` (`Config\`, `Cloud\StartupSync`, `ConfigFlow` no `retroboat-launch`, lançador, CLI
+  `config status|sync`). Nada no upstream.
+- **Escopo (decisão de 08/11/2026):** as opções do ES **e** os arquivos do próprio emulador, começando pelo PCSX2.
+  Substitui a ideia de 01/11 de deixar os `.ini` dos emuladores no PC. Os emuladores (programas) continuam por PC.
+- **O que viaja:**
+  - **opções do ES** (`es_settings.cfg`): globais (`global.*`), por sistema (`ps2.*`) e por jogo (`ps2["Jogo.iso"].*`), que o
+    emulatorLauncher aplica no emulador a cada jogo, e as preferências do ES;
+  - **controles** (`es_input.cfg`): um controle por entrada, pelo GUID, como o ES do Windows;
+  - **PCSX2** (`emulators\pcsx2`): `inis\PCSX2.ini` chave a chave, `gamesettings\*.ini` (ajustes por jogo) e
+    `inputprofiles\*.ini`, inteiros.
+- **O que fica no PC:** tela, monitor, placa de vídeo, áudio, caminhos absolutos, tema escolhido, controle de cada jogador,
+  sessão e senhas (`EsSettingsRules`); no `PCSX2.ini`, pastas, lista de jogos, memory cards, BIOS escolhida, atualizador,
+  rede, janelas, monitor, dispositivo de áudio e login do RetroAchievements (`EmulatorConfigRules.Pcsx2`).
+- **Como funciona:** `ConfigSync` grava `retroboat\configuracoes\<fonte>\<PC>.xml` (cada PC só o seu) com a última versão
+  de cada entrada; vale a mais nova entre os PCs. O estado da última sincronização (`retroboat\configuracoes-sync`) separa
+  "mudou aqui" de "mudou na nuvem"; mudou nos dois, vale a mudança mais nova. No primeiro uso num PC, e quando um arquivo
+  já sincronizado some (apagado, emulador reinstalado), vale a nuvem. Antes de gravar, cópia em
+  `retroboat\historico\configuracoes` (10 últimas).
+- **Quando:** ao abrir o `Retroboat.exe`; antes do jogo (o emulador recebe e envia) e depois (o emulador envia); com o ES
+  aberto, as opções e os controles só são enviados, em segundo plano durante o jogo; quando o ES fecha, recebem também.
+- **Versão do `PCSX2.ini`:** o PCSX2 zera o arquivo (e pergunta) se `[UI] SettingsVersion` falta ou é de outra versão
+  (`VMManager::Internal::CheckSettingsVersion`, versão 1), e o emulatorLauncher não grava essa chave. As chaves só vão e
+  vêm entre PCs com a mesma versão, e o Retroboat grava a versão ao criar o arquivo.
+- **Testado em 08/11/2026:** 19 testes automáticos (215 no total) e um teste de ponta a ponta pelo CLI com cópias do
+  `es_settings.cfg`, do `es_input.cfg` e do `PCSX2.ini` deste PC e um PC novo com os arquivos de fábrica do RetroBat:
+  nenhuma senha, caminho, tela ou janela foi para a nuvem, o PC novo recebeu tudo e as duas pontas ficaram em dia.
+  **Falta:** testar com o ES e o PCSX2 abrindo de verdade em dois PCs.
+- **Risco semântico médio:**
+  - chave nova do upstream no `es_settings.cfg` que dependa da máquina precisa entrar em `EsSettingsRules`, senão viaja;
+  - o emulatorLauncher reescreve parte do `PCSX2.ini` a cada jogo, a partir das opções do ES. Se ele passar a gravar algo
+    da máquina numa chave nova, essa chave precisa entrar em `EmulatorConfigRules`;
+  - `Settings.cpp` e `InputManager.cpp` do ES e `Pcsx2.Generator.cs` entram na lista de vigilância.
 
 ## RB-013 — BIOS na nuvem
 
