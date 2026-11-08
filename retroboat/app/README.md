@@ -176,6 +176,27 @@ ou `--cancelar "<jogo>"` (0 = feito, 1 = nada mudou). O serviço percebe esse ES
 andamento por `POST /retroboat/download`, no máximo 4 vezes por segundo e com um sinal a cada 2 s; a região do cabeçalho, o
 status ao vivo e a atualização das listas ficam com o ES, sem a janela e sem o `POST /addgames`.
 
+## Desinstalar e verificar pelo ES
+
+Com o nosso ES, o menu do jogo (segurar A) de um jogo da nuvem troca o JOGAR e o EXCLUIR JOGO por entradas do Retroboat. O ES
+chama o `retroboat-launch` e mostra o que ele responde (`estado\resposta-<pedido>.txt`).
+
+| No menu | Quando | O que faz |
+|---|---|---|
+| BAIXAR · tamanho | o jogo não está no PC | o mesmo que o A: entra na fila |
+| CANCELAR DOWNLOAD · andamento | na fila | `--cancelar`, sem perguntar de novo |
+| INDISPONÍVEL · motivo | corrompido na nuvem | explica o motivo |
+| VERIFICAR INTEGRIDADE | o jogo está no PC | `--verificar`: compara com a nuvem, com a porcentagem na tela (`estado\verificando`) |
+| DESINSTALAR · espaço ocupado | o jogo está no PC (interface completa) | pergunta e roda `--desinstalar` |
+
+- **`--desinstalar "<jogo>"`:** confere no Drive (perguntando se ele estiver fechado) que a nuvem tem uma cópia boa, apaga a deste
+  PC e põe o marcador: o jogo vira BAIXAR, com a mídia. Os saves ficam. 0 = desinstalado; 1 = ficou (sem o Drive, jogo fora da
+  nuvem ou zerado lá).
+- **`--verificar "<jogo>"`:** disco de ZIP, CRC-32 da cópia inteira contra o do ZIP; outro arquivo, tamanho e 32 blocos de 256 KB
+  contra a nuvem; jogo em pasta, lista de arquivos, tamanhos e blocos do maior. Sem o Drive, só confere se a cópia não está zerada.
+  0 = confere; 3 = danificada (o ES oferece REPARAR); 1 = não deu para verificar ou reparar.
+- **`--reparar "<jogo>"`:** desinstala e põe na fila de downloads.
+
 ## Status nos temas
 
 O status do Retroboat (JOGAR/BAIXAR, ícone de nuvem no cabeçalho) é um `retroboat\status.xml` dentro

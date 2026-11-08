@@ -24,6 +24,8 @@ namespace Retroboat.Launch
     /// PCSX2), puxa os da nuvem antes, envia cada gravação durante o jogo e o que faltar no fim (SaveFlow). As
     /// configurações do emulador vêm da nuvem antes e vão para lá depois (ConfigFlow).
     /// Depois abre o programa com os mesmos argumentos e devolve ao ES o código de saída dele.
+    /// O ES do Retroboat também chama --baixar e --cancelar (A num jogo da nuvem) e --desinstalar, --verificar e --reparar
+    /// (menu do jogo, LocalCopyFlow).
     /// </summary>
     static class Program
     {
@@ -51,6 +53,10 @@ namespace Retroboat.Launch
             // Pedidos do ES do Retroboat (RB-010), que atende o A num jogo da nuvem sem abrir o jogo.
             if (target == DownloadVerb || target == CancelVerb)
                 return install != null ? FromNativeEs(install, target, CommandLine.SplitFirst(targetArguments, out _)) : 1;
+
+            // Menu do jogo no ES do Retroboat: desinstalar, verificar e reparar a cópia deste PC.
+            if (LocalCopyFlow.Handles(target))
+                return install != null ? LocalCopyFlow.Run(install, target, CommandLine.SplitFirst(targetArguments, out _), ExeFolder) : 1;
 
             var rom = CommandLine.GetOption(args, "-rom");
             if (install != null && rom != null && !ContinueToGame(install, rom))
@@ -150,7 +156,7 @@ namespace Retroboat.Launch
         }
 
         /// <summary>Com o Drive fechado, pergunta se abre. Se ele não conectar, o jogo entra na fila e espera por ele.</summary>
-        static void StartDownload(RetroBatInstall install, DownloadQueue queue, CloudIndexEntry entry)
+        internal static void StartDownload(RetroBatInstall install, DownloadQueue queue, CloudIndexEntry entry)
         {
             var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
             if (CloudAppPrompt.Ensure(install, settings, CloudNeed.Download) == CloudAppAnswer.Declined)
@@ -182,7 +188,7 @@ namespace Retroboat.Launch
         }
 
         /// <summary>O nome que o usuário vê no ES; sem gamelist, o do arquivo.</summary>
-        static string GameTitle(RetroBatInstall install, CloudIndexEntry entry)
+        internal static string GameTitle(RetroBatInstall install, CloudIndexEntry entry)
         {
             try
             {

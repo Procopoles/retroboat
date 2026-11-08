@@ -13,7 +13,8 @@ namespace Retroboat.Launch
     {
         Startup,
         Download,
-        Saves
+        Saves,
+        Uninstall
     }
 
     enum CloudAppAnswer
@@ -126,6 +127,8 @@ namespace Retroboat.Launch
             {
                 case CloudNeed.Download:
                     return "Este jogo está na nuvem. Para baixar, o Google Drive precisa estar aberto.";
+                case CloudNeed.Uninstall:
+                    return "Antes de apagar a cópia deste PC, o Retroboat confere se o jogo continua na nuvem.";
                 case CloudNeed.Saves:
                     return "Sem ele, o jogo abre com os memory cards deste PC, que vão para a nuvem depois.";
                 default:

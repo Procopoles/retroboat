@@ -72,6 +72,9 @@ namespace Retroboat.Cloud
 
         public CloudIndexEntry FindEntry(string system, string cloudName) => _index.Find(system, cloudName);
 
+        /// <summary>A entrada da nuvem para um arquivo (ou pasta) da pasta de jogos, instalado ou não.</summary>
+        public CloudIndexEntry FindByRom(string romPath) => string.IsNullOrEmpty(romPath) ? null : _index.FindByLocalPath(RomsRoot, romPath);
+
         public OnDemandResult Install(CloudIndexEntry entry, IProgress<TransferProgress> progress, CancellationToken cancellationToken)
         {
             var location = CloudLocator.Locate(_settings.CloudPath);

@@ -170,8 +170,8 @@ continuam sem saves na nuvem.
   volta ao ES), instala e só então chama o emulatorLauncher. Jogos já instalados passam direto.
 - **ZIP:** o disco é extraído direto do Drive para a pasta de jogos, numa passada, sem guardar o ZIP.
   No fim, o CRC-32 é conferido. Uma extração interrompida recomeça do início.
-- **Ainda não tem:** fila em segundo plano, desinstalar pelo ES, selo visual na lista (fica para o M5)
-  e verificação dos jogos em segundo plano. Hoje, um jogo zerado só é descoberto quando alguém tenta
+- **Depois vieram** a fila em segundo plano (RB-020), o selo na lista (RB-010) e desinstalar, verificar e reparar
+  pelo menu do jogo (RB-004 fase 2, 08/11/2026). **Ainda não tem** verificação dos jogos em segundo plano. Hoje, um jogo zerado só é descoberto quando alguém tenta
   jogá-lo.
 
 ## 4b. BIOS na nuvem (RB-013, implementado em 25/10/2026)

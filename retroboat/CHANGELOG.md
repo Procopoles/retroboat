@@ -98,6 +98,10 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   pacote do RetroBat oficial, publicado no release `continuous-master`. Falta cadastrar as
   credenciais de API antes de trocar o ES no `build.ini`. RB-016: correção para compilar com
   o Visual Studio 2026.
+- RB-004 (fase 2): o menu do jogo no nosso ES desinstala, verifica e repara, como na Steam. DESINSTALAR mostra o espaço
+  ocupado, confere antes que a nuvem tem uma cópia boa e devolve o jogo a BAIXAR, com a mídia e os saves. VERIFICAR INTEGRIDADE
+  compara a cópia com a nuvem sem baixar o jogo (CRC-32 nos discos de ZIP, blocos nos outros) e oferece REPARAR quando acha dano.
+  Um jogo que não está no PC tem BAIXAR ou CANCELAR DOWNLOAD no menu.
 - RB-010: a nuvem dentro do nosso ES.
   - BAIXAR não passa mais pela abertura de jogo: sem animação, sem reiniciar a música. Apertar de novo num jogo da fila
     pergunta se cancela; num jogo corrompido, explica o motivo.

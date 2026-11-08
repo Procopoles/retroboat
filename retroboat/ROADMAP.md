@@ -13,7 +13,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 |---|---|---|---|
 | M0 | Fundações: build, provedor de pasta sobre o Google Drive para computador, verificação de integridade | RB-006 | base pronta; falta empacotar no build |
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
-| M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020) |
+| M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020); fase 2 pronta no nosso ES (08/11/2026): desinstalar, verificar e reparar no menu do jogo; falta testar com o Drive real e o controle |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); saves de todos os sistemas pela regra genérica (08/11/2026; falta testar com os emuladores em dois PCs; PS3, Switch, Wii U, Xbox, Vita, PS4 e 3DS ainda fora) |
 | M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES prontas; opções do ES, controles e configurações de todos os emuladores prontos (08/11/2026: PCSX2 com regra própria, os outros pela regra genérica; falta testar com o ES e os emuladores em dois PCs); coleções, favoritos e tempo jogado não iniciados |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; RB-010 pronto no fork e testado numa cópia isolada (08/11/2026); a pasta `build` usa o nosso ES desde 08/11/2026 (o oficial ficou em `emulationstation.oficial.exe`), sem o scraper do ES e o RetroAchievements até termos chaves próprias (RB-011); falta testar com o Drive real, gamepad e tela cheia |
@@ -197,6 +197,34 @@ Depende do fork e do build do ES (RB-011).
     ficaram no PC, e nenhuma senha, token ou caminho foi para a nuvem.
 - **Falta:** testar com o ES e os emuladores abrindo de verdade em dois PCs; coleções personalizadas,
   favoritos e tempo jogado.
+
+### Desinstalar e verificar pelo ES (08/11/2026)
+
+- **No menu do jogo do nosso ES (segurar A)**, como na Steam. Um jogo da nuvem que não está neste PC tem BAIXAR (com o
+  tamanho), CANCELAR DOWNLOAD (com o andamento) ou INDISPONÍVEL (com o motivo) no lugar de JOGAR. Um jogo da nuvem que está
+  neste PC tem VERIFICAR INTEGRIDADE e DESINSTALAR (com o espaço ocupado) no lugar de EXCLUIR JOGO.
+- **Desinstalar** pergunta antes, apaga a cópia e o jogo volta a BAIXAR na hora, com as informações e a mídia. Os saves
+  ficam. Só apaga depois de conferir no Drive que a nuvem tem uma cópia boa.
+- **Verificar** compara a cópia com a nuvem sem baixar o jogo: um disco que veio de ZIP é lido inteiro e conferido pelo
+  CRC-32 do ZIP; os outros arquivos têm o tamanho e 32 blocos conferidos com os da nuvem. Danificado: REPARAR apaga a cópia
+  e baixa de novo.
+- **O selo de status na lista e na grade** (nuvem, baixando, corrompido) já tinha vindo com o RB-010.
+- **Testado em 08/11/2026** com 8 testes automáticos novos (244 no total) e com o nosso ES e o `retroboat-launch` de verdade,
+  numa cópia isolada (nuvem em pasta local, tema PlayStation-X, janela 1280x720 fora da tela):
+  - jogo instalado: o menu mostra VERIFICAR INTEGRIDADE e DESINSTALAR ("Ocupa 150 MB neste PC"), sem EXCLUIR JOGO;
+  - verificar: a cópia boa confere (150 MB em cerca de 1 s); um ISO com 4 bytes trocados perto do fim é achado ("perto de
+    79,8 MB"); um disco de ZIP de 2 GB é conferido pelo CRC em cerca de 5 s, com a porcentagem na tela;
+  - REPARAR: desinstala, entra na fila, baixa e volta a JOGAR, e a verificação seguinte confere;
+  - desinstalar: o B mantém o jogo; DESINSTALAR mostra "Alfa Bom (USA) desinstalado · 150 MB livres" e o jogo vira BAIXAR na
+    hora;
+  - jogo fora do PC: BAIXAR ("Na nuvem · 150 MB") baixa; com a nuvem fora do ar, CANCELAR DOWNLOAD ("Aguardando o Google
+    Drive") tira da fila; corrompido: INDISPONÍVEL com o motivo, e a explicação ao apertar;
+  - sem a nuvem: desinstalar não apaga e explica; verificar confere só a cópia local e avisa.
+- **Corrigido no teste:** a porcentagem não aparecia, porque o `readAllText` do ES procura um BOM e devolve vazio num arquivo
+  de menos de 3 bytes; o motivo de corrompido não cabia numa linha.
+- **Efeito conhecido:** durante o VERIFICANDO, a barra de ajuda continua com a do menu que fechou (a tela de espera do ES não
+  tem ajuda própria). A entrada é ignorada até o fim.
+- **Falta:** testar com o Google Drive de verdade e com controle; pausar a fila inteira (hoje só dá para cancelar um jogo).
 
 ## Etapa 2: redesign visual e de UX
 

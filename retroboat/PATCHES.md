@@ -10,7 +10,7 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-001 | Pasta `retroboat/` com guia, registro e scripts de sincronização | retrobat | C0 | — | nenhum | não | em andamento |
 | RB-002 | ES ignora todos os overlays seguintes quando um `es_systems_*.cfg` é inválido | ES (Batocera) | C1 | média | baixo | sim | candidato |
 | RB-003 | Biblioteca isolada: pasta de jogos escolhida pelo usuário, gamelists e mídia fora dela | retrobat (+ componente novo) | C0 | — | nenhum (semântico: baixo) | não | em andamento |
-| RB-004 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar (integração C0 com o ES) | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
+| RB-004 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar (integração C0 com o ES; menu do jogo no nosso ES) | retroboat/app e ES (Batocera) | C0 (+ 3 linhas de gancho no ES) | média (`GuiGameOptions.cpp`) | baixo (semântico: médio) | não | em andamento |
 | RB-005 | Perfil e configurações na nuvem: contas, opções do ES, controles, configurações dos emuladores (todos), estatísticas | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
 | RB-006 | Base da nuvem: provedor de pasta (Google Drive para computador, NAS), verificação de integridade, lançador, `retroboat-launch` | retroboat/app | C0 | — | nenhum | não | em andamento |
 | RB-007 | ExoDOS cria atalhos em `retrobat\roms` ignorando a chave `roms=` | emulatorlauncher | C1 | média | baixo | sim | candidato |
@@ -127,6 +127,59 @@ o histórico.
     biblioteca) não são mais jogos;
   - um jogo trocado no Drive por outro formato com o mesmo disco (`.iso` → `.zip`) perdia o
     marcador: a limpeza dos jogos que saíram apagava o marcador do jogo novo.
+
+## RB-004 — Biblioteca na nuvem (fase 2: menu do jogo no ES)
+
+- **Onde:** fork `retroboat-emulationstation`: os nossos `es-app/src/retroboat/RetroboatCloud.cpp` e `.h`, e 3 linhas marcadas
+  `RETROBOAT RB-004` em `GuiGameOptions.cpp`. No app: `Core\Cloud\LocalCopy`, `OnDemandInstaller.FindByRom` e
+  `retroboat-launch --desinstalar/--verificar/--reparar` (`Launch\LocalCopyFlow`).
+- **Pedido (08/11/2026):** seguir com o M2: desinstalar e verificar pelo ES. O selo de status na lista e na grade já tinha vindo
+  com o RB-010.
+- **Como funciona:** no menu do jogo (segurar A), um jogo da biblioteca na nuvem ganha entradas próprias:
+  - fora deste PC, no lugar de JOGAR: BAIXAR com o tamanho na nuvem, CANCELAR DOWNLOAD com o andamento (sem perguntar de novo)
+    ou INDISPONÍVEL com o motivo;
+  - neste PC, no lugar de EXCLUIR JOGO: VERIFICAR INTEGRIDADE e DESINSTALAR com o espaço ocupado. O EXCLUIR JOGO sai dos jogos
+    da nuvem: apagaria a mídia e a entrada do gamelist, e o marcador voltaria na abertura seguinte.
+  - **Desinstalar** pergunta (NÃO com o foco e no B), apaga a cópia (e um `.retroboat-part`) e põe o marcador de volta: o jogo
+    vira BAIXAR na hora, com as informações e a mídia. Os saves ficam. Antes, confere no Drive que o jogo continua na nuvem e que
+    a cópia de lá não está zerada; com o Drive fechado, faz a mesma pergunta do BAIXAR. Sem o Drive, ou sem uma cópia boa na
+    nuvem, não apaga e diz o motivo.
+  - **Verificar** mostra "VERIFICANDO <JOGO>" com a porcentagem e depois o resultado. Disco extraído de ZIP: lê a cópia inteira e
+    confere o CRC-32 do ZIP (do Drive sai só o diretório do ZIP). Outro arquivo: o tamanho e 32 blocos de 256 KB comparados byte a
+    byte com a nuvem, do começo ao fim (8 MB lidos do Drive). Jogo em pasta: a lista de arquivos, os tamanhos e o maior arquivo por
+    blocos; arquivos a mais aqui não contam (alguns emuladores gravam na pasta do jogo). Com o Drive fechado, não pergunta: confere
+    só se a cópia local não está zerada e avisa que não comparou.
+  - **Danificado:** REPARAR (com o foco) ou AGORA NÃO (no B). REPARAR desinstala e põe o jogo na fila, e ele aparece como BAIXANDO
+    na hora.
+  - O C# deixa o texto para o usuário em `estado\resposta-<pedido>.txt` e o andamento em `estado\verificando`. Deu certo, uma
+    notificação; não deu, uma mensagem com o motivo.
+- **Decisões:**
+  - **Verificar não baixa o jogo de novo.** Sem um manifesto de hashes, como o da Steam, comparar por blocos é o que dá para fazer
+    sem ler o jogo inteiro do Drive. Um byte trocado fora dos blocos só é achado nos discos de ZIP, pelo CRC.
+  - **Reparar pergunta,** em vez de agir sozinho como a Steam: uma cópia diferente da nuvem pode ser uma tradução ou um patch de
+    propósito.
+  - **DESINSTALAR só na interface completa do ES,** como o EXCLUIR JOGO; VERIFICAR em todas.
+- **Classificação:** C1, risco de merge baixo: 3 linhas em `GuiGameOptions.cpp` (6 alterações/ano): o include, um `if` antes do
+  JOGAR e um antes do EXCLUIR JOGO, cada um valendo para o comando seguinte.
+- **Risco semântico:** médio. Depende de o JOGAR (o if/else do SAVESTATES) e o EXCLUIR JOGO continuarem sendo um comando só logo
+  depois dos nossos `if`. Se o upstream mudar isso, o JOGAR de um jogo da nuvem volta ao menu, mas cai no BAIXAR pelo gancho do
+  `ViewController::launch`.
+- **Upstreamável:** não.
+- **Testado em 08/11/2026** com 8 testes automáticos novos (244 no total) e com o nosso ES e o `retroboat-launch` de verdade,
+  numa cópia isolada (nuvem em pasta local, tema PlayStation-X, janela 1280x720 fora da tela):
+  - jogo instalado: o menu mostra VERIFICAR INTEGRIDADE e DESINSTALAR ("Ocupa 150 MB neste PC"), sem EXCLUIR JOGO;
+  - verificar: a cópia boa confere (150 MB em cerca de 1 s); um ISO com 4 bytes trocados perto do fim é achado ("perto de
+    79,8 MB"); um disco de ZIP de 2 GB é conferido pelo CRC em cerca de 5 s, com a porcentagem na tela;
+  - REPARAR: desinstala, entra na fila, baixa e volta a JOGAR, e a verificação seguinte confere;
+  - desinstalar: o B mantém o jogo; DESINSTALAR mostra "Alfa Bom (USA) desinstalado · 150 MB livres" e o jogo vira BAIXAR na
+    hora;
+  - jogo fora do PC: BAIXAR ("Na nuvem · 150 MB") baixa; com a nuvem fora do ar, CANCELAR DOWNLOAD ("Aguardando o Google
+    Drive") tira da fila; corrompido: INDISPONÍVEL com o motivo, e a explicação ao apertar;
+  - sem a nuvem: desinstalar não apaga e explica; verificar confere só a cópia local e avisa.
+- **Corrigido no teste:** a porcentagem não aparecia, porque o `readAllText` do ES procura um BOM e devolve vazio num arquivo
+  de menos de 3 bytes; o motivo de corrompido não cabia numa linha.
+- **Efeito conhecido:** durante o VERIFICANDO, a barra de ajuda continua com a do menu que fechou (a tela de espera do ES não
+  tem ajuda própria). A entrada é ignorada até o fim.
 
 ## RB-005 — Contas do ES na nuvem (primeira parte do perfil)
 

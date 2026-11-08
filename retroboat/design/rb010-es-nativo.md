@@ -99,6 +99,10 @@ Se não existir, tentar `<raiz>\retroboat-launch.exe`. O caminho é o `getPath()
 - `--baixar`: se o Google Drive estiver fechado, o C# mostra a pergunta dele (tela cheia); põe o jogo na fila e inicia o
   serviço. Código 0 = está na fila; 1 = não entrou (o usuário disse "Agora não", o jogo não é da nuvem, erro).
 - `--cancelar`: tira o jogo da fila. 0 = tirou; 1 = não estava.
+- Menu do jogo (RB-004, fase 2, 08/11/2026): `--desinstalar`, `--verificar` e `--reparar`, para um jogo da nuvem que está neste
+  PC. O texto para o usuário fica em `estado\resposta-<pedido>.txt` e o andamento da verificação em `estado\verificando`.
+  Códigos: 0 = feito; 1 = nada mudou; 3 (`--verificar`) = cópia danificada, o ES oferece REPARAR. `--desinstalar` e `--reparar`
+  também usam o modo bloqueante com o Drive fechado; `--verificar` não pergunta pelo Drive.
 - Sem `estado\nuvem-conectada` (Drive fechado), `--baixar` pode abrir a pergunta. Nesse caso o ES espera o processo
   sem processar a entrada (modo bloqueante do `ProcessStartInfo`, com `window`, que descarta os eventos do SDL durante
   a espera: o A apertado na pergunta não pode chegar ao ES). Com o Drive conectado, o processo roda numa thread e o ES
@@ -224,6 +228,7 @@ o que o B aciona) e `_("YES")`. NÃO mantém; SIM roda `--cancelar`.
 | `es-app/src/views/gamelist/BasicGameListView.cpp` | cor da linha pelo estado |
 | `es-app/src/views/gamelist/GameNameFormatter.cpp` | ícone antes do nome |
 | `es-app/src/services/HttpServerThread.cpp` | registro das nossas rotas antes da primeira rota |
+| `es-app/src/guis/GuiGameOptions.cpp` (RB-004) | BAIXAR/CANCELAR no lugar do JOGAR; VERIFICAR e DESINSTALAR no lugar do EXCLUIR JOGO |
 | `es-core/src/components/TextListComponent.h` | terceira cor (cerca de 5 linhas) |
 | `es-core/src/components/ImageGridComponent.h` | opacidade do bloco por `inCloud` (1 linha) |
 | início do ES (o primeiro ponto antes de carregar o tema) | inicializar o nosso estado e criar `estado\es-nativo` |
