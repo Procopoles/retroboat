@@ -47,10 +47,8 @@ namespace Retroboat.Cloud
             var localBios = Path.Combine(install.Root, "bios");
 
             // Pastas do Drive no formato do RetroBat (jogos\psx, jogos\n64...): a pessoa só solta o jogo na pasta do
-            // console. Com o Drive aberto e sem a pasta do Retroboat, ela também é criada.
+            // console. Só dentro de um retroboat\jogos que já existe.
             report.Folders = CloudFolders.Ensure(install, report.Cloud);
-            if (report.Folders.RootCreated)
-                report.Messages.Add("Nuvem: pasta retroboat criada no Google Drive");
             if (report.Folders.SystemsCreated.Count > 0)
                 report.Messages.Add("Nuvem: " + report.Folders.SystemsCreated.Count + " pasta(s) de console criada(s) em retroboat\\jogos");
             if (report.Folders.Errors.Count > 0)

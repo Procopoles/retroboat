@@ -81,8 +81,7 @@ namespace Retroboat.Launcher
                     if (!EsApi.IsIdle())
                         continue;
 
-                    // Um Drive que conecta sem a pasta do Retroboat (PC ou conta nova) ganha a pasta e conta como conectado.
-                    bool connected = CloudFolders.EnsureRoot(CloudLocator.Locate(settings.CloudPath));
+                    bool connected = CloudLocator.IsAvailable(settings.CloudPath);
                     if (connected == shown)
                     {
                         changingTo = null;

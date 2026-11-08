@@ -37,7 +37,6 @@ namespace Retroboat.Tests
 
                 var result = CloudFolders.Ensure(install, cloud);
 
-                Assert.False(result.RootCreated);
                 Assert.Empty(result.Errors);
                 Assert.Equal(new[] { "snes", "gameandwatch", "psx", "starship" }, result.SystemsCreated);
                 Assert.Equal(new[] { "gameandwatch", "ps2", "psx", "snes", "starship" },
@@ -68,37 +67,43 @@ namespace Retroboat.Tests
         }
 
         [Fact]
-        public void Retroboat_folder_is_created_in_my_drive_but_not_in_a_configured_path()
+        public void Missing_retroboat_or_games_folder_is_never_created()
         {
             using (var dir = new TempDir())
             {
                 var install = CreateInstall(dir);
                 Directory.CreateDirectory(dir.Combine("Meu Drive"));
+                Directory.CreateDirectory(dir.Combine(@"Outra conta\retroboat"));
 
-                var configured = CloudLocator.Locate(dir.Combine(@"Meu Drive\retroboat"));
-                var configuredResult = CloudFolders.Ensure(install, configured);
-                Assert.False(configuredResult.RootCreated);
-                Assert.False(configured.Exists);
-
+                // Drive aberto sem a pasta do Retroboat (ou ainda carregando): nada de segunda pasta vazia no Drive.
                 var detected = new CloudLocation(dir.Combine(@"Meu Drive\retroboat"), "Google Drive (G:\\)");
-                var detectedResult = CloudFolders.Ensure(install, detected);
-                Assert.True(detectedResult.RootCreated);
-                Assert.Equal(5, detectedResult.SystemsCreated.Count);
-                Assert.True(Directory.Exists(dir.Combine(@"Meu Drive\retroboat\jogos\psx")));
+                Assert.Empty(CloudFolders.Ensure(install, detected).SystemsCreated);
+                Assert.Empty(Directory.GetFileSystemEntries(dir.Combine("Meu Drive")));
+
+                // Pasta do Retroboat sem jogos: também não.
+                var withoutGames = new CloudLocation(dir.Combine(@"Outra conta\retroboat"), "Google Drive (H:\\)");
+                Assert.Empty(CloudFolders.Ensure(install, withoutGames).SystemsCreated);
+                Assert.Empty(Directory.GetFileSystemEntries(dir.Combine(@"Outra conta\retroboat")));
+
+                Assert.Empty(CloudFolders.Ensure(install, CloudLocator.Locate(dir.Combine("nao-existe"))).SystemsCreated);
+                Assert.Empty(CloudFolders.Ensure(install, null).SystemsCreated);
+                Assert.False(Directory.Exists(dir.Combine("nao-existe")));
             }
         }
 
         [Fact]
-        public void Drive_without_my_drive_or_no_drive_creates_nothing()
+        public void A_file_with_a_console_name_is_left_alone()
         {
             using (var dir = new TempDir())
             {
                 var install = CreateInstall(dir);
+                var file = dir.WriteFile(@"nuvem\jogos\psx", TempDir.RandomBytes(1234));
 
-                Assert.False(CloudFolders.EnsureRoot(null));
-                Assert.False(CloudFolders.EnsureRoot(new CloudLocation(dir.Combine(@"Meu Drive\retroboat"), "Google Drive (G:\\)")));
-                Assert.Empty(CloudFolders.Ensure(install, null).SystemsCreated);
-                Assert.False(Directory.Exists(dir.Combine("Meu Drive")));
+                var result = CloudFolders.Ensure(install, CloudLocator.Locate(dir.Combine("nuvem")));
+
+                Assert.Equal(TempDir.RandomBytes(1234), File.ReadAllBytes(file));
+                Assert.Single(result.Errors, e => e.StartsWith("psx: "));
+                Assert.Equal(4, result.SystemsCreated.Count);
             }
         }
 

@@ -80,8 +80,9 @@ recarrega o ES; quando desconecta, recarrega o ES com o X na nuvem. Com jogo abe
 No Drive, `retroboat\jogos` tem as mesmas pastas de console do `roms` do RetroBat (`psx`, `n64`, `gc`,
 `gameandwatch`...), uma por sistema do `es_systems.cfg`: para pôr um jogo na nuvem, basta soltá-lo na pasta do
 console. O lançador cria as que faltam a cada início (um sistema novo do RetroBat ganha a pasta sozinho) e nunca
-apaga nenhuma. Com o Drive aberto e sem a pasta `retroboat`, ela também é criada; um `[Cloud] Path` configurado
-à mão não é criado, porque ali a pasta faltando quer dizer disco desconectado.
+apaga nenhuma. Ele só cria dentro de um `retroboat\jogos` que já existe: a pasta `retroboat` ou `jogos` faltando
+pode ser o Drive ainda carregando ou outra conta montada primeiro, e criar ali faria uma segunda pasta vazia no
+Drive.
 
 Antes de abrir o RetroBat, o lançador também sincroniza com a nuvem: BIOS, os logins do ES
 (ScreenScraper, IGDB e RetroAchievements, em `retroboat\contas`; um PC sem login recebe o da
