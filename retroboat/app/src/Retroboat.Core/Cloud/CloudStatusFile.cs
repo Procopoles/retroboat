@@ -17,6 +17,17 @@ namespace Retroboat.Cloud
         public const string Connected = "nuvem-conectada";
         public const string Declined = "drive-agora-nao";
 
+        /// <summary>O ES do Retroboat (RB-010) cria ao abrir e apaga ao sair: o tema mostra o andamento ao vivo só com ele.</summary>
+        public const string NativeEs = "es-nativo";
+
+        /// <summary>Antes de abrir o RetroBat: um ES que caiu não apagou o arquivo, e o tema acharia que ele está aberto.</summary>
+        public static void ClearNativeEs(RetroBatInstall install)
+        {
+            var path = Path.Combine(install.RetroboatDataPath, Folder, NativeEs);
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+
         public static string ConnectedPath(RetroBatInstall install) => Path.Combine(install.RetroboatDataPath, Folder, Connected);
 
         static string DeclinedPath(RetroBatInstall install) => Path.Combine(install.RetroboatDataPath, Folder, Declined);

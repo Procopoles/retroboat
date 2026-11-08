@@ -16,7 +16,7 @@ Status: `candidato` (identificado, não feito) · `em andamento` · `ativo` (em 
 | RB-007 | ExoDOS cria atalhos em `retrobat\roms` ignorando a chave `roms=` | emulatorlauncher | C1 | média | baixo | sim | candidato |
 | RB-008 | Opção para o `retrobat.exe` esperar um `AppLauncher` terminar antes de abrir o ES | retrobat-executable | C1 | média | baixo | sim | candidato |
 | RB-009 | Saves e memory cards na nuvem: sync por jogo, conflito, offline, snapshots | retroboat/app | C0 | — | nenhum (semântico: médio) | não | em andamento |
-| RB-010 | Interface nativa de nuvem no ES: status, instalar/desinstalar, tela de downloads | ES (Batocera) | C2 | ALTA/média | alto | talvez (só se genérico) | candidato |
+| RB-010 | Nuvem nativa no ES: BAIXAR sem abrir o jogo, região do cabeçalho, status ao vivo, lista esmaecida | ES (Batocera), retroboat/app e `status.xml` dos temas | C1 (32 linhas de gancho em 10 arquivos) | média | médio | não | em andamento |
 | RB-011 | Build Windows do ES no nosso fork (GitHub Actions) | ES (Batocera) | C0 | — | nenhum | não | em andamento |
 | RB-012 | Sistema Ghostship cadastrado com o nome "starship" (nome duplicado no `es_systems.cfg`) | retrobat | C1 | ALTA | médio | sim | candidato |
 | RB-013 | BIOS na nuvem: organizar, sincronizar e mostrar status (lançador + notificação no ES) | retroboat/app | C0 | — | nenhum (semântico: baixo) | não | em andamento |
@@ -519,3 +519,49 @@ o histórico.
 - **Ainda não testado no app:** com o Google Drive de verdade, o download continuando com um emulador aberto e a tela de cancelar no jogo que está baixando (esse caso só nos testes automáticos do serviço).
 - **Efeitos conhecidos do ES, que só o RB-010 resolve:** apertar BAIXAR passa pela animação de abertura de jogo e reinicia a
   música, com o aviso do nome dela.
+
+## RB-010 — Nuvem nativa no ES
+
+- **Onde:** fork `retroboat-emulationstation`: arquivos novos em `es-app/src/retroboat/` (`RetroboatCloud`, `CloudHeaderRegion`,
+  `RetroboatHttp.h`, `retroboat.cmake`) e ganchos de uma linha, marcados `RETROBOAT RB-010`, em `es-app/CMakeLists.txt`,
+  `ViewController.cpp`, `ISimpleGameListView.cpp`, `SystemScreenSaver.cpp`, `FileData.cpp`, `BasicGameListView.cpp`,
+  `GameNameFormatter.cpp`, `HttpServerThread.cpp`, `TextListComponent.h` e `ImageGridComponent.h`. No app:
+  `retroboat-launch --baixar/--cancelar`, `NativeStatusReporter`, `DownloadStatusJson`, `EsApi`. Nos temas: o valor do BAIXANDO.
+  Desenho: [design/rb010-es-nativo.md](design/rb010-es-nativo.md), com o que mudou na implementação na seção 11.
+- **Problema:** com o ES oficial, BAIXAR passa pela abertura de jogo (animação, música reiniciada, aviso do nome da música), a
+  região do cabeçalho é uma janela por cima do ES e o tema não recebe o andamento.
+- **Correção:** o nosso ES lê o índice da nuvem e a fila (`biblioteca-nuvem.xml`, `estado\downloads.xml`) e atende o A num jogo
+  da nuvem sem abrir nada:
+  - na nuvem: roda `retroboat-launch --baixar` (a pergunta do Drive, a fila e o serviço são os do RB-019 e do RB-020);
+  - na fila: pergunta "Cancelar o download?" (NÃO com o foco e no B; SIM roda `--cancelar`);
+  - corrompido: explica o motivo.
+  O serviço manda o andamento por `POST /retroboat/download`; o ES desenha a região que gira dentro do próprio quadro e expõe
+  `{game:cloudState}`, `{game:inCloud}`, `{game:downloading}`, `{game:downloadPercent}` e `{game:downloadProgress}`. A barra de
+  ajuda mostra BAIXAR, BAIXANDO ou INDISPONÍVEL; listas de texto esmaecem o nome, com ícone de nuvem, download ou alerta; blocos
+  de grade ficam com 63% da opacidade. Quando o estado muda, a lista é refeita mantendo o cursor.
+- **ES oficial ou o nosso:** o serviço pergunta `GET /retroboat/download` a cada sessão. 200: manda o andamento ao ES e não usa a
+  `HeaderBar` nem o `/addgames`. Outra resposta: o RB-020 como antes. O tema usa `estado\es-nativo`, que o nosso ES cria antes de
+  carregar o tema e apaga ao sair (o `Retroboat.exe` apaga um que tenha ficado de um ES que caiu).
+- **Classificação:** C1, risco de merge médio: 32 linhas em 10 arquivos do upstream, três deles de calor médio (`FileData.cpp`,
+  `ViewController.cpp`, `HttpServerThread.cpp`). Toda a lógica está nos nossos arquivos.
+- **Risco semântico:** médio. Depende de: `ISimpleGameListView::launchSelectedGame` e `ViewController::launch` continuarem sendo a
+  entrada do A; `FileData::getProperty` cair no fim para nomes desconhecidos; `BindingManager::updateBindings` reavaliar sem
+  reiniciar animações; o relógio e a bateria do ES seguirem desenhados depois das visões (a região termina antes deles: 0,94 no
+  PlayStation-X, 0,95 nos demais).
+- **Upstreamável:** não.
+- **Limites conhecidos:** o build ainda usa o ES oficial (o nosso não tem as chaves de API do ScreenScraper, TheGamesDB, HfsDB e
+  RetroAchievements, RB-011). O `es-update` do RetroBat pode trocar o executável pelo oficial; aí volta o RB-020 sozinho.
+- **Testado em 08/11/2026** com o nosso ES e o `retroboat-launch` de verdade, numa cópia isolada (nuvem em pasta local, janela
+  1280x720 fora da tela), nos dois temas:
+  - A num jogo da nuvem: sem animação; fila, serviço no modo nativo, download e JOGAR ao vivo com o cursor no lugar;
+  - região com andamento sintético: PREPARANDO, BAIXANDO com tamanho, velocidade e tempo restante, cubo girando na ida e na volta,
+    ciclo de 10 s e 6 s, PRONTO, NÃO BAIXOU e a notificação com o motivo depois da volta;
+  - valor do BAIXANDO ao vivo no jogo ("61% · restam 0:08"); fila percebida pelo arquivo em até 2 s;
+  - cancelar: B mantém, SIM cancela pelo `--cancelar` e o jogo volta a BAIXAR; jogo corrompido: aviso com o motivo;
+  - ajuda BAIXAR, BAIXANDO, INDISPONÍVEL; lista do Carbon esmaecida com ícones; grade com ícones e blocos esmaecidos.
+- **Corrigido no teste:** textos da região viravam quadrados pretos (a fonte era descartada pelo ES); o relógio e a bateria do ES
+  ficavam por cima da região.
+- **Ainda não testado:** com o Google Drive de verdade, com controle (só a API de entrada), em tela cheia sem borda e com o
+  renderer OpenGL 2.1.
+- **Como testar:** abrir o RetroBat com o nosso ES, apertar A num jogo da nuvem: o ES não sai da lista, o botão vira BAIXANDO e a
+  região do topo gira com o andamento.

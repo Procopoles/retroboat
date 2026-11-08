@@ -22,7 +22,7 @@ namespace Retroboat.Launch
     /// tema. Fora da rotação, com os ícones à mostra, a janela fica escondida: o que aparece é o ES de verdade.
     /// Só aparece com o ES em primeiro plano; com um jogo aberto ou outro programa na frente, ela some.
     /// </summary>
-    sealed class HeaderBar : NativeWindow, IDisposable
+    sealed class HeaderBar : NativeWindow, IDownloadDisplay
     {
         const int FlipMilliseconds = 450;
         const int LeaveCaptureMilliseconds = 60;

@@ -21,7 +21,8 @@ abrir o Drive. O lançador recarrega o ES quando o estado muda.
 Enquanto o jogo baixa, em segundo plano, existe retroboat\estado\baixando\<arquivo do jogo>: o botão vira
 BAIXANDO (cinza, porque não é uma ação nova) e o andamento fica na região do cabeçalho, que o Retroboat
 desenha por cima do ES. exists() fica em cache até o ES voltar de um jogo; o Retroboat limpa esse cache
-quando o download termina ou falha (POST /addgames), e o filesize() do marcador não tem cache.
+quando o download termina ou falha (POST /addgames), e o filesize() do marcador não tem cache. Com o ES do
+Retroboat (RB-010), a região é do próprio ES e o valor do BAIXANDO mostra o andamento ao vivo.
 
 Diferenças em relação ao Carbon:
 - Fonte SST, a do tema, no lugar da Cabin.
@@ -451,6 +452,14 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
     </text>
     <text name="rbDownloadingValue" extra="true">
       <text>Continua quando o Google Drive voltar</text>
+    </text>
+  </customView>
+
+  <!-- Só com o ES do Retroboat (RB-010), que cria retroboat\estado\es-nativo ao abrir: o andamento ao vivo no
+       lugar do aviso, e a região do cabeçalho é do próprio ES. Vem depois do "Drive fechado" para valer sobre ele. -->
+  <customView name="detailed, ps4Style, single" if='exists(${themePath} + "/../../../../retroboat/estado/es-nativo")'>
+    <text name="rbDownloadingValue" extra="true">
+      <text>{game:downloadProgress}</text>
     </text>
   </customView>
 </theme>

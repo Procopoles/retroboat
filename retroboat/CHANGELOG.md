@@ -85,3 +85,11 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   pacote do RetroBat oficial, publicado no release `continuous-master`. Falta cadastrar as
   credenciais de API antes de trocar o ES no `build.ini`. RB-016: correção para compilar com
   o Visual Studio 2026.
+- RB-010: a nuvem dentro do nosso ES.
+  - BAIXAR não passa mais pela abertura de jogo: sem animação, sem reiniciar a música. Apertar de novo num jogo da fila
+    pergunta se cancela; num jogo corrompido, explica o motivo.
+  - A região do cabeçalho que gira passa a ser desenhada pelo próprio ES, abaixo dos menus, e o relógio e a bateria do ES
+    continuam à vista.
+  - O status do jogo mostra o andamento ao vivo ("45% · restam 3:10"), a barra de ajuda diz BAIXAR, BAIXANDO ou
+    INDISPONÍVEL, e os jogos que não estão no PC aparecem esmaecidos, com ícone de nuvem.
+  - Com o ES oficial, o Retroboat continua como no RB-020, sozinho.

@@ -119,6 +119,64 @@ namespace Retroboat.Es
             }
         }
 
-        static WebClient CreateClient() => new WebClient { Encoding = Encoding.UTF8 };
+        /// <summary>
+        /// O ES do Retroboat (RB-010) responde 200 em GET /retroboat/download; o oficial, 404. Com o nosso, o
+        /// andamento vai para o próprio ES, que desenha a região do cabeçalho e o status do jogo.
+        /// </summary>
+        public static bool SupportsNativeDownloads()
+        {
+            try
+            {
+                using (var client = CreateClient(2000))
+                    client.DownloadString(BaseUrl + "/retroboat/download");
+
+                return true;
+            }
+            catch (WebException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Manda o andamento ao ES do Retroboat (POST /retroboat/download). Prazo curto e sem exceção: um ES lento
+        /// ou fechado nunca segura o download.
+        /// </summary>
+        public static bool PostDownloadStatus(string json)
+        {
+            try
+            {
+                using (var client = CreateClient(1500))
+                {
+                    client.Headers[HttpRequestHeader.ContentType] = "application/json; charset=utf-8";
+                    client.UploadString(BaseUrl + "/retroboat/download", "POST", json);
+                }
+
+                return true;
+            }
+            catch (WebException)
+            {
+                return false;
+            }
+        }
+
+        static WebClient CreateClient(int timeoutMs = 0) => new TimedWebClient(timeoutMs) { Encoding = Encoding.UTF8 };
+
+        /// <summary>O WebClient espera até 100 s; as chamadas feitas pelo serviço de downloads não podem.</summary>
+        sealed class TimedWebClient : WebClient
+        {
+            readonly int _timeoutMs;
+
+            public TimedWebClient(int timeoutMs) => _timeoutMs = timeoutMs;
+
+            protected override WebRequest GetWebRequest(Uri address)
+            {
+                var request = base.GetWebRequest(address);
+                if (_timeoutMs > 0 && request != null)
+                    request.Timeout = _timeoutMs;
+
+                return request;
+            }
+        }
     }
 }

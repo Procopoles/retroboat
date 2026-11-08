@@ -68,10 +68,13 @@ namespace Retroboat.Launch
             if (queue.IsEmpty)
                 return false;
 
-            Log.Info("Serviço de downloads iniciado: " + queue.Items().Count + " jogo(s) na fila.");
+            // O ES do Retroboat (RB-010) mostra o andamento e atualiza as listas sozinho; com o oficial, a janela
+            // por cima do cabeçalho e o POST /addgames.
+            bool native = EsApi.SupportsNativeDownloads();
+            Log.Info("Serviço de downloads iniciado: " + queue.Items().Count + " jogo(s) na fila" + (native ? ", com o ES do Retroboat." : "."));
 
             using (var stop = new CancellationTokenSource())
-            using (var bar = new HeaderBar(install))
+            using (IDownloadDisplay bar = native ? new NativeStatusReporter() : (IDownloadDisplay)new HeaderBar(install))
             using (var context = new ApplicationContext())
             using (var closeCheck = new System.Windows.Forms.Timer { Interval = 250 })
             {
@@ -83,21 +86,26 @@ namespace Retroboat.Launch
                 service.Cancelled += item =>
                 {
                     bar.SetLive(null);
-                    Refresh(install, item);
+                    if (!native)
+                        Refresh(install, item);
                 };
                 service.Completed += status =>
                 {
                     bar.SetLive(null);
                     bar.AddNotice(status);
-                    Refresh(install, status.Item);
+                    if (!native)
+                        Refresh(install, status.Item);
                 };
 
                 // A notificação entra depois da rotação, para não ficar atrás da região.
-                bar.NoticeShown += status =>
+                if (bar is HeaderBar header)
                 {
-                    if (status.Phase == DownloadPhase.Failed && !string.IsNullOrEmpty(status.Message))
-                        ThreadPool.QueueUserWorkItem(_ => EsApi.Notify(status.Item.Title + ": " + status.Message));
-                };
+                    header.NoticeShown += status =>
+                    {
+                        if (status.Phase == DownloadPhase.Failed && !string.IsNullOrEmpty(status.Message))
+                            ThreadPool.QueueUserWorkItem(_ => EsApi.Notify(status.Item.Title + ": " + status.Message));
+                    };
+                }
 
                 var worker = new Thread(() =>
                 {

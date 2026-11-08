@@ -136,7 +136,12 @@ jogos na fila.
 O tema mostra BAIXANDO porque existe `retroboat\estado\baixando\<arquivo do jogo>`. O andamento fica na
 [região do cabeçalho](../design/design-system-steam.md#46-região-de-ícones-do-cabeçalho-download), uma janela do Retroboat
 por cima do ES, sem foco e sem clique, porque o tema do ES não recebe dados ao vivo. Exige o ES em tela cheia sem borda, que é
-como o RetroBat abre (`FullscreenBorderless=1`). Com o RB-010 (ES nativo), ela vira um componente do ES.
+como o RetroBat abre (`FullscreenBorderless=1`).
+
+Com o nosso ES (RB-010), ele mesmo atende o A num jogo da nuvem, sem abrir o jogo, e chama `retroboat-launch --baixar "<jogo>"`
+ou `--cancelar "<jogo>"` (0 = feito, 1 = nada mudou). O serviço percebe esse ES pelo `GET /retroboat/download` e manda o
+andamento por `POST /retroboat/download`, no máximo 4 vezes por segundo e com um sinal a cada 2 s; a região do cabeçalho, o
+status ao vivo e a atualização das listas ficam com o ES, sem a janela e sem o `POST /addgames`.
 
 ## Status nos temas
 

@@ -47,6 +47,10 @@ namespace Retroboat.Launch
 
             Application.EnableVisualStyles();
 
+            // Pedidos do ES do Retroboat (RB-010), que atende o A num jogo da nuvem sem abrir o jogo.
+            if (target == DownloadVerb || target == CancelVerb)
+                return install != null ? FromNativeEs(install, target, CommandLine.SplitFirst(targetArguments, out _)) : 1;
+
             var rom = CommandLine.GetOption(args, "-rom");
             if (install != null && rom != null && !ContinueToGame(install, rom))
                 return 1; // Código diferente de zero: o ES não conta como partida e não mostra erro.
@@ -67,6 +71,50 @@ namespace Retroboat.Launch
         }
 
         static string ExeFolder => AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
+
+        const string DownloadVerb = "--baixar";
+        const string CancelVerb = "--cancelar";
+
+        /// <summary>
+        /// retroboat-launch --baixar|--cancelar "&lt;jogo&gt;": o ES do Retroboat (RB-010) pede isto ao apertar A num jogo
+        /// da nuvem, sem passar pela abertura de jogo. A pergunta do Drive, a fila e o serviço são os mesmos do BAIXAR
+        /// pelo emulatorLauncher. 0 = feito; 1 = nada mudou (não é da nuvem, "Agora não", não estava na fila).
+        /// </summary>
+        static int FromNativeEs(RetroBatInstall install, string verb, string rom)
+        {
+            try
+            {
+                var entry = new OnDemandInstaller(install).FindPending(rom);
+                if (entry == null)
+                {
+                    Log.Warn("Pedido do ES (" + verb + ") para um jogo que não está só na nuvem: " + rom);
+                    return 1;
+                }
+
+                var queue = new DownloadQueue(install);
+                var key = entry.System + "/" + entry.CloudName;
+                if (verb == CancelVerb)
+                {
+                    bool removed = queue.Remove(key);
+                    Log.Info((removed ? "Download cancelado pelo ES: " : "Cancelar pelo ES, mas o jogo não estava na fila: ") + key);
+                    return removed ? 0 : 1;
+                }
+
+                if (!queue.Contains(key))
+                    StartDownload(install, queue, entry);
+
+                if (!queue.Contains(key))
+                    return 1;
+
+                DownloadProcess.EnsureRunning(install, ExeFolder);
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Falha no pedido do ES (" + verb + ")", ex);
+                return 1;
+            }
+        }
 
         /// <returns>false se o jogo é da nuvem: o BAIXAR foi atendido e o ES volta sem abrir o emulador.</returns>
         static bool ContinueToGame(RetroBatInstall install, string rom)

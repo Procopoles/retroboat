@@ -18,6 +18,8 @@
   <ItemGroup>
     <!-- Para criar ZIPs de teste. -->
     <Reference Include="System.IO.Compression" />
+    <!-- Para ler o JSON que vai ao ES do Retroboat. -->
+    <Reference Include="System.Web.Extensions" />
   </ItemGroup>
 
 </Project>

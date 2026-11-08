@@ -16,7 +16,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 | M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020) |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); outros saves não iniciados |
 | M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES (ScreenScraper, IGDB, RetroAchievements) prontas |
-| M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; falta o RB-010 |
+| M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; RB-010 pronto no fork e testado numa cópia isolada (08/11/2026); falta o build usar o nosso ES |
 
 M0 e M1 podem andar em paralelo. Código em [app/](app/README.md).
 

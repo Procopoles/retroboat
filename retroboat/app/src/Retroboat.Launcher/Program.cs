@@ -91,6 +91,7 @@ namespace Retroboat.Launcher
                 return 0;
             }
 
+            ClearNativeEsFlag(install);
             int exitCode = StartRetroBat(install, passThrough);
             if (exitCode == 0 && WaitForEs())
             {
@@ -378,6 +379,24 @@ namespace Retroboat.Launcher
                 Log.Warn(warning);
 
             return result;
+        }
+
+        /// <summary>O ES do Retroboat recria o es-nativo ao abrir. Com um ES já aberto, o arquivo é dele e fica.</summary>
+        static void ClearNativeEsFlag(RetroBatInstall install)
+        {
+            try
+            {
+                var running = Process.GetProcessesByName("emulationstation");
+                foreach (var process in running)
+                    process.Dispose();
+
+                if (running.Length == 0)
+                    CloudStatusFile.ClearNativeEs(install);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Log.Warn("Não foi possível apagar o sinal do ES do Retroboat: " + ex.Message);
+            }
         }
 
         static int StartRetroBat(RetroBatInstall install, IList<string> args)
