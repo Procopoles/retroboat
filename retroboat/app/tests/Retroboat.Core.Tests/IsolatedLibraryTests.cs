@@ -255,6 +255,81 @@ namespace Retroboat.Tests
             Assert.DoesNotContain(systems, s => s.Name == "library" || s.Name == "screenshots" || s.Name == "retrobat");
         }
 
+        const string Ps1System = @"<system>
+    <name>psx</name>
+    <path>~\..\roms\psx</path>
+    <emulators>
+      <emulator name=""libretro"">
+        <cores>
+          <core>mednafen_psx_hw</core>
+          <core>pcsx_rearmed</core>
+          <!--<core>mednafen_psx</core>-->
+          <core>swanstation</core>
+        </cores>
+      </emulator>
+      <emulator name=""duckstation""/>
+      <emulator name=""mednafen"">
+        <cores>
+          <core incompatible_extensions="".chd"">psx</core>
+        </cores>
+      </emulator>
+    </emulators>
+  </system>";
+
+        [Fact]
+        public void Ps1_defaults_to_swanstation_from_the_retrobat_list_of_emulators()
+        {
+            using (var dir = new TempDir())
+            {
+                var install = CreateInstall(dir);
+                File.WriteAllText(install.SystemsConfigPath, Systems.Replace("</systemList>", Ps1System + "</systemList>"));
+                var library = new IsolatedLibrary(install);
+
+                // Pasta de jogos padrão e sem nuvem: o overlay existe só pelo emulador padrão do PS1.
+                Assert.True(library.Apply(install.DefaultRomsPath).OverlayWritten);
+                var psx = Assert.Single(XDocument.Load(library.OverlayPath).Root.Elements("system"));
+                Assert.Equal(new[] { "name", "emulators" }, psx.Elements().Select(e => e.Name.LocalName));
+
+                // A lista é a do RetroBat, na mesma ordem; só o padrão muda.
+                var cores = psx.Descendants("core").ToList();
+                Assert.Equal(new[] { "mednafen_psx_hw", "pcsx_rearmed", "swanstation", "psx" }, cores.Select(c => c.Value));
+                Assert.Equal(new[] { "swanstation" }, cores.Where(c => (string)c.Attribute("default") == "true").Select(c => c.Value));
+                Assert.Equal(".chd", (string)cores.Last().Attribute("incompatible_extensions"));
+                Assert.Equal(new[] { "libretro", "duckstation", "mednafen" }, psx.Element("emulators").Elements("emulator").Select(e => (string)e.Attribute("name")));
+
+                // Pasta de jogos própria: caminho e emuladores no mesmo sistema.
+                library.Apply(dir.Combine("Jogos"));
+                psx = XDocument.Load(library.OverlayPath).Root.Elements("system").Single(s => (string)s.Element("name") == "psx");
+                Assert.Equal(new[] { "name", "path", "emulators" }, psx.Elements().Select(e => e.Name.LocalName));
+            }
+        }
+
+        [Fact]
+        public void Without_swanstation_in_the_retrobat_list_ps1_keeps_the_retrobat_default()
+        {
+            using (var dir = new TempDir())
+            {
+                var install = CreateInstall(dir);
+                File.WriteAllText(install.SystemsConfigPath, Systems.Replace("</systemList>", Ps1System.Replace("<core>swanstation</core>", "") + "</systemList>"));
+
+                var result = new IsolatedLibrary(install).Apply(install.DefaultRomsPath);
+
+                Assert.False(result.OverlayWritten);
+                Assert.False(File.Exists(Path.Combine(install.UserEmulationStationPath, IsolatedLibrary.OverlayFileName)));
+            }
+        }
+
+        [Fact]
+        public void Real_retrobat_systems_file_offers_swanstation_for_ps1()
+        {
+            var psx = IsolatedLibrary.ReadSystems(FindRepoFile(@"system\templates\emulationstation\es_systems.cfg")).Single(s => s.Name == "psx");
+
+            var emulators = IsolatedLibrary.WithRetroboatDefault(psx);
+
+            Assert.NotNull(emulators);
+            Assert.Equal("swanstation", emulators.Descendants("core").Single(c => (string)c.Attribute("default") == "true").Value);
+        }
+
         [Fact]
         public void Duplicate_system_names_map_only_the_first_and_warn()
         {

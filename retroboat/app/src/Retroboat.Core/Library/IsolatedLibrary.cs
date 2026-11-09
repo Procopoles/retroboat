@@ -10,11 +10,12 @@ namespace Retroboat.Library
 {
     public sealed class SystemFolder
     {
-        public SystemFolder(string name, string folder, string command = null)
+        public SystemFolder(string name, string folder, string command = null, XElement emulators = null)
         {
             Name = name;
             Folder = folder;
             Command = command;
+            Emulators = emulators;
         }
 
         /// <summary>Nome do sistema no ES (ex.: "gw").</summary>
@@ -25,6 +26,9 @@ namespace Retroboat.Library
 
         /// <summary>Comando original do es_systems.cfg para abrir um jogo do sistema.</summary>
         public string Command { get; }
+
+        /// <summary>O &lt;emulators&gt; original do es_systems.cfg (emuladores e cores que o ES oferece); null se não houver.</summary>
+        public XElement Emulators { get; }
     }
 
     /// <summary>
@@ -75,8 +79,9 @@ namespace Retroboat.Library
     /// sem mudar nenhum arquivo do RetroBat. Usa só pontos de extensão que já existem:
     /// <list type="bullet">
     /// <item>es_systems_retroboat.cfg: o ES mescla es_systems_*.cfg por cima do es_systems.cfg;
-    /// o overlay só troca o &lt;path&gt; de cada sistema e, nos sistemas com jogos na nuvem, o
-    /// &lt;command&gt; (com o retroboat-launch na frente).</item>
+    /// o overlay só troca o &lt;path&gt; de cada sistema, nos sistemas com jogos na nuvem o
+    /// &lt;command&gt; (com o retroboat-launch na frente) e, onde o Retroboat escolhe o emulador padrão (RB-022), o
+    /// &lt;emulators&gt;.</item>
     /// <item>roms= no emulatorLauncher.cfg: muda a pasta de jogos para todos os geradores.</item>
     /// <item>.emulationstation\gamelists\&lt;sistema&gt;\gamelist.xml: o ES lê e grava ali quando a pasta
     /// de jogos não tem gamelist.xml.</item>
@@ -143,7 +148,7 @@ namespace Retroboat.Library
 
                 var folder = path.Substring(RomsPrefix.Length).Trim('\\');
                 if (folder.Length > 0)
-                    systems.Add(new SystemFolder(name, folder, ((string)system.Element("command"))?.Trim()));
+                    systems.Add(new SystemFolder(name, folder, ((string)system.Element("command"))?.Trim(), system.Element("emulators")));
             }
 
             return systems;
@@ -176,9 +181,23 @@ namespace Retroboat.Library
         }
 
         /// <summary>
-        /// Overlay só com o que muda em cada sistema: o &lt;path&gt; (se a pasta de jogos não for a padrão) e o
-        /// &lt;command&gt; (se o sistema tem jogos na nuvem). Sistemas sem mudança ficam de fora. Retorna null
-        /// quando não há nada a mudar.
+        /// Emulador padrão que o Retroboat escolhe por sistema (nome do sistema no ES → emulador e core), no lugar do
+        /// primeiro da lista do RetroBat. Fora isso, igual aos outros emuladores: o RetroBat baixa o core no primeiro jogo,
+        /// e no menu do ES dá para escolher outro, por sistema ou por jogo.
+        /// </summary>
+        public static readonly IReadOnlyDictionary<string, (string Emulator, string Core)> DefaultCores =
+            new Dictionary<string, (string Emulator, string Core)>(StringComparer.Ordinal)
+            {
+                // PS1: o primeiro da lista, Beetle PSX HW, só aceita a BIOS com os nomes scph5500/5501/5502.bin. O SwanStation
+                // aceita qualquer BIOS original (ex.: SCPH1001.BIN) e roda no RetroArch, cujos saves e configurações já vão
+                // para a nuvem.
+                ["psx"] = ("libretro", "swanstation"),
+            };
+
+        /// <summary>
+        /// Overlay só com o que muda em cada sistema: o &lt;path&gt; (se a pasta de jogos não for a padrão), o
+        /// &lt;command&gt; (se o sistema tem jogos na nuvem) e o &lt;emulators&gt; (se o Retroboat escolhe o padrão, ver
+        /// <see cref="DefaultCores"/>). Sistemas sem mudança ficam de fora. Retorna null quando não há nada a mudar.
         /// </summary>
         public static string BuildOverlay(IEnumerable<SystemFolder> systems, string romsRoot, bool includePaths = true, CommandWrapper wrapper = null)
         {
@@ -186,13 +205,15 @@ namespace Retroboat.Library
             foreach (var system in systems)
             {
                 var command = wrapper?.Wrap(system);
-                if (!includePaths && command == null)
+                var emulators = WithRetroboatDefault(system);
+                if (!includePaths && command == null && emulators == null)
                     continue;
 
                 elements.Add(new XElement("system",
                     new XElement("name", system.Name),
                     includePaths ? new XElement("path", Path.Combine(romsRoot, system.Folder)) : null,
-                    command != null ? new XElement("command", command) : null));
+                    command != null ? new XElement("command", command) : null,
+                    emulators));
             }
 
             if (elements.Count == 0)
@@ -202,7 +223,7 @@ namespace Retroboat.Library
 
             var doc = new XDocument(
                 new XDeclaration("1.0", "UTF-8", null),
-                new XComment(" Gerado pelo Retroboat (RB-003, RB-004). Não edite: é recriado a cada início. "),
+                new XComment(" Gerado pelo Retroboat (RB-003, RB-004, RB-022). Não edite: é recriado a cada início. "),
                 root);
 
             var settings = new XmlWriterSettings { Indent = true, IndentChars = "  ", Encoding = Utf8NoBom, NewLineChars = "\r\n" };
@@ -213,6 +234,30 @@ namespace Retroboat.Library
 
                 return Utf8NoBom.GetString(stream.ToArray()) + "\r\n";
             }
+        }
+
+        /// <summary>
+        /// A lista de emuladores do próprio es_systems.cfg (o ES troca a lista inteira pela do overlay), com o padrão do
+        /// Retroboat marcado com default="true". null se o sistema não tem padrão nosso ou se o RetroBat tirou aquele core da
+        /// lista: aí vale o padrão do RetroBat.
+        /// </summary>
+        internal static XElement WithRetroboatDefault(SystemFolder system)
+        {
+            if (system.Emulators == null || !DefaultCores.TryGetValue(system.Name, out var wanted))
+                return null;
+
+            var copy = new XElement(system.Emulators);
+            var core = copy.Elements("emulator")
+                .Where(e => string.Equals(((string)e.Attribute("name"))?.Trim(), wanted.Emulator, StringComparison.Ordinal))
+                .SelectMany(e => e.Descendants("core"))
+                .FirstOrDefault(c => string.Equals(c.Value.Trim(), wanted.Core, StringComparison.Ordinal));
+            if (core == null)
+                return null;
+
+            foreach (var other in copy.Descendants("core"))
+                other.SetAttributeValue("default", null);
+            core.SetAttributeValue("default", "true");
+            return copy;
         }
 
         void ApplyOverlay(List<SystemFolder> systems, string romsRoot, bool isDefault, CommandWrapper wrapper, bool dryRun, ApplyResult result)

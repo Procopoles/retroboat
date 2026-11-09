@@ -751,3 +751,29 @@ o histórico.
   aberto, o Drive real (a primeira abertura cria `G:\Meu Drive\retroboat\biblioteca.xml`) e o controle.
 - **Como testar:** com uma conta só, abrir o Retroboat: a notificação diz "Biblioteca da nuvem: Meu Drive (G:)". No menu do ES,
   NUVEM: ligar BAIXAR VÍDEOS e sair. O `retroboat.ini` muda, e os vídeos chegam com o ES parado.
+
+## RB-022 — Emulador padrão do Retroboat por sistema (PS1: SwanStation)
+
+- **Onde:** só no app: `Library\IsolatedLibrary` (`DefaultCores` e `WithRetroboatDefault`). No RetroBat, só o overlay gerado
+  `es_systems_retroboat.cfg`, que passa a ter também o `<emulators>` dos sistemas com padrão nosso.
+- **Pedido (09/11/2026):** a BIOS de PS1 do usuário (`SCPH1001.BIN`, a SCPH-1001 original, md5 `924e392e...`) foi para o Drive,
+  mas o Crash Bandicoot não abria: o RetroBat usa o Beetle PSX HW como padrão do PS1, e ele só aceita `scph5501.bin` nos jogos
+  americanos (`Firmware is missing: scph5501.bin` no log do RetroArch). O usuário escolheu o SwanStation e pediu o mesmo
+  comportamento dos demais emuladores.
+- **Como funciona:**
+  - o overlay copia o `<emulators>` do próprio `es_systems.cfg` (o ES troca a lista inteira pela do overlay) e marca o core
+    escolhido com `default="true"`, tirando o `default` dos outros. A lista, a ordem e os atributos continuam os do RetroBat;
+  - é regerado a cada início, então acompanha as atualizações do RetroBat. Se o RetroBat tirar o core da lista, o sistema volta
+    ao padrão dele;
+  - igual aos outros emuladores: o RetroBat baixa o core no primeiro jogo (como fez com o PCSX2 e o Beetle) e o menu do ES
+    continua escolhendo outro por sistema ou por jogo, o que vale por cima do padrão;
+  - PS1: SwanStation (libretro). Aceita qualquer BIOS original de PS1 e roda no RetroArch, cujos saves (`.srm`) e
+    configurações já vão para a nuvem.
+- **Classificação:** C0 (só app). Risco de merge nenhum.
+- **Risco semântico:** baixo. Depende de o ES continuar trocando o `<emulators>` inteiro pelo do overlay
+  (`SystemData::loadAdditionnalConfig`) e lendo `default="true"` no core (`SystemData::getDefaultCore`), o que vale também
+  para o ES oficial.
+- **Testado em 09/11/2026:** 3 testes automáticos novos (278 no total), um deles com o `es_systems.cfg` do RetroBat; o overlay
+  gerado a partir do `es_systems.cfg` do build do usuário marca só o `swanstation` e mantém os outros 4 emuladores. Nem o
+  `es_settings.cfg` nem as configurações do ES no Drive fixam outro core para o PS1. Falta abrir um jogo de PS1 de verdade (o
+  RetroBat baixa o SwanStation nessa hora).

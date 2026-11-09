@@ -106,6 +106,9 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-004: "Atualizar listas de jogos" no menu do ES faz a mesma sincronização da abertura antes de reler as listas:
   um jogo posto no Drive com o ES aberto aparece sem reabrir o Retroboat, com capa e informações, e um jogo tirado do
   Drive sai. Funciona também com o ES oficial; no nosso, a tela mostra "Sincronizando com a nuvem..." enquanto isso.
+- RB-022: o PS1 abre no SwanStation por padrão, no lugar do Beetle PSX HW do RetroBat. Ele aceita qualquer BIOS original
+  de PS1 (a SCPH1001 inclusive), e o Beetle só aceita a scph5501.bin. Como os outros emuladores, o RetroBat baixa o
+  SwanStation no primeiro jogo, e o menu do ES ainda escolhe outro por sistema ou por jogo.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e
