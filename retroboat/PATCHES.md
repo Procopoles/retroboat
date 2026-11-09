@@ -697,7 +697,9 @@ o histórico.
   `retroboat-cli`.
 - **Classificação:** app C0. ES: C1, risco de merge baixo: 2 linhas (um `#include` e uma entrada) num arquivo de calor ALTA;
   toda a lógica nos nossos arquivos.
-- **Risco semântico:** baixo. Depende de `GuiMenu` continuar montando o menu principal com `addEntry` no construtor, do
+- **Risco semântico:** baixo. Depende de `GuiMenu` continuar montando o menu principal no `mMenu` dentro do construtor (a
+  nossa entrada monta a própria linha, como o `addEntry`, para usar o ícone de nuvem), da caixa de ícone do
+  `MenuComponent::addMenuIcon` (1,25 letra) para alinhar com as outras entradas, do
   `GuiSettings::addSaveFunc` rodar ao sair e de `Utils::Platform::quitES` fechar o ES devolvendo o controle ao `retrobat.exe`.
 - **Upstreamável:** não.
 - **Escritas no Drive:** só as da seção 9 do desenho: pastas (`CreateDirectory`) e o `biblioteca.xml` (temporário + mover que

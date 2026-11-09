@@ -127,7 +127,8 @@ PC para outro.
 ## 6. Menu NUVEM no nosso ES
 
 **Entrada.** "NUVEM" no menu principal, só no modo completo da interface, logo depois do item de configurações de jogos
-(`GAME SETTINGS` no código), com o ícone `iconNetwork`. Uma linha em `GuiMenu.cpp` com `// RETROBOAT RB-021`; a tela fica em
+(`GAME SETTINGS` no código), com o mesmo ícone de nuvem do cabeçalho e da lista de jogos (seção 13). Uma linha em
+`GuiMenu.cpp` com `// RETROBOAT RB-021`; a tela fica em
 `es-app/src/retroboat/RetroboatSettingsGui.cpp` e `.h` (nossos), com textos em português como literais.
 
 **Tela** (`GuiSettings`):
@@ -239,7 +240,7 @@ pilotado pela API da porta 1234) e depois com o usuário no Drive real.
 ## 13. Como ficou (09/11/2026)
 
 Commits no app: `cb52949` (passo 1), `13058d2` (passo 2), `f5029ef` (passo 3, CLI), `ebe6bb4` (passo 4). No fork do ES:
-`b20a2827c` (menu NUVEM). 269 testes.
+`b20a2827c` (menu NUVEM) e `70a76616d` (ícone de nuvem na entrada). 269 testes.
 
 Diferenças do desenho:
 
@@ -252,6 +253,10 @@ Diferenças do desenho:
 - **A pergunta do Drive vem antes do setup**, para o passo 1 já ver as contas.
 - **Pasta de jogos:** as opções mostram "Pasta atual · 120 GB livres · C:\...", com o caminho por último, e um caminho longo
   termina em reticências. No menu NUVEM, caminhos longos viram `C:\…\pasta\sub`.
+- **Ícone da entrada NUVEM:** o mesmo de nuvem do cabeçalho e da lista de jogos (U+F0C2 do FontAwesome), não o
+  `iconNetwork`, que é de rede. Os temas só dão ícones às entradas do próprio ES, então a nossa monta a linha: o glyph na
+  caixa dos ícones do tema (1,25 letra, quadrada), com a cor do texto e a de seleção. Num tema sem ícones no menu, a
+  entrada fica sem ícone, como as outras. Conferido no PlayStation-X e no Carbon.
 - **Leitura pelo ES:** o `settings get` leva 50 ms (250 ms quando conta os jogos no `G:`); a tela abre sem espera visível.
 - **Pedido de setup:** o `Retroboat.exe` em segundo plano olha a cada segundo se o ES fechou com `estado\pedido-setup`, abre
   outro `Retroboat.exe` com `--setup` e sai; o novo mostra o setup e reabre o RetroBat.
@@ -263,9 +268,11 @@ Testado numa cópia isolada:
 - **Menu NUVEM:** entrada no menu principal; estado, biblioteca e pasta; a chave de vídeos gravada pelo `settings set` ao
   sair da tela; confirmação de troca; pedido criado e ES fechado.
 
+No build do usuário (09/11/2026): o primeiro início adotou a biblioteca do `G:` sozinho (`biblioteca.xml` criado e
+`Library=` no `retroboat.ini`); manuais e "abrir o Drive" ligados no menu NUVEM chegaram ao `Retroboat.exe` em segundo
+plano, que buscou a mídia com o ES aberto.
+
 Ainda não testado:
 
-- o ciclo com o `Retroboat.exe` em segundo plano (ES fecha pelo menu, setup, RetroBat reaberto), que precisa do
-  `retrobat.exe` de verdade;
-- a busca de mídia depois de ligar uma opção com o ES aberto;
-- o Drive real e o controle.
+- o ciclo com o `Retroboat.exe` em segundo plano (ES fecha pelo menu, setup, RetroBat reaberto);
+- o controle.
