@@ -88,7 +88,7 @@ namespace Retroboat.Launch
         {
             // Sem perguntar pelo Drive: fechado, a verificação confere só a cópia local e diz isso.
             var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
-            var location = CloudLocator.Locate(settings.CloudPath);
+            var location = CloudLocator.Locate(settings);
             bool reachable = location != null && location.Exists;
             var cloudGame = reachable ? FindCloudGame(location, entry) : null;
 
@@ -166,7 +166,7 @@ namespace Retroboat.Launch
             if (CloudAppPrompt.Ensure(install, settings, need) == CloudAppAnswer.Declined)
                 return null;
 
-            var location = CloudLocator.Locate(settings.CloudPath);
+            var location = CloudLocator.Locate(settings);
             reachable = location != null && location.Exists;
             return reachable ? FindCloudGame(location, entry) : null;
         }

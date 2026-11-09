@@ -97,6 +97,12 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   console, sem criar pasta. Sistema novo do RetroBat ganha a pasta sozinho; nenhuma é apagada, nenhum arquivo é
   tocado. Só cria dentro de um `retroboat\jogos` que já existe, para nunca fazer uma segunda pasta vazia no Drive.
 
+- RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
+  reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e
+  em qualquer conta do Google Drive. Se ela não aparece, fica sem nuvem, em vez de usar a pasta `retroboat` de outra
+  conta. Com a pasta em uma conta só, o PC adota a biblioteca sozinho, sem perguntar. Com a pasta em duas contas ou em
+  nenhuma, nada é escrito e a escolha fica para o setup (passo 2).
+
 ### Nos forks (ainda não usados pelo build)
 
 - RB-011: build Windows do EmulationStation no fork `retroboat-emulationstation`, com o mesmo

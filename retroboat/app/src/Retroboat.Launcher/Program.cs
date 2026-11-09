@@ -116,7 +116,7 @@ namespace Retroboat.Launcher
         {
             try
             {
-                var cloud = CloudLocator.Locate(settings.CloudPath);
+                var cloud = CloudLocator.Locate(settings);
                 if (cloud == null || !cloud.Exists)
                 {
                     Log.Info("ES fechado sem o Google Drive: as configurações vão para a nuvem na próxima abertura do Retroboat.");
@@ -255,8 +255,51 @@ namespace Retroboat.Launcher
 
         internal static StartupSyncReport SyncWithCloud(RetroBatInstall install, RetroboatSettings settings)
         {
+            var adopted = ChooseLibrary(install, settings);
             var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
-            return StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media);
+            var report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media, libraryId: settings.CloudLibrary);
+            if (adopted != null)
+                report.Messages.Insert(0, adopted);
+
+            return report;
+        }
+
+        /// <summary>
+        /// RB-021: com uma biblioteca só no Drive, este PC passa a usá-la pelo id, sem perguntar. Nos outros casos nada é
+        /// escrito no Drive e a escolha fica para o setup. Falha aqui nunca impede de jogar.
+        /// </summary>
+        /// <returns>A frase para a notificação do ES quando adotou; senão null.</returns>
+        static string ChooseLibrary(RetroBatInstall install, RetroboatSettings settings)
+        {
+            try
+            {
+                var choice = LibraryChoice.ChooseAutomatically(settings);
+                switch (choice.Outcome)
+                {
+                    case LibraryChoiceOutcome.Adopted:
+                        settings.Save(RetroboatSettings.GetPath(install));
+                        Log.Info("Biblioteca da nuvem adotada: " + choice.Drive.RetroboatPath + " (id " + choice.Identity.Id +
+                                 ", criada por " + (choice.Identity.Pc ?? "?") + ")");
+                        return "Biblioteca da nuvem: " + choice.Drive.DisplayName;
+
+                    case LibraryChoiceOutcome.Several:
+                        Log.Warn("Pasta do Retroboat em mais de uma conta do Google Drive (" + string.Join(", ", choice.Candidates.Select(c => c.DisplayName)) +
+                                 "): nenhuma foi escolhida. Até o setup do RB-021, vale a primeira.");
+                        return null;
+
+                    case LibraryChoiceOutcome.Unidentified:
+                        Log.Warn("Biblioteca da nuvem não identificada: " + choice.Error);
+                        return null;
+
+                    default:
+                        return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Falha ao escolher a biblioteca da nuvem", ex);
+                return null;
+            }
         }
 
         internal static void LogReport(StartupSyncReport report)

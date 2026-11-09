@@ -10,6 +10,7 @@ using Retroboat.Config;
 using Retroboat.Integrity;
 using Retroboat.Library;
 using Retroboat.Saves;
+using Retroboat.Settings;
 using Retroboat.Text;
 using Retroboat.Themes;
 
@@ -129,14 +130,22 @@ Opções gerais:
                 ? "Google Drive para computador: nenhuma unidade encontrada."
                 : "Google Drive para computador: " + string.Join(", ", roots));
 
-            var location = CloudLocator.Locate(options.Value("--cloud"));
+            var location = LocateCloud(options);
             if (location == null)
             {
                 Console.WriteLine("Pasta do Retroboat na nuvem: não encontrada.");
                 return ExitError;
             }
 
+            if (location.LibraryMissing)
+            {
+                Console.WriteLine("Biblioteca " + location.LibraryId + ": não encontrada em nenhuma conta do Google Drive (conta desconectada ou o Drive ainda carregando).");
+                return ExitError;
+            }
+
             Console.WriteLine("Pasta do Retroboat: " + location.RetroboatPath + "  [" + location.Source + "]" + (location.Exists ? "" : "  (ainda não existe)"));
+            if (location.LibraryId != null)
+                Console.WriteLine("Biblioteca:         " + location.LibraryId);
             Console.WriteLine("Jogos:              " + location.GamesPath + (Directory.Exists(location.GamesPath) ? "" : "  (ainda não existe)"));
             return location.Exists ? ExitOk : ExitError;
         }
@@ -299,7 +308,7 @@ Opções gerais:
         static IEnumerable<SaveSync> OpenSaves(Options options)
         {
             var install = new RetroBatInstall(options.Required("--retrobat"));
-            var location = CloudLocator.Locate(options.Value("--cloud"));
+            var location = LocateCloud(options);
             if (location == null || !location.Exists)
                 throw new InvalidOperationException("Pasta do Retroboat na nuvem não encontrada. Use --cloud <pasta>.");
 
@@ -315,7 +324,7 @@ Opções gerais:
         static int ConfigCommand(Options options, ConfigSyncMode mode)
         {
             var install = new RetroBatInstall(options.Required("--retrobat"));
-            var location = CloudLocator.Locate(options.Value("--cloud"));
+            var location = LocateCloud(options);
             if (location == null || !location.Exists)
                 throw new InvalidOperationException("Pasta do Retroboat na nuvem não encontrada. Use --cloud <pasta>.");
 
@@ -542,7 +551,7 @@ Opções gerais:
 
         static int BiosSyncCommand(Options options, bool organizeOnly)
         {
-            var location = CloudLocator.Locate(options.Value("--cloud"));
+            var location = LocateCloud(options);
             if (location == null || !location.Exists)
                 throw new InvalidOperationException("Pasta do Retroboat na nuvem não encontrada. Use --cloud <pasta>.");
 
@@ -565,14 +574,31 @@ Opções gerais:
 
         static CloudLibrary OpenLibrary(Options options)
         {
-            var location = CloudLocator.Locate(options.Value("--cloud"));
+            var location = LocateCloud(options);
             if (location == null)
                 throw new InvalidOperationException("Google Drive para computador não encontrado. Instale e entre na sua conta, ou use --cloud <pasta>.");
 
-            if (!Directory.Exists(location.GamesPath))
+            if (location.LibraryMissing)
+                throw new InvalidOperationException("A biblioteca deste PC (" + location.LibraryId + ") não está em nenhuma conta do Google Drive montada agora.");
+
+            if (!location.Exists || !Directory.Exists(location.GamesPath))
                 throw new InvalidOperationException("Pasta de jogos não encontrada: " + location.GamesPath);
 
             return new CloudLibrary(location.GamesPath);
+        }
+
+        /// <summary>
+        /// --cloud manda. Sem ele, com --retrobat, vale a biblioteca escolhida naquele PC (RB-021); sem os dois, a detecção
+        /// do Google Drive.
+        /// </summary>
+        static CloudLocation LocateCloud(Options options)
+        {
+            var configured = options.Value("--cloud");
+            var retrobat = options.Value("--retrobat");
+            if (string.IsNullOrWhiteSpace(configured) && !string.IsNullOrWhiteSpace(retrobat))
+                return CloudLocator.Locate(RetroboatSettings.Load(RetroboatSettings.GetPath(new RetroBatInstall(retrobat))));
+
+            return CloudLocator.Locate(configured);
         }
 
         static List<CloudGame> SelectGames(CloudLibrary library, string target)

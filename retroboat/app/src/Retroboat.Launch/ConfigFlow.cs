@@ -57,7 +57,7 @@ namespace Retroboat.Launch
             try
             {
                 var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
-                var cloud = CloudLocator.Locate(settings.CloudPath);
+                var cloud = CloudLocator.Locate(settings);
                 return cloud != null && cloud.Exists ? cloud.RetroboatPath : null;
             }
             catch (Exception ex)

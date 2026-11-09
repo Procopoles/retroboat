@@ -89,7 +89,7 @@ namespace Retroboat.Downloads
                         ? installer.Install(entry, progress, token)
                         : new OnDemandResult(OnDemandOutcome.Failed, "Este jogo não está mais na nuvem (" + item.Key + ").");
                 },
-                () => CloudLocator.IsAvailable(settings.CloudPath));
+                () => CloudLocator.IsAvailable(settings));
         }
 
         /// <summary>Tira da fila o que não está mais pendente: só um marcador vazio ainda precisa de download.</summary>

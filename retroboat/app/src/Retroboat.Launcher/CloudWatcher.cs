@@ -81,7 +81,7 @@ namespace Retroboat.Launcher
                     if (!EsApi.IsIdle())
                         continue;
 
-                    bool connected = CloudLocator.IsAvailable(settings.CloudPath);
+                    bool connected = CloudLocator.IsAvailable(settings);
                     if (connected == shown)
                     {
                         changingTo = null;

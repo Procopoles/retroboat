@@ -77,7 +77,7 @@ namespace Retroboat.Cloud
 
         public OnDemandResult Install(CloudIndexEntry entry, IProgress<TransferProgress> progress, CancellationToken cancellationToken)
         {
-            var location = CloudLocator.Locate(_settings.CloudPath);
+            var location = CloudLocator.Locate(_settings);
             if (location == null || !location.Exists)
                 return new OnDemandResult(OnDemandOutcome.CloudUnavailable, "O Google Drive para computador não está disponível.");
 
@@ -120,7 +120,7 @@ namespace Retroboat.Cloud
                         return MarkCorrupt(entry, "o conteúdo do ZIP no Drive não confere (CRC)");
 
                     // O Drive caiu no meio da cópia: não é defeito do jogo.
-                    if (!CloudLocator.IsAvailable(_settings.CloudPath))
+                    if (!CloudLocator.IsAvailable(_settings))
                         return new OnDemandResult(OnDemandOutcome.CloudUnavailable, "O Google Drive desconectou durante o download.");
 
                     return new OnDemandResult(OnDemandOutcome.Failed, "Não foi possível baixar o jogo: " + result.Error + ".");

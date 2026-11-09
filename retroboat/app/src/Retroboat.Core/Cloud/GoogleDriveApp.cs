@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Retroboat.Logging;
+using Retroboat.Settings;
 
 namespace Retroboat.Cloud
 {
@@ -34,21 +35,26 @@ namespace Retroboat.Cloud
         // O argumento que o próprio Drive grava na inicialização do Windows: abre na bandeja, sem janela.
         const string StartInTray = "--startup_mode";
 
-        public static CloudAppState GetState(string configuredCloudPath)
+        public static CloudAppState GetState(RetroboatSettings settings)
         {
-            return GetState(configuredCloudPath, FindExecutable(), IsRunning());
+            return GetState(settings?.CloudPath, settings?.CloudLibrary, FindExecutable(), IsRunning());
         }
 
         public static CloudAppState GetState(string configuredCloudPath, string executable, bool running)
         {
-            var cloud = CloudLocator.Locate(configuredCloudPath);
+            return GetState(configuredCloudPath, null, executable, running);
+        }
+
+        public static CloudAppState GetState(string configuredCloudPath, string libraryId, string executable, bool running)
+        {
+            var cloud = CloudLocator.Locate(configuredCloudPath, libraryId);
             if (cloud != null && cloud.Exists)
                 return CloudAppState.Open;
 
             if (string.IsNullOrWhiteSpace(configuredCloudPath))
             {
                 if (cloud != null)
-                    return CloudAppState.Open; // Drive aberto, ainda sem a pasta "retroboat".
+                    return CloudAppState.Open; // Drive aberto, sem a pasta "retroboat" ou sem a biblioteca deste PC.
             }
             else if (Directory.Exists(Path.GetPathRoot(cloud.RetroboatPath)))
             {

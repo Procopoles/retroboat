@@ -187,7 +187,8 @@ Esta é a lista completa. Qualquer outra escrita no Drive fica fora do RB-021.
 | O quê | Quando | Como |
 |---|---|---|
 | `retroboat`, `jogos` e as pastas de console | Só em "Criar uma biblioteca nova", confirmado e depois da nova busca | `CreateDirectory` |
-| `biblioteca.xml` | Ao criar ou adotar uma biblioteca | `FileMode.CreateNew`; nunca reescrito |
+| `biblioteca.xml` | Ao criar ou adotar uma biblioteca | Temporário `.biblioteca-<guid>.tmp` (`FileMode.CreateNew`) movido para o nome final; o mover falha se ele já existe. Nunca reescrito |
+| Apagar o próprio `.biblioteca-<guid>.tmp` | Só quando o mover falhou porque outro PC criou o `biblioteca.xml` no mesmo instante | `File.Delete` do temporário que acabou de criar |
 | `jogos` e pastas de console que faltam | A cada início, numa biblioteca identificada | `CreateDirectory`, só o que falta |
 
 **Prova antes de cada commit:**
@@ -215,7 +216,12 @@ Cada passo vira um commit próprio, testado numa cópia isolada do RetroBat (o E
 pilotado pela API da porta 1234) e depois com o usuário no Drive real.
 
 1. **Identidade da biblioteca**, `Locate` com o id e adoção sozinha. Resolve o risco da conta errada sem nenhuma tela
-   nova.
+   nova. **Feito em 09/11/2026** (`LibraryIdentity`, `LibraryChoice`, `CloudLocator.Locate(settings)`), com 10 testes
+   novos, entre eles o de armadilhas com hash. A identidade nova é gravada num arquivo temporário oculto
+   (`.biblioteca-<guid>.tmp`) e ganha o nome final com um mover que falha se o nome já existe. Se outro PC criou no mesmo
+   instante, o temporário é apagado e vale o que está lá. É o único arquivo que o Retroboat apaga no Drive, e só o
+   temporário que ele mesmo acabou de criar. Falta o teste no `G:` real: a primeira abertura cria
+   `G:\Meu Drive\retroboat\biblioteca.xml` e nada mais.
 2. **Setup no `Retroboat.exe`** (passos 1 a 3), no lugar do `LibraryFolderForm`.
 3. **`retroboat-cli settings` e menu NUVEM** no nosso ES.
 4. **Mudança ao vivo** (6.1) e **pedido de setup** pelo ES (6.2).

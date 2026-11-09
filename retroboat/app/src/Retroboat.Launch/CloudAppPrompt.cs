@@ -52,7 +52,7 @@ namespace Retroboat.Launch
 
         public static CloudAppAnswer Ensure(RetroBatInstall install, RetroboatSettings settings, CloudNeed need)
         {
-            switch (GoogleDriveApp.GetState(settings.CloudPath))
+            switch (GoogleDriveApp.GetState(settings))
             {
                 case CloudAppState.Open:
                     return CloudAppAnswer.Available;
@@ -167,7 +167,7 @@ namespace Retroboat.Launch
                 return CloudAppAnswer.Unavailable;
 
             // O ícone do tema acompanha, mesmo que a pasta "retroboat" ainda não exista no Drive.
-            CloudStatusFile.Write(install, CloudLocator.IsAvailable(settings.CloudPath));
+            CloudStatusFile.Write(install, CloudLocator.IsAvailable(settings));
             return CloudAppAnswer.Available;
         }
 
@@ -188,7 +188,7 @@ namespace Retroboat.Launch
                     {
                         try
                         {
-                            if (GoogleDriveApp.GetState(settings.CloudPath) == CloudAppState.Open)
+                            if (GoogleDriveApp.GetState(settings) == CloudAppState.Open)
                             {
                                 _isOpen = true;
                                 return;

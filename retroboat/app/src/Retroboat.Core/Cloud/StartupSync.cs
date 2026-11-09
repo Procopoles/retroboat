@@ -41,9 +41,9 @@ namespace Retroboat.Cloud
     public static class StartupSync
     {
         public static StartupSyncReport Run(RetroBatInstall install, string configuredCloudPath, string romsPath, CloudMediaOptions mediaOptions = null,
-                                            IThumbnailSource thumbnails = null, IReadOnlyList<IGameInfoSource> infoSources = null)
+                                            IThumbnailSource thumbnails = null, IReadOnlyList<IGameInfoSource> infoSources = null, string libraryId = null)
         {
-            var report = new StartupSyncReport { Cloud = CloudLocator.Locate(configuredCloudPath) };
+            var report = new StartupSyncReport { Cloud = CloudLocator.Locate(configuredCloudPath, libraryId) };
             var localBios = Path.Combine(install.Root, "bios");
 
             // Pastas do Drive no formato do RetroBat (jogos\psx, jogos\n64...): a pessoa só solta o jogo na pasta do
@@ -66,9 +66,12 @@ namespace Retroboat.Cloud
 
             if (report.Cloud == null || !report.Cloud.Exists)
             {
-                report.Messages.Add(GoogleDriveApp.GetState(configuredCloudPath) == CloudAppState.Closed
-                    ? "Nuvem: Google Drive fechado. Usando só o que está neste PC."
-                    : "Nuvem: Google Drive para computador não encontrado. Usando só o que está neste PC.");
+                if (report.Cloud != null && report.Cloud.LibraryMissing)
+                    report.Messages.Add("Nuvem: Google Drive aberto, mas sem a biblioteca deste PC (conta desconectada ou o Drive ainda carregando). Usando só o que está neste PC.");
+                else
+                    report.Messages.Add(GoogleDriveApp.GetState(configuredCloudPath, libraryId, GoogleDriveApp.FindExecutable(), GoogleDriveApp.IsRunning()) == CloudAppState.Closed
+                        ? "Nuvem: Google Drive fechado. Usando só o que está neste PC."
+                        : "Nuvem: Google Drive para computador não encontrado. Usando só o que está neste PC.");
                 report.HasWarnings = true;
 
                 // Os jogos da nuvem continuam no ES; os gamelists acompanham o índice deste PC.
@@ -289,7 +292,7 @@ namespace Retroboat.Cloud
         {
             var systems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-            if (cloud != null && Directory.Exists(cloud.GamesPath))
+            if (cloud != null && cloud.Exists && Directory.Exists(cloud.GamesPath))
             {
                 foreach (var game in new CloudLibrary(cloud.GamesPath).GetGames())
                     systems.Add(game.System);

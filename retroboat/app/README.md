@@ -80,9 +80,17 @@ recarrega o ES; quando desconecta, recarrega o ES com o X na nuvem. Com jogo abe
 No Drive, `retroboat\jogos` tem as mesmas pastas de console do `roms` do RetroBat (`psx`, `n64`, `gc`,
 `gameandwatch`...), uma por sistema do `es_systems.cfg`: para pôr um jogo na nuvem, basta soltá-lo na pasta do
 console. O lançador cria as que faltam a cada início (um sistema novo do RetroBat ganha a pasta sozinho) e nunca
-apaga nenhuma. Ele só cria dentro de um `retroboat\jogos` que já existe: a pasta `retroboat` ou `jogos` faltando
-pode ser o Drive ainda carregando ou outra conta montada primeiro, e criar ali faria uma segunda pasta vazia no
-Drive.
+apaga nenhuma. Ele nunca cria a pasta `retroboat`: uma pasta que não aparece pode ser o Drive ainda carregando ou
+outra conta montada primeiro, e criar ali faria uma segunda pasta vazia no Drive.
+
+**Biblioteca da nuvem (RB-021).** A pasta `retroboat` tem uma identidade, `retroboat\biblioteca.xml`, criada uma vez e
+nunca reescrita, e o PC guarda o id em `[Cloud] Library`. Com o id, o lançador, o `retroboat-launch` e o `retroboat-cli
+--retrobat` só usam a pasta que tem esse id, em qualquer letra e em qualquer conta. Se ela não aparece, ficam sem
+nuvem, como com o Drive fechado, e nunca usam a pasta `retroboat` de outra conta. Sem id escolhido e com a pasta
+`retroboat` em exatamente uma conta, o lançador adota essa biblioteca sozinho: lê o `biblioteca.xml` ou cria um (só
+esse arquivo; nada mais muda no Drive). Com a pasta em duas contas ou em nenhuma, não escreve nada e a escolha fica
+para o setup (desenho em `design/rb021-setup-e-configuracoes.md`). Numa biblioteca identificada, a pasta `jogos` também
+é criada se faltar.
 
 Antes de abrir o RetroBat, o lançador também sincroniza com a nuvem: BIOS, os logins do ES
 (ScreenScraper, IGDB e RetroAchievements, em `retroboat\contas`; um PC sem login recebe o da
@@ -95,6 +103,8 @@ só os campos vazios. Imagens sempre vêm; vídeos e manuais são opcionais:
 [Cloud]
 ; Vazio = detectar o Google Drive para computador.
 Path=
+; Id da biblioteca da nuvem deste PC (retroboat\biblioteca.xml). Vazio = escolher na próxima abertura.
+Library=
 ; 1 = baixar também os vídeos dos jogos.
 Videos=0
 ; 1 = baixar também manuais e revistas (PDF).

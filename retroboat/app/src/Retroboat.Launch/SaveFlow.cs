@@ -54,7 +54,7 @@ namespace Retroboat.Launch
                 if (rules.Any(r => r.AlwaysAskForCloud || SaveSync.HasSyncedItems(install.RetroboatDataPath, r)))
                     CloudAppPrompt.Ensure(install, settings, CloudNeed.Saves);
 
-                var cloud = CloudLocator.Locate(settings.CloudPath);
+                var cloud = CloudLocator.Locate(settings);
                 if (cloud == null || !cloud.Exists)
                 {
                     Log.Warn("Google Drive indisponível: o jogo abre com os saves deste PC, que vão para a nuvem na próxima vez que o Retroboat abrir com o Drive.");
