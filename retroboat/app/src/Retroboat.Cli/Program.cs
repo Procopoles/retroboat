@@ -61,6 +61,11 @@ Status do Retroboat nos temas (Carbon e PlayStation-X; volta depois de reinstala
   retroboat-cli themes status --retrobat <pasta do RetroBat>
   retroboat-cli themes apply --retrobat <pasta do RetroBat>
 
+Configurações deste PC (o menu NUVEM do ES usa estes comandos; RB-021):
+  retroboat-cli settings get --retrobat <pasta do RetroBat>
+  retroboat-cli settings set Videos|Manuals|Automatic|AutoOpen 0|1 --retrobat <pasta do RetroBat>
+  retroboat-cli settings request-setup --retrobat <pasta do RetroBat>   (o setup abre quando o ES fechar)
+
 Opções gerais:
   --cloud <pasta>   usa esta pasta como a pasta do Retroboat na nuvem, em vez de detectar o Google Drive";
 
@@ -98,6 +103,9 @@ Opções gerais:
                     case "saves restore": return SavesRestore(options);
                     case "config status": return ConfigCommand(options, ConfigSyncMode.DryRun);
                     case "config sync": return ConfigCommand(options, ConfigSyncMode.Full);
+                    case "settings get": return SettingsGet(options);
+                    case "settings set": return SettingsSet(options);
+                    case "settings request-setup": return SettingsRequestSetup(options);
                     case "saves lock": return SavesLock(options, locked: true);
                     case "saves unlock": return SavesLock(options, locked: false);
                     default:
@@ -570,6 +578,43 @@ Opções gerais:
                 Console.WriteLine(result.Unchanged + " arquivo(s) já em dia.");
 
             return result.Errors.Count > 0 ? ExitError : result.SkippedCorrupt.Count > 0 ? ExitCorrupt : ExitOk;
+        }
+
+        /// <summary>Uma linha "Chave=valor" por item, em UTF-8, para o menu NUVEM do ES.</summary>
+        static int SettingsGet(Options options)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
+            foreach (var line in SettingsSummary.Describe(settings))
+                Console.WriteLine(line.Key + "=" + line.Value);
+
+            return ExitOk;
+        }
+
+        static int SettingsSet(Options options)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            var key = options.Positional(2);
+            var value = options.Positional(3);
+            if (key == null || value == null)
+                throw new UsageException("Uso: retroboat-cli settings set <chave> <0|1> --retrobat <pasta do RetroBat>");
+
+            var path = RetroboatSettings.GetPath(install);
+            var settings = RetroboatSettings.Load(path);
+            if (!SettingsSummary.TrySet(settings, key, value, out var error))
+                throw new UsageException(error);
+
+            settings.Save(path);
+            Console.WriteLine(key + "=" + value);
+            return ExitOk;
+        }
+
+        static int SettingsRequestSetup(Options options)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            SetupRequest.Create(install);
+            Console.WriteLine("Setup pedido: abre quando o ES fechar.");
+            return ExitOk;
         }
 
         static CloudLibrary OpenLibrary(Options options)
