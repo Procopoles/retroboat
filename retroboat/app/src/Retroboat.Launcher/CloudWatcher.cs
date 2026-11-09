@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using Retroboat.Cloud;
@@ -63,10 +64,18 @@ namespace Retroboat.Launcher
             bool shown = CloudStatusFile.IsConnected(install);
             bool? changingTo = null;
             int withoutEs = 0;
+            var settingsPath = RetroboatSettings.GetPath(install);
+            var settingsStamp = Stamp(settingsPath);
+            bool mediaPending = false;
 
             while (withoutEs < ChecksWithoutEs)
             {
-                Thread.Sleep(CheckEvery);
+                // O menu NUVEM pediu o setup e fechou o ES (RB-021): segue na hora, sem esperar as voltas sem ES.
+                if (WaitOrSetupRequested(install))
+                {
+                    Log.Info("ES fechado com o setup pedido pelo menu NUVEM.");
+                    return;
+                }
 
                 if (!IsEsProcessRunning())
                 {
@@ -78,8 +87,22 @@ namespace Retroboat.Launcher
 
                 try
                 {
+                    // Opção mudada no menu NUVEM (retroboat-cli settings set): vale já, sem reabrir.
+                    var stamp = Stamp(settingsPath);
+                    if (stamp != settingsStamp)
+                    {
+                        settingsStamp = stamp;
+                        mediaPending |= Reload(settings, RetroboatSettings.Load(settingsPath));
+                    }
+
                     if (!EsApi.IsIdle())
                         continue;
+
+                    if (mediaPending)
+                    {
+                        mediaPending = false;
+                        OnMediaOptionsTurnedOn(install, settings);
+                    }
 
                     bool connected = CloudLocator.IsAvailable(settings);
                     if (connected == shown)
@@ -123,6 +146,62 @@ namespace Retroboat.Launcher
             EsApi.ReloadGames();
             Thread.Sleep(AfterReload);
             EsApi.Notify(string.Join("\n", new[] { "Google Drive conectado." }.Concat(report.Messages)));
+        }
+
+        /// <summary>Vídeos, manuais ou capas automáticas ligados no menu NUVEM: traz o que faltava, com o ES parado.</summary>
+        static void OnMediaOptionsTurnedOn(RetroBatInstall install, RetroboatSettings settings)
+        {
+            if (!CloudLocator.IsAvailable(settings))
+            {
+                Log.Info("Opção de mídia ligada no menu NUVEM sem o Google Drive: vale quando ele conectar.");
+                return;
+            }
+
+            Log.Info("Opção de mídia ligada no menu NUVEM: buscando vídeos, manuais ou capas.");
+            var report = Program.SyncWithCloud(install, settings);
+            Program.LogReport(report);
+
+            int filled = (report.Media?.GamesFilled ?? 0) + (report.AutoMedia?.GamesFilled ?? 0) + (report.AutoInfo?.GamesFilled ?? 0);
+            if (filled == 0)
+                return;
+
+            // Recarregar o ES tira a pessoa do lugar; só quando há algo novo para mostrar.
+            EsApi.ReloadGames();
+            Thread.Sleep(AfterReload);
+            EsApi.Notify("Mídia da nuvem: " + filled + " jogo(s) com novidades.");
+        }
+
+        /// <summary>
+        /// Leva para <paramref name="current"/> o que mudou no retroboat.ini (o objeto é o mesmo do Retroboat.exe inteiro).
+        /// </summary>
+        /// <returns>true se vídeos, manuais ou capas automáticas acabaram de ser ligados.</returns>
+        static bool Reload(RetroboatSettings current, RetroboatSettings loaded)
+        {
+            if (loaded.CloudVideos != current.CloudVideos || loaded.CloudManuals != current.CloudManuals ||
+                loaded.AutoMedia != current.AutoMedia || loaded.CloudAppAutoOpen != current.CloudAppAutoOpen)
+                Log.Info("retroboat.ini mudou: vídeos " + loaded.CloudVideos + ", manuais " + loaded.CloudManuals + ", capas automáticas " +
+                         loaded.AutoMedia + ", abrir o Drive " + loaded.CloudAppAutoOpen);
+
+            return current.TakeMainOptionsFrom(loaded);
+        }
+
+        /// <summary>Espera a próxima volta, olhando a cada segundo se o ES fechou com o setup pedido.</summary>
+        static bool WaitOrSetupRequested(RetroBatInstall install)
+        {
+            for (int waited = 0; waited < CheckEvery.TotalMilliseconds; waited += 1000)
+            {
+                Thread.Sleep(1000);
+                if (SetupRequest.Exists(install) && !IsEsProcessRunning())
+                    return true;
+            }
+
+            return false;
+        }
+
+        static long Stamp(string path)
+        {
+            try { return File.Exists(path) ? File.GetLastWriteTimeUtc(path).Ticks : 0; }
+            catch (IOException) { return 0; }
         }
 
         static void OnDisconnected(RetroBatInstall install)

@@ -47,6 +47,21 @@ namespace Retroboat.Settings
 
         public static string GetPath(RetroBatInstall install) => Path.Combine(install.RetroboatDataPath, FileName);
 
+        /// <summary>
+        /// RB-021: traz as quatro opções principais de <paramref name="loaded"/> (o retroboat.ini que o menu NUVEM acabou de
+        /// mudar). Biblioteca e pasta de jogos não mudam assim: só pelo setup.
+        /// </summary>
+        /// <returns>true se vídeos, manuais ou capas automáticas acabaram de ser ligados (há o que buscar).</returns>
+        public bool TakeMainOptionsFrom(RetroboatSettings loaded)
+        {
+            bool turnedOn = (loaded.CloudVideos && !CloudVideos) || (loaded.CloudManuals && !CloudManuals) || (loaded.AutoMedia && !AutoMedia);
+            CloudVideos = loaded.CloudVideos;
+            CloudManuals = loaded.CloudManuals;
+            AutoMedia = loaded.AutoMedia;
+            CloudAppAutoOpen = loaded.CloudAppAutoOpen;
+            return turnedOn;
+        }
+
         public static RetroboatSettings Load(string path)
         {
             var ini = ReadIni(path);

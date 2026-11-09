@@ -63,7 +63,9 @@ namespace Retroboat.Launcher
 
             // RB-021: uma biblioteca só é adotada sem perguntar; duas, ou o Drive aberto sem nenhuma, abrem o setup.
             var choice = ChooseLibrary(install, settings, out var adopted);
-            var scope = LibrarySetup.Decide(settings, own.Setup, choice?.Outcome ?? LibraryChoiceOutcome.NoDrive);
+            // Pedido do menu NUVEM que ficou para esta abertura (o RetroBat foi aberto sem o Retroboat.exe em segundo plano).
+            bool requested = TakeSetupRequest(install);
+            var scope = LibrarySetup.Decide(settings, own.Setup || requested, choice?.Outcome ?? LibraryChoiceOutcome.NoDrive);
             if (scope == SetupScope.LibraryOnly && own.NoLaunch)
                 scope = SetupScope.None; // --no-launch não pergunta nada.
 
@@ -103,10 +105,44 @@ namespace Retroboat.Launcher
                     NotifyEs(sync);
 
                 if (CloudWatcher.Run(install, settings))
+                {
                     SyncConfigsAfterEs(install, settings);
+
+                    // O menu NUVEM pediu o setup e fechou o ES: abre o Retroboat de novo, com o setup, e ele reabre o RetroBat.
+                    if (TakeSetupRequest(install))
+                        RestartWithSetup(args);
+                }
             }
 
             return exitCode;
+        }
+
+        static bool TakeSetupRequest(RetroBatInstall install)
+        {
+            try
+            {
+                return SetupRequest.Take(install);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Log.Warn("Não foi possível ler o pedido de setup: " + ex.Message);
+                return false;
+            }
+        }
+
+        static void RestartWithSetup(string[] args)
+        {
+            var arguments = args.Where(a => !string.Equals(a, "--setup", StringComparison.OrdinalIgnoreCase)).Select(Quote).ToList();
+            arguments.Insert(0, "--setup");
+            try
+            {
+                Process.Start(new ProcessStartInfo(Application.ExecutablePath, string.Join(" ", arguments)) { UseShellExecute = false });
+                Log.Info("Setup pedido pelo menu NUVEM: Retroboat aberto de novo com --setup.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Falha ao abrir o Retroboat de novo para o setup", ex);
+            }
         }
 
         /// <summary>

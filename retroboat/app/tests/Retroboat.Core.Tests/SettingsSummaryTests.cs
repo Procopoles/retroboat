@@ -62,6 +62,22 @@ namespace Retroboat.Tests
         }
 
         [Fact]
+        public void Changes_from_the_menu_are_taken_live_and_turning_media_on_asks_for_a_fetch()
+        {
+            var running = new RetroboatSettings { CloudLibrary = Id, RomsPath = @"D:\Jogos", AutoMedia = true };
+
+            Assert.True(running.TakeMainOptionsFrom(new RetroboatSettings { CloudVideos = true, AutoMedia = true, CloudLibrary = "outra", RomsPath = @"E:\" }));
+            Assert.True(running.CloudVideos);
+            Assert.Equal(Id, running.CloudLibrary);
+            Assert.Equal(@"D:\Jogos", running.RomsPath);
+
+            // Desligar, ou mudar só o "abrir o Drive", não tem o que buscar.
+            Assert.False(running.TakeMainOptionsFrom(new RetroboatSettings { CloudVideos = false, AutoMedia = false, CloudAppAutoOpen = true }));
+            Assert.False(running.CloudVideos);
+            Assert.True(running.CloudAppAutoOpen);
+        }
+
+        [Fact]
         public void Setup_request_is_taken_once()
         {
             using (var dir = new TempDir())
