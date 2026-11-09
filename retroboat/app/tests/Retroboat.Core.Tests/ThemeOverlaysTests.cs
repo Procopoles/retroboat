@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Xml.Linq;
+using Retroboat.Es;
 using Retroboat.Library;
 using Retroboat.Themes;
 using Xunit;
@@ -188,6 +189,29 @@ namespace Retroboat.Tests
                 Assert.True(ThemeOverlays.Apply(install, install.RetroboatDataPath).HookWritten);
                 Assert.Contains(@"""%~dp0..\..\..\..\retroboat\retroboat-cli.exe"" themes apply --retrobat ""%~dp0..\..\..\..""", File.ReadAllText(hook));
                 Assert.False(ThemeOverlays.Apply(install, install.RetroboatDataPath).HookWritten);
+            }
+        }
+
+        [Fact]
+        public void Updating_the_gamelists_in_the_es_syncs_with_the_cloud_first()
+        {
+            using (var retrobat = new TempDir())
+            {
+                var install = new RetroBatInstall(retrobat.Path);
+                var script = Path.Combine(install.UserEmulationStationPath, "scripts", EsScripts.UpdateGamelistsEvent, EsScripts.UpdateGamelistsFile);
+
+                Assert.False(EsScripts.WriteUpdateGamelists(install, install.RetroboatDataPath));
+                Assert.False(File.Exists(script));
+
+                retrobat.WriteFile(@"retroboat\Retroboat.exe", new byte[] { 1 });
+                Assert.True(EsScripts.WriteUpdateGamelists(install, install.RetroboatDataPath));
+                Assert.Contains(@"""%~dp0..\..\..\..\retroboat\Retroboat.exe"" --refresh --retrobat ""%~dp0..\..\..\..""", File.ReadAllText(script));
+                Assert.False(EsScripts.WriteUpdateGamelists(install, install.RetroboatDataPath));
+
+                // Ao lado do retrobat.exe também vale; o caminho continua relativo ao script.
+                retrobat.WriteFile("Retroboat.exe", new byte[] { 1 });
+                Assert.True(EsScripts.WriteUpdateGamelists(install, install.Root));
+                Assert.Contains(@"""%~dp0..\..\..\..\Retroboat.exe"" --refresh", File.ReadAllText(script));
             }
         }
 

@@ -23,8 +23,9 @@ namespace Retroboat.Launcher
     /// acompanhando o Drive enquanto o ES estiver aberto (CloudWatcher). Se algo der errado na preparação, o
     /// RetroBat abre mesmo assim com a configuração anterior: o lançador nunca impede de jogar.
     ///
-    /// Argumentos próprios: --retrobat &lt;pasta&gt;, --setup (abrir o setup do RB-021: biblioteca, pasta de jogos e opções) e
-    /// --no-launch (só preparar). Os demais são repassados ao retrobat.exe.
+    /// Argumentos próprios: --retrobat &lt;pasta&gt;, --setup (abrir o setup do RB-021: biblioteca, pasta de jogos e opções),
+    /// --no-launch (só preparar) e --refresh (só sincronizar, sem janela: o "Atualizar listas de jogos" do ES). Os demais
+    /// são repassados ao retrobat.exe.
     /// </summary>
     static class Program
     {
@@ -55,6 +56,9 @@ namespace Retroboat.Launcher
             var settingsPath = RetroboatSettings.GetPath(install);
             var settings = RetroboatSettings.Load(settingsPath);
 
+            if (own.Refresh)
+                return Refresh(install, settings);
+
             bool firstRun = string.IsNullOrEmpty(settings.RomsPath);
 
             // O Drive primeiro: o setup precisa ver as bibliotecas das contas.
@@ -82,6 +86,7 @@ namespace Retroboat.Launcher
                 return 0;
 
             ApplyThemeOverlays(install);
+            WriteUpdateGamelistsScript(install);
             TurnOffEsBiosCheck(install, settings, settingsPath);
 
             var sync = RunStartupSync(install, settings, adopted);
@@ -232,6 +237,23 @@ namespace Retroboat.Launcher
         }
 
         /// <summary>
+        /// O script que faz o "Atualizar listas de jogos" do ES sincronizar com a nuvem antes de reler as listas
+        /// (Retroboat.exe --refresh). Leva milissegundos; falha aqui nunca impede de jogar.
+        /// </summary>
+        static void WriteUpdateGamelistsScript(RetroBatInstall install)
+        {
+            try
+            {
+                if (EsScripts.WriteUpdateGamelists(install, AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/')))
+                    Log.Info("Script " + EsScripts.UpdateGamelistsEvent + " do ES gravado: \"Atualizar listas de jogos\" sincroniza com a nuvem.");
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Log.Warn("Não foi possível gravar o script " + EsScripts.UpdateGamelistsEvent + " do ES: " + ex.Message);
+            }
+        }
+
+        /// <summary>
         /// Desliga, uma vez, o aviso de BIOS do ES, que acusa falta com uma BIOS válida. Com o ES aberto fica
         /// para o próximo início, porque ele regrava o es_settings.cfg ao sair. Falha aqui nunca impede de jogar.
         /// </summary>
@@ -290,16 +312,82 @@ namespace Retroboat.Launcher
             return report;
         }
 
+        /// <summary>
+        /// "Atualizar listas de jogos" do ES (script do evento update-gamelists, ver <see cref="EsScripts"/>): a mesma
+        /// sincronização da abertura, sem janela por cima do ES, que espera este processo antes de reler as listas. Jogos
+        /// que chegaram ao Drive com o ES aberto ganham o marcador e aparecem na releitura. Falha aqui só vai para o log:
+        /// o ES relê as listas do mesmo jeito.
+        /// </summary>
+        static int Refresh(RetroBatInstall install, RetroboatSettings settings)
+        {
+            if (string.IsNullOrEmpty(settings.RomsPath))
+            {
+                Log.Info("Atualizar listas de jogos: sem pasta de jogos configurada, nada a sincronizar.");
+                return 0;
+            }
+
+            try
+            {
+                Log.Info("Atualizar listas de jogos no ES: sincronizando com a nuvem.");
+
+                // Um sistema novo na nuvem precisa do retroboat-launch antes de o ES reler os sistemas.
+                ApplyLibrary(install, settings.RomsPath, CreateCommandWrapper(install, settings));
+
+                var report = SyncWithCloud(install, settings);
+                LogReport(report);
+
+                // O ES está parado esperando o script: a notificação aparece quando ele terminar de reler as listas.
+                if (!EsApi.Notify(string.Join("\n", report.Messages)))
+                    Log.Warn("Não foi possível mostrar a notificação no ES.");
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Falha ao sincronizar pelo Atualizar listas de jogos do ES", ex);
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Abertura, CloudWatcher e o "Atualizar listas de jogos" do ES (outro processo) podem querer sincronizar ao mesmo
+        /// tempo: um de cada vez, senão dois mexem nos mesmos memory cards, configurações do Drive, índice e gamelists.
+        /// </summary>
+        const string SyncMutexName = @"Local\RetroboatSync";
+        static readonly TimeSpan SyncWait = TimeSpan.FromMinutes(2);
+
         internal static StartupSyncReport SyncWithCloud(RetroBatInstall install, RetroboatSettings settings, string leadingMessage = null)
         {
-            // Com o Drive conectando com o ES aberto (CloudWatcher), a biblioteca pode ser adotada só agora.
-            ChooseLibrary(install, settings, out var adopted);
-            var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
-            var report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media, libraryId: settings.CloudLibrary);
-            foreach (var message in new[] { adopted, leadingMessage }.Where(m => m != null))
-                report.Messages.Insert(0, message);
+            using (var mutex = new Mutex(false, SyncMutexName))
+            {
+                bool acquired;
+                try
+                {
+                    acquired = mutex.WaitOne(SyncWait);
+                }
+                catch (AbandonedMutexException)
+                {
+                    acquired = true; // Quem sincronizava foi encerrado à força; a vez é desta.
+                }
 
-            return report;
+                if (!acquired)
+                    throw new TimeoutException("outra sincronização com a nuvem não terminou em " + SyncWait.TotalMinutes + " minutos");
+
+                try
+                {
+                    // Com o Drive conectando com o ES aberto (CloudWatcher), a biblioteca pode ser adotada só agora.
+                    ChooseLibrary(install, settings, out var adopted);
+                    var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
+                    var report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media, libraryId: settings.CloudLibrary);
+                    foreach (var message in new[] { adopted, leadingMessage }.Where(m => m != null))
+                        report.Messages.Insert(0, message);
+
+                    return report;
+                }
+                finally
+                {
+                    mutex.ReleaseMutex();
+                }
+            }
         }
 
         /// <summary>
@@ -543,6 +631,7 @@ namespace Retroboat.Launcher
                 {
                     case "--setup": own.Setup = true; break;
                     case "--no-launch": own.NoLaunch = true; break;
+                    case "--refresh": own.Refresh = true; break;
                     case "--retrobat" when i + 1 < args.Length: own.RetroBatPath = args[++i]; break;
                     default: passThrough.Add(args[i]); break;
                 }
@@ -555,6 +644,7 @@ namespace Retroboat.Launcher
         {
             public bool Setup;
             public bool NoLaunch;
+            public bool Refresh;
             public string RetroBatPath;
         }
     }

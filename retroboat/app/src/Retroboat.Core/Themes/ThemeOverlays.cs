@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Retroboat.Es;
 using Retroboat.Library;
 using Retroboat.Saves;
 
@@ -229,35 +230,17 @@ namespace Retroboat.Themes
         /// </summary>
         static bool WriteHook(RetroBatInstall install, string cliDirectory, bool dryRun)
         {
-            var cli = Path.Combine(cliDirectory, "retroboat-cli.exe");
-            if (!File.Exists(cli))
+            if (!File.Exists(Path.Combine(cliDirectory, "retroboat-cli.exe")))
                 return false;
 
-            // Caminhos relativos à pasta do script, para o RetroBat continuar portátil (pen drive, outra letra).
-            const string root = @"%~dp0..\..\..\..";
-            string cliFromRoot;
-            if (RetroBatInstall.SamePath(cliDirectory, install.RetroboatDataPath))
-                cliFromRoot = root + @"\retroboat\retroboat-cli.exe";
-            else if (RetroBatInstall.SamePath(cliDirectory, install.Root))
-                cliFromRoot = root + @"\retroboat-cli.exe";
-            else
-                cliFromRoot = cli;
-
-            // Só ASCII: o cmd lê o .bat na página de código do console.
+            var cliFromRoot = EsScripts.ExeFromRoot(install, cliDirectory, "retroboat-cli.exe");
             var script =
                 "@echo off\r\n" +
                 "rem Retroboat (RB-017): poe de volta o status do Retroboat nos temas suportados.\r\n" +
                 "rem Gravado pelo Retroboat.exe; editar aqui nao adianta.\r\n" +
-                "if exist \"" + cliFromRoot + "\" \"" + cliFromRoot + "\" themes apply --retrobat \"" + root + "\" >nul 2>&1\r\n";
+                "if exist \"" + cliFromRoot + "\" \"" + cliFromRoot + "\" themes apply --retrobat \"" + EsScripts.Root + "\" >nul 2>&1\r\n";
 
-            var path = Path.Combine(install.UserEmulationStationPath, "scripts", HookEvent, HookFile);
-            var bytes = Encoding.ASCII.GetBytes(script);
-            if (File.Exists(path) && File.ReadAllBytes(path).SequenceEqual(bytes))
-                return false;
-
-            if (!dryRun)
-                SaveSync.WriteAtomically(path, bytes);
-            return true;
+            return EsScripts.Write(install, HookEvent, HookFile, script, dryRun);
         }
 
         static string ReadVersion(string themeDir, ThemeOverlay overlay)

@@ -184,6 +184,36 @@ o histórico.
 - **Efeito conhecido:** durante o VERIFICANDO, a barra de ajuda continua com a do menu que fechou (a tela de espera do ES não
   tem ajuda própria). A entrada é ignorada até o fim.
 
+## RB-004 — Biblioteca na nuvem ("Atualizar listas de jogos" no ES)
+
+- **Onde:** no app, `Core\Es\EsScripts` (script `retroboat-nuvem.bat` do evento `update-gamelists` do ES, gravado pelo
+  `Retroboat.exe` a cada abertura, ao lado do `updatestores.bat` do RetroBat) e `Retroboat.exe --refresh`. O script do
+  `theme-changed` (RB-017) passou a usar o mesmo `EsScripts`. No fork `retroboat-emulationstation`, 3 linhas marcadas
+  `RETROBOAT` em `GuiMenu::updateGameLists`.
+- **Pedido (09/11/2026):** "Atualizar listas de jogos" dentro do ES não atualizava de verdade; a atualização completa só
+  acontecia ao abrir o programa. No log do ES do usuário, o menu só rodou o `updatestores.bat` e releu as pastas locais: os
+  jogos postos no Drive com o ES aberto (downloads do navegador terminando) não ganhavam marcador.
+- **Como funciona:**
+  - o ES roda os scripts do `update-gamelists` e espera cada um terminar (não é evento assíncrono no `Scripting.cpp`)
+    antes de reler sistemas e gamelists. O `.bat` chama `Retroboat.exe --refresh`, e o cmd também espera um exe de janela
+    quando ele é chamado de um `.bat`;
+  - `--refresh` faz o mesmo que o CloudWatcher faz quando o Drive conecta: `ApplyLibrary` (sistema novo na nuvem) e a
+    sincronização completa (marcadores, mídia, informações automáticas, BIOS, configurações e saves), sem janela nenhuma. O
+    resultado vai para o log e para uma notificação, que aparece quando o ES termina de reler as listas;
+  - o `/reloadgames` da API (CloudWatcher, RetroBat) não dispara o evento, então não há sincronização em dobro nem laço;
+  - abertura, CloudWatcher e `--refresh` agora sincronizam um de cada vez (mutex `Local\RetroboatSync`, espera de até 2
+    minutos): dois processos mexendo nos mesmos memory cards, configurações do Drive, índice e gamelists ao mesmo tempo
+    poderiam brigar;
+  - no nosso ES, a tela mostra "Sincronizando com a nuvem..." durante o script; sem isso ela ficaria parada no diálogo de
+    confirmação até ele terminar. O ES oficial funciona igual, só sem essa tela.
+- **Classificação:** no app, C0. No fork, C1 com risco de merge baixo: um `if` antes do `fireEvent` no callback do diálogo.
+- **Risco semântico:** baixo. Depende de o upstream continuar disparando o `update-gamelists` de forma síncrona antes do
+  `reloadAllGames`; se mudar, o menu volta a só reler as pastas, sem conflito de merge.
+- **Testado em 09/11/2026:** 1 teste automático novo (275 no total); um `.bat` chamando um exe de janela que leva 3 s volta só
+  depois dele; `--refresh` numa cópia isolada sem pasta de jogos sai em 0,3 s sem janela; a sincronização do `--refresh` numa
+  cópia isolada com nuvem em pasta local criou os marcadores e a entrada no gamelist dos 2 jogos novos; com outra sincronização
+  segurando o mutex por 4 s, ela esperou (4,5 s contra 0,5 s com o mutex livre). Ainda falta o teste com o ES de verdade.
+
 ## RB-005 — Contas do ES na nuvem (primeira parte do perfil)
 
 - **Onde:** `retroboat/app` (`Accounts\AccountSync`, `Accounts\EsSettings`, `Cloud\StartupSync`).
