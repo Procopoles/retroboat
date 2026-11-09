@@ -94,6 +94,11 @@ console. O lançador cria as que faltam a cada início (um sistema novo do Retro
 apaga nenhuma. Ele nunca cria a pasta `retroboat`: uma pasta que não aparece pode ser o Drive ainda carregando ou
 outra conta montada primeiro, e criar ali faria uma segunda pasta vazia no Drive.
 
+As pastas de console ficam só no Drive. Na pasta de jogos deste PC, um console só tem pasta quando tem jogo ali:
+baixado ou o marcador de um jogo da nuvem. A pasta surge com o primeiro jogo e, vazia, é apagada no início seguinte
+(só pasta vazia de verdade, de um console do `es_systems.cfg`; uma junção fica). A pasta padrão `roms` do RetroBat não
+é tocada.
+
 **Biblioteca da nuvem (RB-021).** A pasta `retroboat` tem uma identidade, `retroboat\biblioteca.xml`, criada uma vez e
 nunca reescrita, e o PC guarda o id em `[Cloud] Library`. Com o id, o lançador, o `retroboat-launch` e o `retroboat-cli
 --retrobat` só usam a pasta que tem esse id, em qualquer letra e em qualquer conta. Se ela não aparece, ficam sem
