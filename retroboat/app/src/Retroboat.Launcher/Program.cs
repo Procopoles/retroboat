@@ -23,7 +23,7 @@ namespace Retroboat.Launcher
     /// acompanhando o Drive enquanto o ES estiver aberto (CloudWatcher). Se algo der errado na preparação, o
     /// RetroBat abre mesmo assim com a configuração anterior: o lançador nunca impede de jogar.
     ///
-    /// Argumentos próprios: --retrobat &lt;pasta&gt;, --setup (escolher a pasta de jogos de novo) e
+    /// Argumentos próprios: --retrobat &lt;pasta&gt;, --setup (abrir o setup do RB-021: biblioteca, pasta de jogos e opções) e
     /// --no-launch (só preparar). Os demais são repassados ao retrobat.exe.
     /// </summary>
     static class Program
@@ -56,32 +56,33 @@ namespace Retroboat.Launcher
             var settings = RetroboatSettings.Load(settingsPath);
 
             bool firstRun = string.IsNullOrEmpty(settings.RomsPath);
-            if (firstRun || own.Setup)
-            {
-                using (var form = new LibraryFolderForm(settings.RomsPath ?? install.DefaultRomsPath, install.DefaultRomsPath))
-                {
-                    if (form.ShowDialog() != DialogResult.OK)
-                    {
-                        Log.Info("Escolha da pasta de jogos cancelada; nada foi aberto.");
-                        return 0;
-                    }
 
-                    settings.RomsPath = form.SelectedPath;
-                    settings.Save(settingsPath);
-                    Log.Info("Pasta de jogos escolhida: " + settings.RomsPath);
-                }
-            }
-
+            // O Drive primeiro: o setup precisa ver as bibliotecas das contas.
             if (!own.NoLaunch)
                 OfferToOpenCloudApp(install, settings);
 
-            if (!PrepareLibrary(install, settings.RomsPath, CreateCommandWrapper(install, settings), showWarnings: firstRun || own.Setup))
+            // RB-021: uma biblioteca só é adotada sem perguntar; duas, ou o Drive aberto sem nenhuma, abrem o setup.
+            var choice = ChooseLibrary(install, settings, out var adopted);
+            var scope = LibrarySetup.Decide(settings, own.Setup, choice?.Outcome ?? LibraryChoiceOutcome.NoDrive);
+            if (scope == SetupScope.LibraryOnly && own.NoLaunch)
+                scope = SetupScope.None; // --no-launch não pergunta nada.
+
+            if (scope != SetupScope.None)
+            {
+                if (!SetupFlow.Run(install, settings, settingsPath, scope))
+                    return 0;
+
+                adopted = null; // O setup acabou de mostrar a biblioteca; não precisa avisar de novo.
+            }
+
+            // Avisos técnicos (sistemas duplicados no es_systems.cfg etc.) numa caixa só no primeiro uso; depois, só no log.
+            if (!PrepareLibrary(install, settings.RomsPath, CreateCommandWrapper(install, settings), showWarnings: firstRun))
                 return 0;
 
             ApplyThemeOverlays(install);
             TurnOffEsBiosCheck(install, settings, settingsPath);
 
-            var sync = RunStartupSync(install, settings);
+            var sync = RunStartupSync(install, settings, adopted);
 
             if (own.NoLaunch)
             {
@@ -218,14 +219,14 @@ namespace Retroboat.Launcher
         /// Sincroniza com a nuvem antes do ES ler os arquivos. A janela de progresso só aparece se demorar.
         /// Falha na sincronização nunca impede de jogar.
         /// </summary>
-        static StartupSyncReport RunStartupSync(RetroBatInstall install, RetroboatSettings settings)
+        static StartupSyncReport RunStartupSync(RetroBatInstall install, RetroboatSettings settings, string leadingMessage)
         {
             StartupSyncReport report = null;
             Exception error = null;
 
             var worker = new Thread(() =>
             {
-                try { report = SyncWithCloud(install, settings); }
+                try { report = SyncWithCloud(install, settings, leadingMessage); }
                 catch (Exception ex) { error = ex; }
             }) { IsBackground = true };
 
@@ -253,13 +254,14 @@ namespace Retroboat.Launcher
             return report;
         }
 
-        internal static StartupSyncReport SyncWithCloud(RetroBatInstall install, RetroboatSettings settings)
+        internal static StartupSyncReport SyncWithCloud(RetroBatInstall install, RetroboatSettings settings, string leadingMessage = null)
         {
-            var adopted = ChooseLibrary(install, settings);
+            // Com o Drive conectando com o ES aberto (CloudWatcher), a biblioteca pode ser adotada só agora.
+            ChooseLibrary(install, settings, out var adopted);
             var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
             var report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media, libraryId: settings.CloudLibrary);
-            if (adopted != null)
-                report.Messages.Insert(0, adopted);
+            foreach (var message in new[] { adopted, leadingMessage }.Where(m => m != null))
+                report.Messages.Insert(0, message);
 
             return report;
         }
@@ -268,9 +270,11 @@ namespace Retroboat.Launcher
         /// RB-021: com uma biblioteca só no Drive, este PC passa a usá-la pelo id, sem perguntar. Nos outros casos nada é
         /// escrito no Drive e a escolha fica para o setup. Falha aqui nunca impede de jogar.
         /// </summary>
-        /// <returns>A frase para a notificação do ES quando adotou; senão null.</returns>
-        static string ChooseLibrary(RetroBatInstall install, RetroboatSettings settings)
+        /// <param name="adopted">A frase para a notificação do ES quando adotou agora; senão null.</param>
+        /// <returns>null se falhou.</returns>
+        static LibraryChoiceResult ChooseLibrary(RetroBatInstall install, RetroboatSettings settings, out string adopted)
         {
+            adopted = null;
             try
             {
                 var choice = LibraryChoice.ChooseAutomatically(settings);
@@ -280,20 +284,20 @@ namespace Retroboat.Launcher
                         settings.Save(RetroboatSettings.GetPath(install));
                         Log.Info("Biblioteca da nuvem adotada: " + choice.Drive.RetroboatPath + " (id " + choice.Identity.Id +
                                  ", criada por " + (choice.Identity.Pc ?? "?") + ")");
-                        return "Biblioteca da nuvem: " + choice.Drive.DisplayName;
+                        adopted = "Biblioteca da nuvem: " + choice.Drive.DisplayName;
+                        break;
 
                     case LibraryChoiceOutcome.Several:
                         Log.Warn("Pasta do Retroboat em mais de uma conta do Google Drive (" + string.Join(", ", choice.Candidates.Select(c => c.DisplayName)) +
-                                 "): nenhuma foi escolhida. Até o setup do RB-021, vale a primeira.");
-                        return null;
+                                 "): o setup pergunta qual usar.");
+                        break;
 
                     case LibraryChoiceOutcome.Unidentified:
                         Log.Warn("Biblioteca da nuvem não identificada: " + choice.Error);
-                        return null;
-
-                    default:
-                        return null;
+                        break;
                 }
+
+                return choice;
             }
             catch (Exception ex)
             {

@@ -43,6 +43,7 @@ namespace Retroboat.Launch
                 int index = i;
                 var option = Theme.MakeLabel(options[i], 17f, Theme.Foreground);
                 option.AutoSize = false;
+                option.AutoEllipsis = true;
                 option.Padding = new Padding(20, 0, 20, 0);
                 option.TextAlign = ContentAlignment.MiddleLeft;
                 option.Cursor = Cursors.Hand;
@@ -98,11 +99,14 @@ namespace Retroboat.Launch
 
         public int AutoCloseInterval { get; set; } = 2000;
 
+        /// <summary>Opção com o foco ao abrir.</summary>
+        public int InitialSelection { get; set; }
+
         /// <summary>Mostra e espera a resposta.</summary>
         public static int Ask(string title, string heading, string text, IReadOnlyList<string> options, Func<bool> autoClose = null, bool canGoBack = true,
-                              string hint = null, int autoCloseInterval = 2000)
+                              string hint = null, int autoCloseInterval = 2000, int selected = 0)
         {
-            using (var form = new ChoiceForm(title, heading, text, options, canGoBack, hint) { AutoClose = autoClose, AutoCloseInterval = autoCloseInterval })
+            using (var form = new ChoiceForm(title, heading, text, options, canGoBack, hint) { AutoClose = autoClose, AutoCloseInterval = autoCloseInterval, InitialSelection = selected })
             {
                 Application.Run(form);
                 return form.Result;
@@ -142,7 +146,7 @@ namespace Retroboat.Launch
         {
             base.OnShown(e);
             LayoutControls();
-            SelectOption(0);
+            SelectOption(InitialSelection);
             Activate();
 
             // Um botão que já estava apertado (o A que abriu o jogo no ES) não conta.
@@ -179,10 +183,13 @@ namespace Retroboat.Launch
         {
             int width = Math.Min(ClientSize.Width - 160, 1100);
             int left = (ClientSize.Width - width) / 2;
-            int top = ClientSize.Height / 2 - 160;
 
             foreach (var label in new[] { _title, _heading, _text, _hint })
                 label.MaximumSize = new Size(width, 0);
+
+            // Mais alto com muitas opções (o setup tem até 6), para tudo caber numa tela de 1080 linhas.
+            int content = _title.Height + 8 + _heading.Height + 16 + (_text.Text.Length > 0 ? _text.Height : 0) + 32 + _options.Count * 68 + 28 + _hint.Height;
+            int top = Math.Max(48, Math.Min(ClientSize.Height / 2 - 160, (ClientSize.Height - content) / 2));
 
             _title.Location = new Point(left, top);
             _heading.Location = new Point(left, _title.Bottom + 8);
