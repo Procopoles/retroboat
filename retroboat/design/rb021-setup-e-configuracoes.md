@@ -1,7 +1,8 @@
 # RB-021: setup inicial e configurações da nuvem
 
-Desenho de 08/11/2026, ainda não iniciado. Pedido do usuário: uma tela de setup quando falta a configuração da nuvem e
-uma tela de configurações do Drive num menu, só com o principal. Sem mudança de código até as decisões da seção 12.
+Desenho de 08/11/2026. Pedido do usuário: uma tela de setup quando falta a configuração da nuvem e uma tela de
+configurações do Drive num menu, só com o principal. As quatro recomendações da seção 12 foram aceitas em 09/11/2026, e
+os quatro passos da seção 11 foram feitos no mesmo dia; o que ficou diferente do desenho está na seção 13.
 
 ## 1. Problema
 
@@ -138,7 +139,7 @@ PC para outro.
 | PASTA DE JOGOS DESTE PC: C:\Stuffs\Jogos | só leitura | `retroboat.ini` |
 | BAIXAR VÍDEOS · BAIXAR MANUAIS · CAPAS E INFORMAÇÕES AUTOMÁTICAS · ABRIR O GOOGLE DRIVE SOZINHO | chaves | `retroboat.ini` |
 | TROCAR BIBLIOTECA OU PASTA DE JOGOS… | ação | seção 6.2 |
-| PROCURAR A BIBLIOTECA DE NOVO | ação, só com a biblioteca não encontrada | `retroboat-cli settings find` |
+| PROCURAR A BIBLIOTECA DE NOVO | ação, só com a biblioteca não encontrada | reabre a tela (`retroboat-cli settings get` de novo) |
 
 **Gravação.** O ES lê o `retroboat.ini`, mas só grava pelo `retroboat-cli settings set <chave> <valor>`, ao sair da tela
 (`addSaveFunc`) e só com as chaves que mudaram. O processo é criado como no RB-010 (seção 3.3: `CreateProcessW`, sem
@@ -234,3 +235,37 @@ pilotado pela API da porta 1234) e depois com o usuário no Drive real.
 | 2 | Onde fica a entrada NUVEM? | Menu principal, logo depois do item de configurações de jogos. |
 | 3 | Trocar a pasta de jogos sem mover os baixados, nesta versão? | Sim, com o aviso de quanto fica na pasta antiga. |
 | 4 | O `biblioteca.xml` fica visível na pasta `retroboat` do Drive. Tudo bem? | Sim. No Drive não existe arquivo oculto de verdade, e um nome com ponto continuaria aparecendo no site. |
+
+## 13. Como ficou (09/11/2026)
+
+Commits no app: `cb52949` (passo 1), `13058d2` (passo 2), `f5029ef` (passo 3, CLI), `ebe6bb4` (passo 4). No fork do ES:
+`b20a2827c` (menu NUVEM). 269 testes.
+
+Diferenças do desenho:
+
+- **Sem `settings find`.** "Procurar a biblioteca de novo" só reabre a tela, que roda `settings get` outra vez; a busca é a
+  mesma.
+- **"Continuar sem nuvem por agora"** não fica lembrado: com o Drive aberto e sem biblioteca, o setup volta na próxima
+  abertura, como o "Agora não" da pergunta do Drive (RB-019).
+- **Avisos técnicos da biblioteca** (sistemas com o mesmo nome no `es_systems.cfg` e outros) numa caixa do Windows só no
+  primeiro uso; com `--setup` ou pelo menu NUVEM, vão só para o log.
+- **A pergunta do Drive vem antes do setup**, para o passo 1 já ver as contas.
+- **Pasta de jogos:** as opções mostram "Pasta atual · 120 GB livres · C:\...", com o caminho por último, e um caminho longo
+  termina em reticências. No menu NUVEM, caminhos longos viram `C:\…\pasta\sub`.
+- **Leitura pelo ES:** o `settings get` leva 50 ms (250 ms quando conta os jogos no `G:`); a tela abre sem espera visível.
+- **Pedido de setup:** o `Retroboat.exe` em segundo plano olha a cada segundo se o ES fechou com `estado\pedido-setup`, abre
+  outro `Retroboat.exe` com `--setup` e sai; o novo mostra o setup e reabre o RetroBat.
+
+Testado numa cópia isolada:
+
+- **Setup:** os três passos, capturados fora da área visível; com o `G:` real só lido; o pedido do menu abre o setup completo
+  na abertura seguinte e é consumido.
+- **Menu NUVEM:** entrada no menu principal; estado, biblioteca e pasta; a chave de vídeos gravada pelo `settings set` ao
+  sair da tela; confirmação de troca; pedido criado e ES fechado.
+
+Ainda não testado:
+
+- o ciclo com o `Retroboat.exe` em segundo plano (ES fecha pelo menu, setup, RetroBat reaberto), que precisa do
+  `retrobat.exe` de verdade;
+- a busca de mídia depois de ligar uma opção com o ES aberto;
+- o Drive real e o controle.

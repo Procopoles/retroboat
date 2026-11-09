@@ -681,3 +681,30 @@ o histórico.
   renderer OpenGL 2.1.
 - **Como testar:** abrir o RetroBat com o nosso ES, apertar A num jogo da nuvem: o ES não sai da lista, o botão vira BAIXANDO e a
   região do topo gira com o andamento.
+
+## RB-021 — Biblioteca identificada, setup inicial e menu NUVEM
+
+- **Onde:** app (`Core\Cloud\LibraryIdentity`, `LibraryChoice`, `LibrarySetup`, `CloudLocator`, `Core\Settings\SettingsSummary`,
+  `Launcher\SetupFlow`, `CloudWatcher`, `retroboat-cli settings`); fork `retroboat-emulationstation`: os nossos
+  `es-app/src/retroboat/RetroboatSettingsGui.cpp` e `.h` e 2 linhas marcadas `RETROBOAT RB-021` em `GuiMenu.cpp` (calor ALTA).
+  Desenho: [design/rb021-setup-e-configuracoes.md](design/rb021-setup-e-configuracoes.md), com o que mudou na seção 13.
+- **Problema:** o Retroboat pegava a primeira conta do Google Drive com a pasta `retroboat` (com duas contas, decidia pela
+  letra) e não tinha como criar a biblioteca sem risco de uma segunda pasta vazia. O primeiro uso era uma janela comum do
+  Windows, e as opções só mudavam editando o `retroboat.ini`.
+- **Correção:** `retroboat\biblioteca.xml` (criado uma vez, nunca reescrito) dá um id à biblioteca, e o PC só usa a pasta com
+  esse id. Uma biblioteca só é adotada sem perguntar. Nos outros casos, um setup em tela cheia com controle pergunta, e criar
+  pede confirmação depois de uma segunda busca. O menu NUVEM do nosso ES mostra o estado e muda as opções principais pelo
+  `retroboat-cli`.
+- **Classificação:** app C0. ES: C1, risco de merge baixo: 2 linhas (um `#include` e uma entrada) num arquivo de calor ALTA;
+  toda a lógica nos nossos arquivos.
+- **Risco semântico:** baixo. Depende de `GuiMenu` continuar montando o menu principal com `addEntry` no construtor, do
+  `GuiSettings::addSaveFunc` rodar ao sair e de `Utils::Platform::quitES` fechar o ES devolvendo o controle ao `retrobat.exe`.
+- **Upstreamável:** não.
+- **Escritas no Drive:** só as da seção 9 do desenho: pastas (`CreateDirectory`) e o `biblioteca.xml` (temporário + mover que
+  falha se o nome existe). O teste de armadilhas confere hash e data de todos os arquivos.
+- **Testado em 09/11/2026** numa cópia isolada, com o nosso ES fora da área visível e o `G:` real só lido. Os detalhes estão
+  na seção 13 do desenho.
+- **Ainda não testado:** o ciclo com o `Retroboat.exe` em segundo plano e o `retrobat.exe` de verdade, a busca de mídia com o ES
+  aberto, o Drive real (a primeira abertura cria `G:\Meu Drive\retroboat\biblioteca.xml`) e o controle.
+- **Como testar:** com uma conta só, abrir o Retroboat: a notificação diz "Biblioteca da nuvem: Meu Drive (G:)". No menu do ES,
+  NUVEM: ligar BAIXAR VÍDEOS e sair. O `retroboat.ini` muda, e os vídeos chegam com o ES parado.

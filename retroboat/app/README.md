@@ -54,6 +54,9 @@ retroboat-cli config status --retrobat <pasta>            configurações: o que
 retroboat-cli config sync --retrobat <pasta>              sincroniza opções do ES, controles e emuladores
 retroboat-cli themes status --retrobat <pasta>            temas suportados com ou sem o status do Retroboat
 retroboat-cli themes apply --retrobat <pasta>             põe o status de volta nos temas (Carbon, PlayStation-X)
+retroboat-cli settings get --retrobat <pasta>             estado da biblioteca e opções principais, em linhas Chave=valor
+retroboat-cli settings set <chave> 0|1 --retrobat <pasta> Videos, Manuals, Automatic ou AutoOpen (o menu NUVEM usa)
+retroboat-cli settings request-setup --retrobat <pasta>   o setup abre quando o ES fechar
 ```
 
 `--pc NOME` nos comandos `saves` e `config` faz a pasta valer como outro PC, para testar dois PCs numa máquina só.
@@ -63,14 +66,22 @@ Códigos de saída: 0 ok, 1 erro, 2 uso incorreto, 3 jogo corrompido encontrado,
 
 ## Lançador
 
-`Retroboat.exe` fica na pasta do RetroBat (ou em `<RetroBat>\retroboat\`). No primeiro uso, pergunta
-onde ficam os jogos e grava em `<RetroBat>\retroboat\retroboat.ini`. A cada início, regera o overlay
-de sistemas, a chave `roms=` e os gamelists locais, e então abre o `retrobat.exe` repassando os
-argumentos. Se a preparação falhar, o RetroBat abre mesmo assim com a configuração anterior.
+`Retroboat.exe` fica na pasta do RetroBat (ou em `<RetroBat>\retroboat\`). No primeiro uso abre o setup (RB-021), em
+tela cheia e com controle: a biblioteca da nuvem, a pasta de jogos deste PC e as opções principais, gravadas em
+`<RetroBat>\retroboat\retroboat.ini`. O setup também abre com a biblioteca em duas contas do Drive, com o Drive aberto
+sem biblioteca nenhuma (aí oferece criar uma, só depois de uma segunda busca e com confirmação), com `--setup` e pelo
+menu NUVEM do nosso ES. A cada início, regera o overlay de sistemas, a chave `roms=` e os gamelists locais, e então abre
+o `retrobat.exe` repassando os argumentos. Se a preparação falhar, o RetroBat abre mesmo assim com a configuração
+anterior.
 
-Argumentos próprios: `--setup` (escolher a pasta de novo), `--no-launch` (só preparar, sem perguntar
+Argumentos próprios: `--setup` (abrir o setup), `--no-launch` (só preparar, sem perguntar
 nada e sem ficar em segundo plano) e `--retrobat <pasta>`. Log em
 `<RetroBat>\retroboat\logs\launcher.log`.
+
+**Menu NUVEM (nosso ES).** Mostra o estado do Drive e da biblioteca e a pasta de jogos, e muda as quatro opções
+principais pelo `retroboat-cli settings`. O `Retroboat.exe` em segundo plano percebe a mudança na hora; ligar vídeos,
+manuais ou capas automáticas busca o que faltava com o ES parado. "Trocar biblioteca ou pasta de jogos" fecha o ES; o
+`Retroboat.exe` abre o setup e reabre o RetroBat.
 
 Com o Google Drive fechado, o lançador pergunta se abre: ao iniciar, e o `retroboat-launch` ao apertar BAIXAR
 ou ao abrir um jogo com memory card. "Sempre abrir, sem perguntar" grava `AutoOpen=1`. Depois de abrir o

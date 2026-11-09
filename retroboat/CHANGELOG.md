@@ -102,6 +102,11 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   em qualquer conta do Google Drive. Se ela não aparece, fica sem nuvem, em vez de usar a pasta `retroboat` de outra
   conta. Com a pasta em uma conta só, o PC adota a biblioteca sozinho, sem perguntar. Com a pasta em duas contas ou em
   nenhuma, nada é escrito e a escolha fica para o setup (passo 2).
+- RB-021 (passos 2 a 4): setup em tela cheia, com controle, no lugar da janela da pasta de jogos: biblioteca da nuvem
+  (usar, criar com confirmação depois de uma segunda busca, procurar de novo ou seguir sem nuvem), pasta de jogos deste
+  PC (atual, padrão do RetroBat ou os discos com mais espaço) e as opções principais. No nosso ES, o menu NUVEM mostra o
+  estado do Drive e da biblioteca e muda vídeos, manuais, capas automáticas e "abrir o Drive sozinho" na hora;
+  "Trocar biblioteca ou pasta de jogos" fecha o ES e o Retroboat abre o setup. Novo `retroboat-cli settings`.
 
 ### Nos forks (ainda não usados pelo build)
 
