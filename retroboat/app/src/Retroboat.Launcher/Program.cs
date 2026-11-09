@@ -467,11 +467,10 @@ namespace Retroboat.Launcher
         internal static ApplyResult ApplyLibrary(RetroBatInstall install, string romsPath, CommandWrapper wrapper)
         {
             var result = new IsolatedLibrary(install).Apply(romsPath, wrapper: wrapper);
-            Log.Info(string.Format("Biblioteca: {0} sistemas, overlay {1}, emulatorLauncher.cfg {2}, {3} pastas de console vazias apagadas, {4} gamelists criados, movidos: {5}",
+            Log.Info(string.Format("Biblioteca: {0} sistemas, overlay {1}, emulatorLauncher.cfg {2}, {3} gamelists criados, movidos: {4}",
                 result.SystemsMapped,
                 result.OverlayWritten ? "gravado" : result.OverlayRemoved ? "removido" : "sem mudança",
                 result.LauncherConfigUpdated ? "atualizado" : "sem mudança",
-                result.FoldersRemoved.Count,
                 result.GamelistsCreated,
                 result.GamelistsMoved.Count == 0 ? "nenhum" : string.Join(", ", result.GamelistsMoved)));
 

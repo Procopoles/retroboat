@@ -55,7 +55,7 @@ Configurações na nuvem (retroboat\configuracoes no Drive: opções do ES, cont
   retroboat-cli config sync --retrobat <pasta do RetroBat> [--pc NOME]   (com o ES e os emuladores fechados)
 
 Biblioteca isolada (RB-003):
-  retroboat-cli library apply --retrobat <pasta do RetroBat> [--roms <pasta de jogos>] [--dry-run] [--keep-empty-folders]
+  retroboat-cli library apply --retrobat <pasta do RetroBat> [--roms <pasta de jogos>] [--dry-run]
 
 Status do Retroboat nos temas (Carbon e PlayStation-X; volta depois de reinstalar o tema pelo ES):
   retroboat-cli themes status --retrobat <pasta do RetroBat>
@@ -279,13 +279,12 @@ Opções gerais:
             var romsRoot = options.Value("--roms") ?? install.DefaultRomsPath;
             bool dryRun = options.Flag("--dry-run");
 
-            var result = new IsolatedLibrary(install).Apply(romsRoot, dryRun, !options.Flag("--keep-empty-folders"));
+            var result = new IsolatedLibrary(install).Apply(romsRoot, dryRun);
 
             Console.WriteLine((dryRun ? "[simulação] " : "") + "Pasta de jogos: " + Path.GetFullPath(romsRoot) + "  (" + result.SystemsMapped + " sistemas)");
             if (result.OverlayWritten) Console.WriteLine("  overlay es_systems_retroboat.cfg gravado");
             if (result.OverlayRemoved) Console.WriteLine("  overlay es_systems_retroboat.cfg removido (pasta padrão)");
             if (result.LauncherConfigUpdated) Console.WriteLine("  emulatorLauncher.cfg atualizado (roms antes: " + (result.PreviousRomsValue ?? "padrão") + ")");
-            if (result.FoldersRemoved.Count > 0) Console.WriteLine("  " + result.FoldersRemoved.Count + " pastas de console vazias apagadas (as pastas de console ficam só no Drive)");
             if (result.GamelistsCreated > 0) Console.WriteLine("  " + result.GamelistsCreated + " gamelists vazios criados em .emulationstation\\gamelists");
             if (result.GamelistsMoved.Count > 0) Console.WriteLine("  gamelists movidos para .emulationstation\\gamelists: " + string.Join(", ", result.GamelistsMoved));
             if (!result.HasChanges) Console.WriteLine("  nada a mudar");

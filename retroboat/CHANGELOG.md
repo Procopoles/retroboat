@@ -97,9 +97,8 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   console, sem criar pasta. Sistema novo do RetroBat ganha a pasta sozinho; nenhuma é apagada, nenhum arquivo é
   tocado. Só cria dentro de um `retroboat\jogos` que já existe, para nunca fazer uma segunda pasta vazia no Drive.
 - RB-003: as pastas de console ficam só no Drive. A pasta de jogos do PC deixa de ganhar uma pasta por sistema (eram
-  mais de 200 vazias): um console só tem pasta quando tem jogo ali, baixado ou o marcador de um jogo da nuvem. As
-  pastas de console vazias que já existiam são apagadas no próximo início; a pasta padrão `roms` do RetroBat não é
-  tocada.
+  mais de 200 vazias): a pasta de um console surge com o primeiro jogo dele (download ou marcador de um jogo da nuvem).
+  Nenhuma pasta local é apagada.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

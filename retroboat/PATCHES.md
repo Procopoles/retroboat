@@ -70,9 +70,9 @@ transporte o app Google Drive para computador (sem API e sem login nosso). Resum
   semântico baixo: como o overlay é regenerado, sistemas novos do upstream entram sozinhos.
   Validado em 24/10/2026 com o ES real: jogos lidos da pasta nova, gamelist local usado e regravado
   ao sair, nada escrito na pasta de jogos. Desde 09/11/2026 a pasta de jogos escolhida não ganha mais
-  uma pasta por sistema: as pastas de console ficam só no Drive, a de um console surge com o primeiro
-  jogo (download ou marcador) e, vazia, é apagada no início seguinte. O ES pula um sistema sem pasta
-  (registra "path does not exist" no `es_log.txt`), como pula um sem jogos.
+  uma pasta por sistema: as pastas de console ficam só no Drive, e a de um console surge com o primeiro
+  jogo (download ou marcador). O ES pula um sistema sem pasta (registra "path does not exist" no
+  `es_log.txt`), como pula um sem jogos.
 - **RB-004 (biblioteca na nuvem):** C0 na fase 1 (arquivos marcadores, coleção "☁ Na nuvem",
   notificações pela API HTTP do ES, download com progresso no `retroboat-launch`). A fase 2 (selo e
   "Baixar" nativos no ES) é C2 no ES e só deve começar depois do build próprio do ES.

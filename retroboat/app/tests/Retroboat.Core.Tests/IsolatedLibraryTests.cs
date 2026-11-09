@@ -79,7 +79,6 @@ namespace Retroboat.Tests
 
                 // As pastas de console ficam só no Drive: aqui, a pasta só surge com o primeiro jogo (download ou marcador).
                 Assert.False(Directory.Exists(roms));
-                Assert.Empty(result.FoldersRemoved);
 
                 Assert.True(File.Exists(Path.Combine(install.GamelistsPath, "snes", "gamelist.xml")));
                 Assert.True(File.Exists(Path.Combine(install.GamelistsPath, "gw", "gamelist.xml")));
@@ -220,111 +219,27 @@ namespace Retroboat.Tests
 
                 Assert.True(result.OverlayWritten);
                 Assert.Contains(result.Warnings, w => w.Contains("não está acessível"));
-                Assert.Empty(result.FoldersRemoved);
                 Assert.Equal(2, result.GamelistsCreated);
             }
         }
 
         [Fact]
-        public void Empty_console_folders_are_removed_and_everything_else_stays()
+        public void Console_folder_appears_with_its_first_cloud_game_and_existing_folders_stay()
         {
             using (var dir = new TempDir())
             {
                 var install = CreateInstall(dir);
                 var roms = dir.Combine("Jogos");
-                dir.WriteFile(@"Jogos\snes\Zelda.sfc", new byte[0]); // marcador de um jogo da nuvem
-                Directory.CreateDirectory(dir.Combine("Jogos", "gameandwatch"));
-                Directory.CreateDirectory(dir.Combine("Jogos", "minhas coisas")); // não é pasta de console
-                Directory.CreateDirectory(dir.Combine("Jogos", "library"));       // sistema fora de ~\..\roms
+                Directory.CreateDirectory(Path.Combine(roms, "gameandwatch")); // pasta antiga, vazia: fica
+                dir.WriteFile(@"nuvem\jogos\snes\Mario.sfc", TempDir.RandomBytes(1024));
 
-                var result = new IsolatedLibrary(install).Apply(roms);
+                new IsolatedLibrary(install).Apply(roms);
+                Assert.False(Directory.Exists(Path.Combine(roms, "snes")));
 
-                Assert.Equal(new[] { "gameandwatch" }, result.FoldersRemoved);
-                Assert.False(Directory.Exists(dir.Combine("Jogos", "gameandwatch")));
-                Assert.True(File.Exists(dir.Combine("Jogos", "snes", "Zelda.sfc")));
-                Assert.True(Directory.Exists(dir.Combine("Jogos", "minhas coisas")));
-                Assert.True(Directory.Exists(dir.Combine("Jogos", "library")));
-                Assert.False(new IsolatedLibrary(install).Apply(roms).HasChanges);
-            }
-        }
+                new CloudLibrarySync(install, roms, new CloudLibrary(dir.Combine("nuvem", "jogos"))).Apply();
 
-        [Fact]
-        public void Console_folder_appears_with_its_first_cloud_game_and_leaves_with_its_last()
-        {
-            using (var dir = new TempDir())
-            {
-                var install = CreateInstall(dir);
-                var roms = dir.Combine("Jogos");
-                var cloudGame = dir.WriteFile(@"nuvem\jogos\snes\Mario.sfc", TempDir.RandomBytes(1024));
-                Directory.CreateDirectory(dir.Combine("nuvem", "jogos", "gameandwatch")); // no Drive, todas as pastas de console
-                var cloud = new CloudLibrary(dir.Combine("nuvem", "jogos"));
-                var library = new IsolatedLibrary(install);
-
-                library.Apply(roms);
-                new CloudLibrarySync(install, roms, cloud).Apply();
-
-                Assert.Equal(new[] { "snes" }, Directory.GetDirectories(roms).Select(Path.GetFileName));
                 Assert.Equal(0, new FileInfo(Path.Combine(roms, "snes", "Mario.sfc")).Length);
-
-                File.Delete(cloudGame);
-                new CloudLibrarySync(install, roms, cloud).Apply();
-                var result = library.Apply(roms);
-
-                Assert.Equal(new[] { "snes" }, result.FoldersRemoved);
-                Assert.Empty(Directory.GetDirectories(roms));
-                Assert.True(Directory.Exists(dir.Combine("nuvem", "jogos", "snes")));
-                Assert.True(Directory.Exists(dir.Combine("nuvem", "jogos", "gameandwatch")));
-            }
-        }
-
-        [Fact]
-        public void Console_folder_with_only_a_hidden_file_or_a_subfolder_stays()
-        {
-            using (var dir = new TempDir())
-            {
-                var install = CreateInstall(dir);
-                var hidden = dir.WriteText(@"Jogos\snes\desktop.ini", "");
-                File.SetAttributes(hidden, FileAttributes.Hidden);
-                Directory.CreateDirectory(dir.Combine("Jogos", "gameandwatch", "images"));
-
-                var result = new IsolatedLibrary(install).Apply(dir.Combine("Jogos"));
-
-                Assert.Empty(result.FoldersRemoved);
-                Assert.True(File.Exists(hidden));
-                Assert.True(Directory.Exists(dir.Combine("Jogos", "gameandwatch", "images")));
-            }
-        }
-
-        [Fact]
-        public void Default_folder_keeps_the_retrobat_console_folders()
-        {
-            using (var dir = new TempDir())
-            {
-                var install = CreateInstall(dir);
-                Directory.CreateDirectory(Path.Combine(install.DefaultRomsPath, "snes"));
-
-                var result = new IsolatedLibrary(install).Apply(install.DefaultRomsPath);
-
-                Assert.Empty(result.FoldersRemoved);
-                Assert.True(Directory.Exists(Path.Combine(install.DefaultRomsPath, "snes")));
-            }
-        }
-
-        [Fact]
-        public void Dry_run_and_keep_flag_leave_empty_console_folders()
-        {
-            using (var dir = new TempDir())
-            {
-                var install = CreateInstall(dir);
-                var roms = dir.Combine("Jogos");
-                Directory.CreateDirectory(Path.Combine(roms, "snes"));
-
-                var dry = new IsolatedLibrary(install).Apply(roms, dryRun: true);
-                var kept = new IsolatedLibrary(install).Apply(roms, removeEmptyFolders: false);
-
-                Assert.Equal(new[] { "snes" }, dry.FoldersRemoved);
-                Assert.Empty(kept.FoldersRemoved);
-                Assert.True(Directory.Exists(Path.Combine(roms, "snes")));
+                Assert.True(Directory.Exists(Path.Combine(roms, "gameandwatch")));
             }
         }
 

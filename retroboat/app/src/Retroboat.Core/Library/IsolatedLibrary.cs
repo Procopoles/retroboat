@@ -63,15 +63,11 @@ namespace Retroboat.Library
         public bool OverlayRemoved { get; set; }
         public bool LauncherConfigUpdated { get; set; }
         public string PreviousRomsValue { get; set; }
-
-        /// <summary>Pastas de console vazias apagadas da pasta de jogos (ex.: "n64").</summary>
-        public List<string> FoldersRemoved { get; } = new List<string>();
-
         public int GamelistsCreated { get; set; }
         public List<string> GamelistsMoved { get; } = new List<string>();
         public List<string> Warnings { get; } = new List<string>();
 
-        public bool HasChanges => OverlayWritten || OverlayRemoved || LauncherConfigUpdated || FoldersRemoved.Count > 0 || GamelistsCreated > 0 || GamelistsMoved.Count > 0;
+        public bool HasChanges => OverlayWritten || OverlayRemoved || LauncherConfigUpdated || GamelistsCreated > 0 || GamelistsMoved.Count > 0;
     }
 
     /// <summary>
@@ -87,10 +83,8 @@ namespace Retroboat.Library
     /// </list>
     /// É regerado a cada início, então sistemas novos do upstream entram sozinhos.
     /// <para>
-    /// A pasta de jogos escolhida só tem a pasta de um console quando ele tem jogo neste PC (baixado ou o marcador de um
-    /// jogo da nuvem): quem cria a pasta é o download ou o marcador. Todas as pastas de console ficam só no Drive
-    /// (CloudFolders). Uma pasta de console vazia é apagada; o ES pula um sistema sem pasta, como pula um sem jogos. A
-    /// pasta padrão do RetroBat não é tocada: as pastas dela vêm com o RetroBat.
+    /// Não cria pastas de console: todas ficam só no Drive (CloudFolders). Aqui, a pasta de um console surge com o
+    /// primeiro jogo (o download ou o marcador de um jogo da nuvem); o ES pula um sistema sem pasta.
     /// </para>
     /// </summary>
     public sealed class IsolatedLibrary
@@ -112,8 +106,7 @@ namespace Retroboat.Library
 
         public string OverlayPath => Path.Combine(_install.UserEmulationStationPath, OverlayFileName);
 
-        /// <param name="removeEmptyFolders">Apagar as pastas de console vazias da pasta de jogos (nunca na pasta padrão do RetroBat).</param>
-        public ApplyResult Apply(string romsRoot, bool dryRun = false, bool removeEmptyFolders = true, CommandWrapper wrapper = null)
+        public ApplyResult Apply(string romsRoot, bool dryRun = false, CommandWrapper wrapper = null)
         {
             var systemsConfig = _install.SystemsConfigPath;
             if (systemsConfig == null)
@@ -130,9 +123,6 @@ namespace Retroboat.Library
             ApplyOverlay(overlaySystems, romsRoot, isDefault, wrapper, dryRun, result);
             ApplyLauncherConfig(romsRoot, isDefault, dryRun, result);
             ApplyGamelists(overlaySystems, romsRoot, dryRun, result);
-            if (removeEmptyFolders && !isDefault)
-                RemoveEmptyFolders(overlaySystems, romsRoot, dryRun, result);
-
             CheckOtherOverlays(result);
 
             return result;
@@ -311,37 +301,6 @@ namespace Retroboat.Library
                     result.GamelistsCreated++;
                     if (!dryRun)
                         File.WriteAllText(localGamelist, EmptyGamelist, Utf8NoBom);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Apaga as pastas de console vazias: o console volta quando um download ou um marcador da nuvem recria a pasta. Só
-        /// pasta de verdade e vazia, sem nem arquivo oculto; uma junção fica, porque pode apontar para outro disco. Nada fora
-        /// das pastas de console do es_systems.cfg é olhado.
-        /// </summary>
-        static void RemoveEmptyFolders(List<SystemFolder> systems, string romsRoot, bool dryRun, ApplyResult result)
-        {
-            if (!Directory.Exists(romsRoot))
-                return;
-
-            foreach (var folder in systems.Select(s => s.Folder).Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    var info = new DirectoryInfo(Path.Combine(romsRoot, folder));
-                    if (!info.Exists || (info.Attributes & FileAttributes.ReparsePoint) != 0 || info.EnumerateFileSystemInfos().Any())
-                        continue;
-
-                    // Sem recursão: se algo entrou na pasta agora (um download), a exclusão falha e a pasta fica.
-                    if (!dryRun)
-                        info.Delete(false);
-
-                    result.FoldersRemoved.Add(folder);
-                }
-                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
-                {
-                    // Em uso ou sem permissão: fica para o próximo início.
                 }
             }
         }
