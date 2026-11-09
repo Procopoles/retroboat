@@ -1,7 +1,9 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Web.Script.Serialization;
 
 namespace Retroboat.Bios
 {
@@ -69,6 +71,83 @@ namespace Retroboat.Bios
             Inspect = Ps2Bios.Inspect
         };
 
+        /// <summary>
+        /// PS1 nos cores do RetroArch: a BIOS fica solta em bios\. A lista do RetroBat só tem a psxonpsp660.bin.
+        /// </summary>
+        public static readonly BiosSet Ps1 = new BiosSet
+        {
+            System = "psx",
+            DisplayName = "PlayStation",
+            Folder = "",
+            AcceptedNames = new[] { "scph5500.bin", "scph5501.bin", "scph5502.bin", "scph1001.bin", "scph7001.bin", "scph101.bin", "psxonpsp660.bin" }
+        };
+
+        /// <summary>As BIOS com conferência do conteúdo (status no ES).</summary>
         public static readonly IReadOnlyList<BiosSet> All = new[] { Ps2 };
+
+        /// <summary>Lista de BIOS de cada sistema que vem com o RetroBat, relativa à pasta dele.</summary>
+        public const string RetroBatListPath = @"system\modules\rb_gui\bios_local.json";
+
+        /// <summary>
+        /// Arquivos da lista que vêm livres com o RetroBat (o pacote retrobat-bios), em todo PC: não sobem. As listas de
+        /// software do MAME (mame\hash) também vêm, e saem pela pasta.
+        /// </summary>
+        static readonly HashSet<string> FreeFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "ecwolf.pk3", "freej2me-lr.jar", "emutos.img" };
+
+        /// <summary>
+        /// As BIOS que a sincronização organiza e envia: PS2 e PS1 daqui mais a lista do RetroBat (uns 100 sistemas). Sem a
+        /// lista, só PS2 e PS1. Baixar não depende disto: tudo o que está em bios\ na nuvem vem.
+        /// </summary>
+        public static IReadOnlyList<BiosSet> ForSync(string retrobatRoot)
+        {
+            var sets = new List<BiosSet> { Ps2, Ps1 };
+            var path = retrobatRoot == null ? null : Path.Combine(retrobatRoot, RetroBatListPath);
+            try
+            {
+                if (path != null && File.Exists(path))
+                    sets.AddRange(ReadRetroBatList(File.ReadAllText(path)));
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is InvalidOperationException)
+            {
+                // Lista ilegível: segue com PS2 e PS1.
+            }
+
+            return sets;
+        }
+
+        /// <summary>
+        /// Um BiosSet por pasta de cada sistema do bios_local.json ({"psx": {"name": ..., "biosFiles": [{"file": "bios/..."}]}}).
+        /// Ficam de fora o PS2 (o daqui confere o conteúdo), o que não fica em bios\ e o que vem livre com o RetroBat.
+        /// </summary>
+        internal static List<BiosSet> ReadRetroBatList(string json)
+        {
+            var sets = new List<BiosSet>();
+            var root = new JavaScriptSerializer { MaxJsonLength = int.MaxValue }.Deserialize<Dictionary<string, object>>(json);
+
+            foreach (var system in root)
+            {
+                if (system.Key == Ps2.System || !(system.Value is IDictionary<string, object> info) || !info.TryGetValue("biosFiles", out var files) || !(files is IEnumerable list))
+                    continue;
+
+                var paths = list.OfType<IDictionary<string, object>>()
+                    .Select(f => f.TryGetValue("file", out var file) ? file as string : null)
+                    .Where(p => p != null && p.StartsWith("bios/", StringComparison.OrdinalIgnoreCase) && !p.StartsWith("bios/mame/hash/", StringComparison.OrdinalIgnoreCase))
+                    .Select(p => p.Substring("bios/".Length).Replace('/', '\\'))
+                    .Where(p => !FreeFiles.Contains(Path.GetFileName(p)));
+
+                foreach (var folder in paths.GroupBy(Path.GetDirectoryName, StringComparer.OrdinalIgnoreCase))
+                {
+                    sets.Add(new BiosSet
+                    {
+                        System = system.Key,
+                        DisplayName = info.TryGetValue("name", out var name) && name is string text ? text : system.Key,
+                        Folder = folder.Key,
+                        AcceptedNames = folder.Select(Path.GetFileName).ToArray()
+                    });
+                }
+            }
+
+            return sets;
+        }
     }
 }

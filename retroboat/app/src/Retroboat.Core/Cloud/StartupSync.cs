@@ -86,7 +86,7 @@ namespace Retroboat.Cloud
             }
             else
             {
-                report.Bios = new BiosSync(report.Cloud.RetroboatPath, localBios).Sync();
+                report.Bios = new BiosSync(report.Cloud.RetroboatPath, localBios, BiosCatalog.ForSync(install.Root)).Sync();
                 report.Messages.Add(DescribeSync(report.Bios));
 
                 if (report.Bios.Errors.Count > 0)

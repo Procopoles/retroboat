@@ -99,6 +99,10 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-003: as pastas de console ficam só no Drive. A pasta de jogos do PC deixa de ganhar uma pasta por sistema (eram
   mais de 200 vazias): a pasta de um console surge com o primeiro jogo dele (download ou marcador de um jogo da nuvem).
   Nenhuma pasta local é apagada.
+- RB-013 (todos os consoles): a BIOS na nuvem deixa de ser só do PS2. Uma BIOS de qualquer console posta num PC sobe
+  para o Drive e chega aos outros; uma solta no Drive vai para a pasta que o emulador usa (ex.: `dc_boot.bin` em
+  `bios\dc`). A lista vem do próprio RetroBat (uns 100 sistemas), mais os nomes de BIOS de PS1 que faltam nela. Os
+  arquivos livres que já vêm com o RetroBat não sobem. A conferência do conteúdo continua só no PS2.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

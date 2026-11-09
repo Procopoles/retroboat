@@ -265,6 +265,14 @@ o histórico.
 - **Correção (25/10/2026):** uma BIOS zerada na nuvem com o mesmo nome, tamanho e data da cópia boa
   do PC (o caso da recuperação de disco) era tratada como igual e nunca era consertada. Agora a
   cópia zerada, de qualquer lado, é substituída pela boa do outro lado, mesmo que pareça mais nova.
+- **Todos os consoles (09/11/2026):** organizar e enviar usam a lista de BIOS do próprio RetroBat
+  (`system\modules\rb_gui\bios_local.json`, ~100 sistemas, uma pasta por arquivo), mais os nomes de
+  BIOS de PS1 que faltam nela. Ficam de fora as listas de software do MAME (`mame\hash`) e três
+  arquivos livres do pacote do RetroBat (`ecwolf.pk3`, `freej2me-lr.jar`, `emutos.img`). Baixar já
+  era genérico. A conferência do conteúdo e o status no ES continuam só do PS2: a lista não diz qual
+  BIOS é obrigatória, e avisar "sem BIOS" num console que não precisa seria o aviso falso da RB-018.
+  Vigilância: se o upstream mudar o formato ou o lugar do `bios_local.json`, a sincronização volta a
+  conhecer só PS2 e PS1, sem erro.
 
 ## RB-009 — Memory cards do PS2 na nuvem (primeira parte dos saves)
 

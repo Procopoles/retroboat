@@ -246,5 +246,102 @@ namespace Retroboat.Tests
                 Assert.Equal(File.ReadAllBytes(localFile), File.ReadAllBytes(cloudFile));
             }
         }
+
+        /// <summary>Recorte do system\modules\rb_gui\bios_local.json do RetroBat.</summary>
+        const string RetroBatList = @"{
+  ""dreamcast"": { ""name"": ""Dreamcast"", ""biosFiles"": [
+    { ""md5"": ""e10c53c2f8b90bab96ead2d368858623"", ""file"": ""bios/dc/dc_boot.bin"" },
+    { ""md5"": """", ""file"": ""bios/dc/dc_flash.bin"" } ] },
+  ""saturn"": { ""name"": ""Saturn"", ""biosFiles"": [
+    { ""md5"": """", ""file"": ""bios/saturn_bios.bin"" },
+    { ""md5"": """", ""file"": ""bios/kronos/saturn_bios.bin"" } ] },
+  ""adam"": { ""name"": ""Coleco Adam"", ""biosFiles"": [
+    { ""md5"": """", ""file"": ""bios/adam.zip"" },
+    { ""md5"": """", ""file"": ""bios/mame/hash/adam_cart.xml"" } ] },
+  ""ps2"": { ""name"": ""PlayStation 2"", ""biosFiles"": [ { ""md5"": """", ""file"": ""bios/pcsx2/bios/ps2-0230a-20080220.bin"" } ] },
+  ""ecwolf"": { ""name"": ""ECWolf"", ""biosFiles"": [ { ""md5"": ""dbaa5c4e20a11000d1c4db3a2a28f374"", ""file"": ""bios/ecwolf.pk3"" } ] },
+  ""triforce"": { ""name"": ""Triforce"", ""biosFiles"": [ { ""md5"": """", ""file"": ""emulators/dolphin-emu/User/Triforce/segaboot.gcm"" } ] }
+}";
+
+        static string Describe(BiosSet set) => set.System + ":" + set.Folder + ":" + string.Join(",", set.AcceptedNames);
+
+        [Fact]
+        public void RetroBat_list_gives_one_set_per_folder_without_software_lists_ps2_or_files_outside_bios()
+        {
+            var sets = BiosCatalog.ReadRetroBatList(RetroBatList);
+
+            Assert.Equal(new[] { "dreamcast:dc:dc_boot.bin,dc_flash.bin", "saturn::saturn_bios.bin", @"saturn:kronos:saturn_bios.bin", "adam::adam.zip" },
+                sets.Select(Describe));
+            Assert.Equal("Dreamcast", sets[0].DisplayName);
+        }
+
+        [Fact]
+        public void Without_a_readable_retrobat_list_only_ps2_and_ps1_are_known()
+        {
+            using (var retrobat = new TempDir())
+            {
+                Assert.Equal(new[] { BiosCatalog.Ps2, BiosCatalog.Ps1 }, BiosCatalog.ForSync(retrobat.Path));
+
+                retrobat.WriteText(BiosCatalog.RetroBatListPath, "{ quebrado");
+                Assert.Equal(new[] { BiosCatalog.Ps2, BiosCatalog.Ps1 }, BiosCatalog.ForSync(retrobat.Path));
+
+                retrobat.WriteText(BiosCatalog.RetroBatListPath, RetroBatList);
+                Assert.Equal(6, BiosCatalog.ForSync(retrobat.Path).Count);
+            }
+        }
+
+        [Fact]
+        public void Sync_uploads_bios_of_any_console_in_the_retrobat_list_and_nothing_else()
+        {
+            using (var cloud = new TempDir())
+            using (var retrobat = new TempDir())
+            {
+                retrobat.WriteText(BiosCatalog.RetroBatListPath, RetroBatList);
+                retrobat.WriteFile(@"bios\dc\dc_boot.bin", TempDir.RandomBytes(2048, seed: 1));
+                retrobat.WriteFile(@"bios\saturn_bios.bin", TempDir.RandomBytes(2048, seed: 2));
+                retrobat.WriteFile(@"bios\scph5501.bin", TempDir.RandomBytes(2048, seed: 3));
+                retrobat.WriteText(@"bios\mame\hash\adam_cart.xml", "<softwarelist />"); // vem com o RetroBat
+                retrobat.WriteText(@"bios\Databases\segadb.xml", "<db />");                // vem com o RetroBat
+                retrobat.WriteFile(@"bios\ecwolf.pk3", TempDir.RandomBytes(2048, seed: 5)); // na lista, mas vem livre com o RetroBat
+                retrobat.WriteFile(@"bios\outro.bin", TempDir.RandomBytes(2048, seed: 4));  // não está na lista
+                var sync = new BiosSync(cloud.Path, retrobat.Combine("bios"), BiosCatalog.ForSync(retrobat.Path));
+
+                var first = sync.Sync();
+                var second = sync.Sync();
+
+                Assert.Equal(new[] { @"dc\dc_boot.bin", "saturn_bios.bin", "scph5501.bin" }, first.Uploaded.OrderBy(f => f, StringComparer.Ordinal));
+                Assert.Equal(File.ReadAllBytes(retrobat.Combine(@"bios\dc\dc_boot.bin")), File.ReadAllBytes(cloud.Combine(@"bios\dc\dc_boot.bin")));
+                Assert.False(Directory.Exists(cloud.Combine(@"bios\mame")));
+                Assert.False(Directory.Exists(cloud.Combine(@"bios\Databases")));
+                Assert.False(File.Exists(cloud.Combine(@"bios\outro.bin")));
+                Assert.False(File.Exists(cloud.Combine(@"bios\ecwolf.pk3")));
+                Assert.False(second.HasTransfers);
+            }
+        }
+
+        [Fact]
+        public void Organize_puts_loose_bios_of_any_console_in_its_folder_and_leaves_the_ones_already_in_place()
+        {
+            using (var cloud = new TempDir())
+            {
+                cloud.WriteFile("dc_boot.bin", TempDir.RandomBytes(100, seed: 1));             // raiz do Retroboat
+                cloud.WriteFile(@"bios\dc_flash.bin", TempDir.RandomBytes(100, seed: 2));      // raiz de bios, pasta errada
+                cloud.WriteFile("scph5502.bin", TempDir.RandomBytes(100, seed: 3));            // PS1: vai para a raiz de bios
+                cloud.WriteFile(@"bios\scph5501.bin", TempDir.RandomBytes(100, seed: 4));      // já no lugar
+                cloud.WriteFile(@"bios\saturn_bios.bin", TempDir.RandomBytes(100, seed: 5));   // raiz também vale
+                cloud.WriteFile("biblioteca.xml", new byte[] { 1 });
+
+                var result = new BiosSync(cloud.Path, "", BiosCatalog.ReadRetroBatList(RetroBatList).Concat(new[] { BiosCatalog.Ps1 }).ToList()).Organize();
+
+                Assert.Equal(new[] { @"dc\dc_boot.bin", @"dc\dc_flash.bin", "scph5502.bin" }, result.Organized.OrderBy(f => f, StringComparer.Ordinal));
+                Assert.Empty(result.Errors);
+                Assert.True(File.Exists(cloud.Combine(@"bios\dc\dc_boot.bin")));
+                Assert.True(File.Exists(cloud.Combine(@"bios\dc\dc_flash.bin")));
+                Assert.True(File.Exists(cloud.Combine(@"bios\scph5502.bin")));
+                Assert.True(File.Exists(cloud.Combine(@"bios\scph5501.bin")));
+                Assert.True(File.Exists(cloud.Combine(@"bios\saturn_bios.bin")));
+                Assert.True(File.Exists(cloud.Combine("biblioteca.xml")));
+            }
+        }
     }
 }

@@ -40,7 +40,7 @@ Nuvem (pasta do Google Drive para computador):
 BIOS na nuvem (pasta bios\ dentro da pasta do Retroboat no Drive):
   retroboat-cli bios status --retrobat <pasta do RetroBat>
   retroboat-cli bios sync --retrobat <pasta do RetroBat> [--dry-run]
-  retroboat-cli bios organize [--dry-run]
+  retroboat-cli bios organize [--retrobat <pasta do RetroBat>] [--dry-run]   (sem --retrobat: só PS2 e PS1)
 
 Memory cards na nuvem (retroboat\saves no Drive; o emulador gerencia os cartões):
   retroboat-cli saves status --retrobat <pasta do RetroBat> [--pc NOME]
@@ -563,8 +563,10 @@ Opções gerais:
                 throw new InvalidOperationException("Pasta do Retroboat na nuvem não encontrada. Use --cloud <pasta>.");
 
             bool dryRun = options.Flag("--dry-run");
-            var localBios = organizeOnly ? "" : Path.Combine(new RetroBatInstall(options.Required("--retrobat")).Root, "bios");
-            var sync = new BiosSync(location.RetroboatPath, localBios);
+            var retrobat = organizeOnly ? options.Value("--retrobat") : options.Required("--retrobat");
+            var install = retrobat == null ? null : new RetroBatInstall(retrobat);
+            var localBios = install == null ? "" : Path.Combine(install.Root, "bios");
+            var sync = new BiosSync(location.RetroboatPath, localBios, BiosCatalog.ForSync(install?.Root));
             var result = organizeOnly ? sync.Organize(dryRun) : sync.Sync(dryRun);
 
             string prefix = dryRun ? "[simulação] " : "";

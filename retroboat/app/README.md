@@ -106,6 +106,12 @@ esse arquivo; nada mais muda no Drive). Com a pasta em duas contas ou em nenhuma
 para o setup (desenho em `design/rb021-setup-e-configuracoes.md`). Numa biblioteca identificada, a pasta `jogos` também
 é criada se faltar.
 
+**BIOS na nuvem (RB-013).** `retroboat\bios` no Drive espelha `<RetroBat>\bios`, de qualquer console. Tudo o que está
+lá vem para o PC. Do PC sobe toda BIOS conhecida que está na pasta certa; uma solta no Drive vai para a pasta que o
+emulador usa. "Conhecida" é a lista do próprio RetroBat (`system\modules\rb_gui\bios_local.json`) mais os nomes de BIOS
+de PS1 que faltam nela; os arquivos livres que já vêm com o RetroBat não sobem. Arquivo zerado nunca é copiado. Só a
+BIOS do PS2 tem o conteúdo conferido e status no ES.
+
 Antes de abrir o RetroBat, o lançador também sincroniza com a nuvem: BIOS, os logins do ES
 (ScreenScraper, IGDB e RetroAchievements, em `retroboat\contas`; um PC sem login recebe o da
 nuvem), as configurações (opções do ES, controles e emuladores, em `retroboat\configuracoes`), a biblioteca (jogos da nuvem como marcadores) e o conteúdo dos jogos. A mídia que o scraper do ES grava na pasta de jogos

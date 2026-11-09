@@ -40,10 +40,10 @@ namespace Retroboat.Bios
     /// BIOS na nuvem: &lt;nuvem&gt;\bios espelha &lt;RetroBat&gt;\bios, com a mesma estrutura de pastas.
     /// <list type="bullet">
     /// <item>Organizar: BIOS conhecidas soltas na raiz da pasta do Retroboat ou de bios\ vão para a pasta
-    /// que o emulador usa (ex.: bios\pcsx2\bios).</item>
-    /// <item>Baixar: tudo o que está em bios\ na nuvem e falta ou mudou neste PC.</item>
-    /// <item>Enviar: BIOS conhecidas que só existem neste PC (pastas do catálogo). O pacote de BIOS livres
-    /// do RetroBat não é enviado: ele já vem em toda instalação.</item>
+    /// que o emulador usa (ex.: bios\pcsx2\bios, bios\dc).</item>
+    /// <item>Baixar: tudo o que está em bios\ na nuvem e falta ou mudou neste PC, de qualquer console.</item>
+    /// <item>Enviar: BIOS conhecidas (BiosCatalog.ForSync: a lista do RetroBat, de qualquer console) que estão na
+    /// pasta certa deste PC. O resto do pacote livre do RetroBat não é enviado: ele já vem em toda instalação.</item>
     /// </list>
     /// Em arquivo presente nos dois lados e diferente, vence o mais novo. Um arquivo zerado nunca é
     /// copiado nem substitui um arquivo bom; uma cópia zerada é substituída pela boa do outro lado.
@@ -56,11 +56,12 @@ namespace Retroboat.Bios
         readonly string _localBios;
         readonly IReadOnlyList<BiosSet> _sets;
 
+        /// <param name="sets">BIOS conhecidas; nulo: só PS2 e PS1 (use BiosCatalog.ForSync para todos os consoles).</param>
         public BiosSync(string cloudRetroboatPath, string localBiosPath, IReadOnlyList<BiosSet> sets = null)
         {
             _cloudRoot = cloudRetroboatPath;
             _localBios = localBiosPath;
-            _sets = sets ?? BiosCatalog.All;
+            _sets = sets ?? BiosCatalog.ForSync(null);
         }
 
         public string CloudBiosPath => Path.Combine(_cloudRoot, "bios");
@@ -91,14 +92,18 @@ namespace Retroboat.Bios
                 foreach (var file in Directory.GetFiles(dir))
                 {
                     var name = Path.GetFileName(file);
-                    var set = _sets.FirstOrDefault(s => s.Owns(name));
-                    if (set == null)
+                    var owners = _sets.Where(s => s.Owns(name)).ToList();
+
+                    // A raiz de bios\ é a pasta de muitas BIOS (a dos cores do RetroArch): quem já está nela fica.
+                    var root = owners.FirstOrDefault(s => s.Folder.Length == 0);
+                    if (owners.Count == 0 || (root != null && dir == CloudBiosPath))
                         continue;
 
-                    var target = Path.Combine(CloudBiosPath, set.Folder, name);
+                    var folder = (root ?? owners[0]).Folder;
+                    var target = Path.Combine(CloudBiosPath, folder, name);
                     if (File.Exists(target))
                     {
-                        result.Errors.Add(name + ": já existe em bios\\" + set.Folder + "; o arquivo solto foi deixado onde está");
+                        result.Errors.Add(name + ": já existe em bios\\" + folder + "; o arquivo solto foi deixado onde está");
                         continue;
                     }
 
@@ -157,13 +162,14 @@ namespace Retroboat.Bios
 
         void Push(BiosSyncResult result, bool dryRun)
         {
-            foreach (var set in _sets)
+            // Uma listagem por pasta: vários sistemas dividem a mesma (a raiz de bios\, por exemplo).
+            foreach (var sets in _sets.GroupBy(s => s.Folder, StringComparer.OrdinalIgnoreCase))
             {
-                var folder = Path.Combine(_localBios, set.Folder);
+                var folder = Path.Combine(_localBios, sets.Key);
                 if (!Directory.Exists(folder))
                     continue;
 
-                foreach (var localFile in Directory.GetFiles(folder).Where(f => set.Owns(Path.GetFileName(f))))
+                foreach (var localFile in Directory.GetFiles(folder).Where(f => sets.Any(s => s.Owns(Path.GetFileName(f)))))
                 {
                     var relative = Relative(_localBios, localFile);
                     var cloudFile = Path.Combine(CloudBiosPath, relative);
