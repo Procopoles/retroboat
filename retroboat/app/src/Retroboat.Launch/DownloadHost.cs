@@ -10,6 +10,7 @@ using Retroboat.Es;
 using Retroboat.Library;
 using Retroboat.Logging;
 using Retroboat.Media;
+using Retroboat.Settings;
 
 namespace Retroboat.Launch
 {
@@ -75,6 +76,7 @@ namespace Retroboat.Launch
 
             using (var stop = new CancellationTokenSource())
             using (IDownloadDisplay bar = native ? new NativeStatusReporter() : (IDownloadDisplay)new HeaderBar(install))
+            using (var toast = new GameToast())
             using (var context = new ApplicationContext())
             using (var closeCheck = new System.Windows.Forms.Timer { Interval = 250 })
             {
@@ -93,6 +95,7 @@ namespace Retroboat.Launch
                 {
                     bar.SetLive(null);
                     bar.AddNotice(status);
+                    ShowInGame(install, toast, status);
                     if (!native)
                         Refresh(install, status.Item);
                 };
@@ -149,7 +152,7 @@ namespace Retroboat.Launch
 
                 closeCheck.Tick += (s, e) =>
                 {
-                    if (esClosed || (workerDone && bar.IsIdle))
+                    if (esClosed || (workerDone && bar.IsIdle && toast.IsIdle))
                         context.ExitThread();
                 };
 
@@ -164,6 +167,32 @@ namespace Retroboat.Launch
                 Log.Info("Serviço de downloads encerrado.");
                 return esClosed;
             }
+        }
+
+        /// <summary>
+        /// Com um jogo aberto, a região do cabeçalho não aparece: quem baixou outro jogo enquanto jogava vê o aviso no
+        /// canto da tela do jogo, com a capa, como na Steam. Roda na thread do serviço: a ida ao ES e ao gamelist não
+        /// seguram a janela.
+        /// </summary>
+        static void ShowInGame(RetroBatInstall install, GameToast toast, DownloadStatus status)
+        {
+            if (status.Phase != DownloadPhase.Finished || !EsApi.IsGameRunning())
+                return;
+
+            string cover = null;
+            try
+            {
+                var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
+                var romsRoot = string.IsNullOrEmpty(settings.RomsPath) ? install.DefaultRomsPath : settings.RomsPath;
+                cover = GameMedia.CoverOf(install, Path.Combine(romsRoot, status.Item.System), status.Item.LocalName);
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
+            {
+                Log.Warn("Capa do aviso não encontrada: " + ex.Message);
+            }
+
+            toast.Add(status.Item.Title, cover);
+            Log.Info("Aviso de download concluído mostrado no jogo: " + status.Item.Key);
         }
 
         /// <summary>

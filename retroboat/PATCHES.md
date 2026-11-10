@@ -862,3 +862,31 @@ o histórico.
   token (interrompida, e não cancelada; a cópia retoma do parcial), o serviço com "cancelado" devolvido e lançado sem token
   (o jogo fica, espera e termina) e a pausa antes de tentar de novo. A conversão do erro 995 em `OperationCanceledException`
   foi conferida no .NET Framework 4.8 desta máquina. Não reproduzido com o Drive de verdade reiniciando.
+
+## RB-026 — Aviso de download concluído durante o jogo
+
+- **Onde:** só no app: `Retroboat.Launch\GameToast` e `GameToastFace` (novos), `LayeredSurface` (saiu de dentro do `HeaderBar`
+  para os dois usarem), `DownloadHost`; no Core, `Downloads\GameToastLayout` (posição e movimento), `Media\GameMedia.CoverOf`
+  e `Es\EsApi.IsGameRunning`. Desenho na seção 4.7 do `design/design-system-steam.md`.
+- **Pedido (09/11/2026):** um pop-up quando um download de jogo termina com o usuário jogando, no canto, igual ao da Steam.
+- **Como funciona:**
+  - ao terminar um jogo, o serviço de downloads pergunta ao ES se há jogo aberto (`GET /runningGame`: 200 com jogo, 201 sem;
+    igual no ES oficial e no nosso). Só então procura a capa no gamelist e põe o aviso na fila do `GameToast`;
+  - o cartão vai para o monitor da janela em primeiro plano (o jogo), no canto inferior direito, na escala da tela. Janela em
+    camadas, sem foco, sem clique e sem barra de tarefas, como a região do cabeçalho; volta para cima a cada quadro, para um
+    emulador "sempre visível" não cobrir;
+  - o serviço só fecha depois de o aviso sair da tela; com o ES fechado, fecha na hora.
+- **Decisões:**
+  - **Só download concluído, e só com jogo aberto.** Com o ES na frente, a região do cabeçalho já mostra PRONTO; um segundo
+    aviso repetiria o mesmo. Falha e espera pelo Drive continuam só no ES.
+  - **Uma janela nossa, e não o OSD do emulador.** O RetroArch tem mensagem por comando de rede (desligado por padrão) e o
+    PCSX2 não tem nada parecido; a janela serve para qualquer emulador.
+- **Classificação:** C0 (só app).
+- **Risco semântico:** baixo. Depende de o ES continuar respondendo `/runningGame` com 200 durante o jogo. Em tela cheia
+  exclusiva (opção do emulador), o aviso não aparece; o padrão do RetroArch e do PCSX2 no RetroBat é tela cheia sem borda.
+- **Testado em 09/11/2026:** 6 testes automáticos novos (297 no total): canto inferior direito, escala num 4K à esquerda do
+  principal, tela pequena, entrada, espera e saída do movimento, ease-out sem quique e a capa pelo gamelist (caixa primeiro,
+  nada sem arquivo ou fora do gamelist). O cartão foi desenhado com a capa real do God of War, sem capa e com nome comprido. Uma
+  janela de teste apareceu no canto certo desta máquina (1920×1080), sem tirar o foco da janela da frente, e sumiu sozinha
+  depois de ~6,4 s. O ES do build respondeu 201 sem jogo aberto. Falta ver por cima de um emulador de verdade (PCSX2 e
+  RetroArch em tela cheia) e com o ES respondendo 200 durante um jogo.

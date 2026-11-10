@@ -101,6 +101,26 @@ namespace Retroboat.Es
             return false;
         }
 
+        /// <summary>
+        /// Há um jogo aberto pelo ES: GET /runningGame responde 200 com o jogo, e 201 sem jogo (o mesmo no ES oficial e
+        /// no do Retroboat). Prazo curto; sem ES, falso.
+        /// </summary>
+        public static bool IsGameRunning()
+        {
+            try
+            {
+                var request = (HttpWebRequest)WebRequest.Create(BaseUrl + "/runningGame");
+                request.Timeout = 1500;
+                request.Proxy = null;
+                using (var response = (HttpWebResponse)request.GetResponse())
+                    return response.StatusCode == HttpStatusCode.OK;
+            }
+            catch (WebException)
+            {
+                return false;
+            }
+        }
+
         public static bool Notify(string message)
         {
             try

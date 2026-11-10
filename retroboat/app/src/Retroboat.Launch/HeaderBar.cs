@@ -436,57 +436,6 @@ namespace Retroboat.Launch
             DestroyHandle();
         }
 
-        /// <summary>A memória de pixels da janela em camadas: uma só, reaproveitada a cada quadro.</summary>
-        sealed class LayeredSurface : IDisposable
-        {
-            readonly int _width;
-            readonly int _height;
-            readonly IntPtr _memoryDc;
-            readonly IntPtr _bitmap;
-            readonly IntPtr _previous;
-            readonly IntPtr _bits;
-
-            public LayeredSurface(int width, int height)
-            {
-                _width = width;
-                _height = height;
-
-                var info = new BITMAPINFOHEADER
-                {
-                    biSize = Marshal.SizeOf(typeof(BITMAPINFOHEADER)),
-                    biWidth = width,
-                    biHeight = -height, // Negativa: de cima para baixo, como os pixels que chegam aqui.
-                    biPlanes = 1,
-                    biBitCount = 32
-                };
-
-                _memoryDc = CreateCompatibleDC(IntPtr.Zero);
-                _bitmap = CreateDIBSection(_memoryDc, ref info, 0, out _bits, IntPtr.Zero, 0);
-                if (_bitmap == IntPtr.Zero)
-                    throw new InvalidOperationException("Não foi possível criar a superfície da região do cabeçalho.");
-
-                _previous = SelectObject(_memoryDc, _bitmap);
-            }
-
-            public void Present(IntPtr window, int[] pixels, int x, int y)
-            {
-                Marshal.Copy(pixels, 0, _bits, pixels.Length);
-
-                var position = new POINT { X = x, Y = y };
-                var size = new SIZE { CX = _width, CY = _height };
-                var source = new POINT();
-                var blend = new BLENDFUNCTION { BlendOp = 0, SourceConstantAlpha = 255, AlphaFormat = 1 };
-                UpdateLayeredWindow(window, IntPtr.Zero, ref position, ref size, _memoryDc, ref source, 0, ref blend, ULW_ALPHA);
-            }
-
-            public void Dispose()
-            {
-                SelectObject(_memoryDc, _previous);
-                DeleteObject(_bitmap);
-                DeleteDC(_memoryDc);
-            }
-        }
-
         const uint WS_POPUP = 0x80000000;
         const int WS_EX_LAYERED = 0x00080000;
         const int WS_EX_TRANSPARENT = 0x00000020;
@@ -499,33 +448,12 @@ namespace Retroboat.Launch
         const uint SWP_NOMOVE = 0x0002;
         const uint SWP_NOACTIVATE = 0x0010;
         const uint SWP_NOOWNERZORDER = 0x0200;
-        const int ULW_ALPHA = 2;
         const uint WDA_NONE = 0x00;
         const uint WDA_EXCLUDEFROMCAPTURE = 0x11;
         static readonly IntPtr HWND_TOPMOST = new IntPtr(-1);
 
         [StructLayout(LayoutKind.Sequential)] struct POINT { public int X; public int Y; }
-        [StructLayout(LayoutKind.Sequential)] struct SIZE { public int CX; public int CY; }
         [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
-
-        [StructLayout(LayoutKind.Sequential, Pack = 1)]
-        struct BLENDFUNCTION { public byte BlendOp; public byte BlendFlags; public byte SourceConstantAlpha; public byte AlphaFormat; }
-
-        [StructLayout(LayoutKind.Sequential)]
-        struct BITMAPINFOHEADER
-        {
-            public int biSize;
-            public int biWidth;
-            public int biHeight;
-            public short biPlanes;
-            public short biBitCount;
-            public int biCompression;
-            public int biSizeImage;
-            public int biXPelsPerMeter;
-            public int biYPelsPerMeter;
-            public int biClrUsed;
-            public int biClrImportant;
-        }
 
         [DllImport("user32.dll")] static extern bool SetWindowDisplayAffinity(IntPtr window, uint affinity);
         [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr window, int command);
@@ -536,11 +464,5 @@ namespace Retroboat.Launch
         [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out int process);
         [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr window, out RECT rect);
         [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr window, ref POINT point);
-        [DllImport("user32.dll")] static extern bool UpdateLayeredWindow(IntPtr window, IntPtr destination, ref POINT position, ref SIZE size, IntPtr source, ref POINT sourcePosition, int key, ref BLENDFUNCTION blend, int flags);
-        [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleDC(IntPtr dc);
-        [DllImport("gdi32.dll")] static extern IntPtr CreateDIBSection(IntPtr dc, ref BITMAPINFOHEADER info, uint usage, out IntPtr bits, IntPtr section, uint offset);
-        [DllImport("gdi32.dll")] static extern IntPtr SelectObject(IntPtr dc, IntPtr value);
-        [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr value);
-        [DllImport("gdi32.dll")] static extern bool DeleteDC(IntPtr dc);
     }
 }

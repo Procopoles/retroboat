@@ -210,6 +210,32 @@ seção do jogo; o status do jogo (BAIXANDO, em 4.1) continua na seção dele.
 - **Posição:** tabela por tema em `HeaderRegion` (Core). No PlayStation-X ela começa logo depois do logo do tema, para não
   cortar o nome dele ao meio; em tema desconhecido, canto superior direito.
 
+### 4.7 Aviso no jogo (download concluído)
+
+Com um jogo aberto, a região do cabeçalho (4.6) não aparece. Um jogo que termina de baixar nessa hora ganha um aviso no
+canto inferior direito da tela do jogo, como as notificações da Steam durante o jogo.
+
+```
+                                         ┌──────────────────────────────────────────┐
+                                         │ ┌────┐  DOWNLOAD CONCLUÍDO   (ready)      │
+                                         │ │capa│  God of War           (text-title) │
+                                         │ └────┘  Pronto para jogar neste PC       │
+                                         └──────────────────────────────────────────┘
+```
+
+- **Forma:** cartão de 420 × 104 px a 1080 linhas, fundo `neutral-4`, borda de 1 px `neutral-8`, raio 4 px, sem sombra. Margem
+  de 32 px da borda da tela (da tela inteira com o jogo em tela cheia; acima da barra de tarefas com o jogo em janela).
+- **Capa:** a caixa do jogo no gamelist (`boxart`, depois `thumbnail`, depois `image`), com 80 px de altura, raio 2 px, cortada
+  pelo centro se for larga ou estreita demais. Sem capa, um quadro `neutral-7` com o check `ready`.
+- **Texto:** legenda DOWNLOAD CONCLUÍDO (15 px, peso 600, `ready`), nome do jogo (22 px, peso 600, `text-title`, uma linha com
+  reticências) e "Pronto para jogar neste PC" (16 px, `text-secondary`).
+- **Movimento:** sobe 24 px da borda enquanto aparece, em 200 ms com ease-out; fica 6 s; desce e some em 200 ms. Vários jogos
+  prontos aparecem um depois do outro, com 300 ms entre eles.
+- **Comportamento:** nunca pega o foco nem o clique (o controle continua indo para o jogo), não aparece na barra de tarefas e
+  fica por cima de jogos em janela e em tela cheia sem borda. Em tela cheia exclusiva, como na Steam, nenhuma janela aparece
+  por cima. Só para download concluído; com o ES na frente, quem avisa é a região do cabeçalho.
+- **Escala:** tudo na proporção da altura da tela do jogo (2× num 4K), no monitor onde o jogo está.
+
 ## 5. Aplicação nos temas
 
 ### Carbon do Retroboat (RB-014)
