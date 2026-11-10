@@ -45,11 +45,18 @@ namespace Retroboat.Settings
         /// <summary>A checagem de BIOS do ES já foi desligada neste PC; não desligar de novo.</summary>
         public bool EsBiosCheckHandled { get; set; }
 
+        /// <summary>
+        /// A resposta deste PC à pergunta do emulatorLauncher "manter o jogo descompactado?": true = manter, false = apagar ao
+        /// fechar o jogo, null = ainda não respondeu (ele pergunta uma vez). Ver Library.UncompressedGame.
+        /// </summary>
+        public bool? KeepUncompressed { get; set; }
+
         public static string GetPath(RetroBatInstall install) => Path.Combine(install.RetroboatDataPath, FileName);
 
         /// <summary>
         /// RB-021: traz as quatro opções principais de <paramref name="loaded"/> (o retroboat.ini que o menu NUVEM acabou de
-        /// mudar). Biblioteca e pasta de jogos não mudam assim: só pelo setup.
+        /// mudar) e a resposta sobre jogos descompactados (que o retroboat-launch grava). Biblioteca e pasta de jogos não mudam
+        /// assim: só pelo setup.
         /// </summary>
         /// <returns>true se vídeos, manuais ou capas automáticas acabaram de ser ligados (há o que buscar).</returns>
         public bool TakeMainOptionsFrom(RetroboatSettings loaded)
@@ -59,6 +66,7 @@ namespace Retroboat.Settings
             CloudManuals = loaded.CloudManuals;
             AutoMedia = loaded.AutoMedia;
             CloudAppAutoOpen = loaded.CloudAppAutoOpen;
+            KeepUncompressed = loaded.KeepUncompressed;
             return turnedOn;
         }
 
@@ -74,7 +82,8 @@ namespace Retroboat.Settings
                 CloudManuals = Get(ini, "Cloud", "Manuals") == "1",
                 CloudAppAutoOpen = Get(ini, "Cloud", "AutoOpen") == "1",
                 AutoMedia = Get(ini, "Media", "Automatic") != "0",
-                EsBiosCheckHandled = Get(ini, "Bios", "EsCheckHandled") == "1"
+                EsBiosCheckHandled = Get(ini, "Bios", "EsCheckHandled") == "1",
+                KeepUncompressed = Get(ini, "Games", "KeepUncompressed") == "1" ? true : Get(ini, "Games", "KeepUncompressed") == "0" ? false : (bool?)null
             };
         }
 
@@ -106,7 +115,12 @@ namespace Retroboat.Settings
                 .AppendLine()
                 .AppendLine("[Bios]")
                 .AppendLine("; 1 = o Retroboat já desligou o aviso de BIOS do ES neste PC. Religue pelo menu do ES, se quiser.")
-                .AppendLine("EsCheckHandled=" + (EsBiosCheckHandled ? "1" : "0"));
+                .AppendLine("EsCheckHandled=" + (EsBiosCheckHandled ? "1" : "0"))
+                .AppendLine()
+                .AppendLine("[Games]")
+                .AppendLine("; Jogo compactado que o RetroBat descompacta para abrir: 1 = manter a cópia descompactada, 0 = apagar ao fechar o")
+                .AppendLine("; jogo. Vazio = perguntar uma vez e guardar a resposta aqui. A opção de descompressão do ES, se definida, vale por cima.")
+                .AppendLine("KeepUncompressed=" + (KeepUncompressed.HasValue ? (KeepUncompressed.Value ? "1" : "0") : ""));
 
             File.WriteAllText(path, text.ToString(), new UTF8Encoding(false));
         }

@@ -71,8 +71,25 @@ namespace Retroboat.Launch
             if (saves != null && saves.Cancelled)
                 return 1;
 
-            // Configurações: o emulador abre com as da nuvem, e o que mudou nos menus do ES e do emulador vai para lá.
+            // Jogo compactado: a resposta à pergunta "manter descompactado?" do emulatorLauncher vale para os próximos jogos.
+            var uncompressed = install != null ? Uncompressed(install, args, rom) : null;
+            if (uncompressed?.Argument != null)
+                targetArguments += " " + uncompressed.Argument;
+
             Func<int> run = () => Run(target, targetArguments);
+            if (uncompressed != null && uncompressed.Learns)
+            {
+                var game = run;
+                run = () =>
+                {
+                    int code = uncompressed.Around(game, out var learned);
+                    if (learned.HasValue)
+                        Log.Info("Jogo descompactado: resposta guardada (" + (learned.Value ? "manter" : "apagar") + "); o RetroBat não pergunta mais neste PC.");
+                    return code;
+                };
+            }
+
+            // Configurações: o emulador abre com as da nuvem, e o que mudou nos menus do ES e do emulador vai para lá.
             if (install != null)
             {
                 var emulator = run;
@@ -208,6 +225,20 @@ namespace Retroboat.Launch
             }
 
             return Path.GetFileNameWithoutExtension(entry.LocalName);
+        }
+
+        /// <summary>Falha aqui nunca impede de jogar: o emulatorLauncher só volta a perguntar.</summary>
+        static UncompressedGame Uncompressed(RetroBatInstall install, string[] args, string rom)
+        {
+            try
+            {
+                return UncompressedGame.For(install, RetroboatSettings.Load(RetroboatSettings.GetPath(install)), CommandLine.GetOption(args, "-system"), rom);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Falha ao ver a resposta sobre jogos descompactados", ex);
+                return null;
+            }
         }
 
         static int Run(string target, string arguments)

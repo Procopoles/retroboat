@@ -807,3 +807,29 @@ o histórico.
   não); SWANSTATION (PADRÃO) com "Não instalado" e PCSX2 (PADRÃO) com "Instalado"; trocar para MEDNAFEN_PSX_HW muda o estado na
   hora e grava `psx.emulator=libretro` e `psx.core=mednafen_psx_hw`; reabrir mostra a escolha; voltar ao padrão apaga as duas
   opções. O ícone de cubos não cabia na caixa do PlayStation-X (cortado com reticências): a entrada agora diminui o ícone.
+
+## RB-024 — "Manter o jogo descompactado?" perguntado uma vez só
+
+- **Onde:** só no app: `Library\UncompressedGame` e o `retroboat-launch` (`Launch\Program.cs`); `[Games] KeepUncompressed`
+  no `retroboat.ini`.
+- **Pedido (09/11/2026):** quando o usuário responde que não quer manter o jogo descompactado, a pergunta volta a cada jogo
+  até ele responder sim; a resposta precisa ser lembrada.
+- **Causa:** a pergunta é do emulatorLauncher do RetroBat (`KeepUncompressedFile`, ao fechar um jogo compactado que ele
+  descompactou). Sem a opção `decompressedfolders`, ele pergunta toda vez e não guarda nada: "não" apaga
+  `<pasta de jogos>\.uncompressed\<sistema>\<arquivo>`, e no jogo seguinte ele descompacta e pergunta de novo. "Sim" deixa a
+  pasta, que ele reaproveita sem perguntar; por isso a pergunta para no primeiro "sim".
+- **Como funciona:**
+  - sem resposta guardada, o `retroboat-launch` olha essa pasta a cada segundo durante a partida. Se ela apareceu, a resposta é
+    o que sobrou depois da pergunta (pasta lá = manter, pasta apagada = apagar), gravada em `[Games] KeepUncompressed`;
+  - com a resposta guardada, o emulatorLauncher recebe `-decompressedfolders keep` ou `delete`, que ele lê por cima de todas
+    as opções, e não pergunta mais;
+  - a opção de descompressão do ES (geral, do sistema ou do jogo), quando definida, continua valendo: aí nada é passado nem
+    aprendido. É por ela que a pessoa muda de ideia. Jogo que não foi descompactado, ou pasta que já existia, não ensina nada;
+  - vale para todos os jogos deste PC (o espaço em disco é de cada PC; não vai para a nuvem). Gravar só a resposta, sobre o
+    `retroboat.ini` do momento, e o `Retroboat.exe` aberto a pega como as opções do menu NUVEM.
+- **Classificação:** C0 (só app).
+- **Risco semântico:** baixo. Depende de o emulatorLauncher continuar aplicando os argumentos por último e usando a pasta
+  `.uncompressed\<sistema>\<arquivo>` (código de `Generator.cs` lido em 09/11/2026).
+- **Testado em 09/11/2026:** 6 testes automáticos novos (286 no total): a pasta (com `roms=` do `emulatorLauncher.cfg`, sem ele
+  e com `decompressedpath`), o argumento com a resposta guardada, a opção do ES valendo por cima nos três níveis, manter e
+  apagar aprendidos pela pasta, e nada aprendido sem descompressão. Falta um jogo compactado de verdade no build.

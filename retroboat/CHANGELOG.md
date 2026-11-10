@@ -112,6 +112,8 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-023: menu EMULADORES no nosso ES, logo abaixo de NUVEM: o emulador de cada console que tem jogos (na nuvem ou neste
   PC), com o padrão marcado e se ele já está instalado ou se o RetroBat baixa no primeiro jogo. Só a escolha do emulador; os
   outros ajustes continuam no menu do ES. A escolha vai para a nuvem com as outras opções do ES.
+- RB-024: a pergunta do RetroBat "manter o jogo descompactado?" aparece uma vez só neste PC. A resposta, sim ou não, fica
+  guardada e vale para os próximos jogos compactados. A opção de descompressão do ES, se definida, continua valendo por cima.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e
