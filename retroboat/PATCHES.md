@@ -777,3 +777,33 @@ o histórico.
   gerado a partir do `es_systems.cfg` do build do usuário marca só o `swanstation` e mantém os outros 4 emuladores. Nem o
   `es_settings.cfg` nem as configurações do ES no Drive fixam outro core para o PS1. Falta abrir um jogo de PS1 de verdade (o
   RetroBat baixa o SwanStation nessa hora).
+
+## RB-023 — Menu EMULADORES e consoles ativos
+
+- **Onde:** fork `retroboat-emulationstation`: os nossos `es-app/src/retroboat/RetroboatEmulatorsGui.*` (a tela),
+  `ActiveSystems.*` (consoles ativos) e `RetroboatMenu.*` (entrada do menu com ícone da fonte do ES, agora usada também pela
+  NUVEM), e 2 linhas marcadas `RETROBOAT RB-023` em `GuiMenu.cpp` (o include e a entrada). No app: `Library\ActiveSystems`, e
+  `CloudLibrary.IsGame` passa a ser a regra única do que é jogo dentro da pasta de um console.
+- **Pedido (09/11/2026):** uma parte no menu para gerenciar os emuladores, só com as opções principais, mostrando os emuladores
+  dos consoles ativos; e abstrair "consoles ativos / com jogos disponíveis", que várias partes do app usam.
+- **Desenho:** [design/rb023-menu-emuladores.md](design/rb023-menu-emuladores.md).
+- **Como funciona:**
+  - console ativo = tem pelo menos um jogo na biblioteca do Drive ou na pasta do console neste PC (o marcador de um jogo da
+    nuvem conta). A mesma regra nos dois lados: `Retroboat.Library.ActiveSystems` (C#) e `Retroboat::ActiveSystems` (ES). O
+    aviso de BIOS (`StartupSync`) e o status ao vivo do download (`RetroboatCloud.cpp`) já usam essas peças;
+  - EMULADORES, logo abaixo de NUVEM, com ícone de cubos: uma linha por console ativo, com o estado do emulador escolhido
+    embaixo do nome ("Instalado neste PC" ou "Não instalado: o RetroBat baixa no primeiro jogo") e, à direita, a lista do
+    RetroBat para aquele console (emulador e core numa lista só), com o padrão marcado "(PADRÃO)";
+  - grava `<sistema>.emulator` e `<sistema>.core` no `es_settings.cfg`, as mesmas opções do menu avançado do ES por sistema, e
+    só o que mudou. Escolher o padrão apaga as duas (AUTO). Vale no próximo jogo e vai para a nuvem pelo RB-005;
+  - o estado olha os arquivos do RetroBat (`emulators\retroarch\cores\<core>_libretro.dll`, ou a pasta do emulador com algum
+    arquivo; o RetroBat cria as pastas vazias). Quem baixa continua sendo o RetroBat, no primeiro jogo.
+- **Classificação:** C1, risco de merge baixo: 2 linhas em `GuiMenu.cpp`, logo depois da linha da NUVEM.
+- **Risco semântico:** baixo. Depende de `getDefaultEmulator`/`getDefaultCore` e das opções `<sistema>.emulator`/`.core`, que o
+  menu do próprio ES também usa. O estado "instalado" depende das pastas do RetroBat; 4 emuladores têm pasta com outro nome
+  (`dolphin-emu`, `mame`, `cxbx-reloaded`, `chihiro`), numa tabela no código.
+- **Testado em 09/11/2026:** 2 testes automáticos novos (280 no total). Nosso ES de verdade numa cópia isolada (tema
+  PlayStation-X e Carbon, janela fora da tela): só PlayStation e PlayStation 2 aparecem (SNES só com `gamelist.xml` e N64 vazio
+  não); SWANSTATION (PADRÃO) com "Não instalado" e PCSX2 (PADRÃO) com "Instalado"; trocar para MEDNAFEN_PSX_HW muda o estado na
+  hora e grava `psx.emulator=libretro` e `psx.core=mednafen_psx_hw`; reabrir mostra a escolha; voltar ao padrão apaga as duas
+  opções. O ícone de cubos não cabia na caixa do PlayStation-X (cortado com reticências): a entrada agora diminui o ícone.

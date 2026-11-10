@@ -68,13 +68,10 @@ namespace Retroboat.Cloud
                 if (!folder.Exists)
                     continue;
 
-                foreach (var entry in folder.EnumerateFileSystemInfos().Where(IsVisible))
+                foreach (var entry in folder.EnumerateFileSystemInfos().Where(IsGame))
                 {
                     if (entry is DirectoryInfo dir)
                     {
-                        if (IgnoredFolders.Contains(dir.Name))
-                            continue;
-
                         games.Add(new CloudGame
                         {
                             System = name,
@@ -85,7 +82,7 @@ namespace Retroboat.Cloud
                             LastWriteTimeUtc = dir.LastWriteTimeUtc
                         });
                     }
-                    else if (entry is FileInfo file && !IgnoredFiles.Contains(file.Name) && !file.Name.EndsWith(GameInstaller.PartSuffix, StringComparison.OrdinalIgnoreCase))
+                    else if (entry is FileInfo file)
                     {
                         games.Add(new CloudGame
                         {
@@ -114,9 +111,24 @@ namespace Retroboat.Cloud
             return GetGames(parts[0]).FirstOrDefault(g => string.Equals(g.Name, parts[1], StringComparison.OrdinalIgnoreCase));
         }
 
+        /// <summary>
+        /// Um jogo dentro da pasta de um console: arquivo ou pasta visível, fora os arquivos de controle (gamelist.xml...), as
+        /// pastas de mídia do scraper e o download pela metade. Vale para o Drive e para a pasta de jogos do PC (ActiveSystems).
+        /// </summary>
+        internal static bool IsGame(FileSystemInfo entry)
+        {
+            if (!IsVisible(entry))
+                return false;
+
+            if (entry is DirectoryInfo)
+                return !IgnoredFolders.Contains(entry.Name);
+
+            return !IgnoredFiles.Contains(entry.Name) && !entry.Name.EndsWith(GameInstaller.PartSuffix, StringComparison.OrdinalIgnoreCase);
+        }
+
         // "." e "_" no começo do nome marcam pastas e arquivos de controle (ex.: "_controle" com as planilhas de
         // quem organiza a biblioteca); nenhum dump de jogo começa assim.
-        static bool IsVisible(FileSystemInfo info)
+        internal static bool IsVisible(FileSystemInfo info)
         {
             return (info.Attributes & (FileAttributes.Hidden | FileAttributes.System)) == 0
                 && !info.Name.StartsWith(".", StringComparison.Ordinal)

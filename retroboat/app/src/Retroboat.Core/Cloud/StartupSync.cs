@@ -185,7 +185,7 @@ namespace Retroboat.Cloud
             }
 
             // Só avisa sobre BIOS de sistemas que têm jogos, na nuvem ou neste PC.
-            var systems = SystemsWithGames(report.Cloud, romsPath);
+            var systems = ActiveSystems.Folders(romsPath, report.Cloud);
             report.BiosStatus = BiosStatus.Check(localBios, BiosCatalog.All.Where(s => systems.Contains(s.System)));
             var corrupt = report.Bios?.SkippedCorrupt.ToList() ?? new List<CorruptFile>();
             foreach (var bios in report.BiosStatus)
@@ -286,29 +286,6 @@ namespace Retroboat.Cloud
             if (result.Uploaded.Count > 0) parts.Add(result.Uploaded.Count + " enviada(s)");
             if (result.Organized.Count > 0) parts.Add(result.Organized.Count + " organizada(s) no Drive");
             return "Nuvem: BIOS sincronizadas (" + string.Join(", ", parts) + ")";
-        }
-
-        static HashSet<string> SystemsWithGames(CloudLocation cloud, string romsPath)
-        {
-            var systems = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-            if (cloud != null && cloud.Exists && Directory.Exists(cloud.GamesPath))
-            {
-                foreach (var game in new CloudLibrary(cloud.GamesPath).GetGames())
-                    systems.Add(game.System);
-            }
-
-            if (!string.IsNullOrEmpty(romsPath) && Directory.Exists(romsPath))
-            {
-                foreach (var dir in Directory.GetDirectories(romsPath))
-                {
-                    if (Directory.EnumerateFiles(dir).Any(f => !Path.GetFileName(f).Equals("_info.txt", StringComparison.OrdinalIgnoreCase)
-                                                             && !Path.GetFileName(f).Equals("gamelist.xml", StringComparison.OrdinalIgnoreCase)))
-                        systems.Add(Path.GetFileName(dir));
-                }
-            }
-
-            return systems;
         }
     }
 }

@@ -109,6 +109,9 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-022: o PS1 abre no SwanStation por padrão, no lugar do Beetle PSX HW do RetroBat. Ele aceita qualquer BIOS original
   de PS1 (a SCPH1001 inclusive), e o Beetle só aceita a scph5501.bin. Como os outros emuladores, o RetroBat baixa o
   SwanStation no primeiro jogo, e o menu do ES ainda escolhe outro por sistema ou por jogo.
+- RB-023: menu EMULADORES no nosso ES, logo abaixo de NUVEM: o emulador de cada console que tem jogos (na nuvem ou neste
+  PC), com o padrão marcado e se ele já está instalado ou se o RetroBat baixa no primeiro jogo. Só a escolha do emulador; os
+  outros ajustes continuam no menu do ES. A escolha vai para a nuvem com as outras opções do ES.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e
