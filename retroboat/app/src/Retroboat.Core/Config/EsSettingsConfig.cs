@@ -11,7 +11,8 @@ namespace Retroboat.Config
     /// <summary>
     /// O que fica no PC no es_settings.cfg. O resto viaja: opções globais (global.*), por sistema (ps2.*) e por jogo
     /// (ps2["Jogo.iso"].*), que o emulatorLauncher aplica no emulador a cada jogo, e as preferências do próprio ES
-    /// (idioma, coleções, scraper, proteção de tela...).
+    /// (idioma, coleções, scraper, proteção de tela...). As coleções personalizadas vão pelo EsCollectionsConfig, e a
+    /// lista das que aparecem no ES (CollectionSystemsCustom) vai daqui.
     ///
     /// Risco semântico (RB-005): uma chave nova do upstream que dependa da máquina precisa entrar aqui, senão viaja.
     /// </summary>
@@ -29,8 +30,6 @@ namespace Retroboat.Config
             "LastSystem",
             // O tema escolhido precisa estar instalado neste PC; o ES troca por outro se não estiver e mandaria a troca.
             "ThemeSet",
-            // As coleções personalizadas são listas de caminhos de jogos deste PC (.emulationstation\collections).
-            "CollectionSystemsCustom",
             // O Retroboat desliga o aviso de BIOS do ES em cada PC, uma vez (EsBiosCheck).
             "CheckBiosesAtLaunch",
             // Caminhos e programas deste PC.

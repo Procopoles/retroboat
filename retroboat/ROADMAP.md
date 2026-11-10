@@ -15,7 +15,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
 | M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020); fase 2 pronta no nosso ES (08/11/2026): desinstalar, verificar e reparar no menu do jogo; falta testar com o Drive real e o controle |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); saves de todos os sistemas pela regra genérica (08/11/2026; falta testar com os emuladores em dois PCs; PS3, Switch, Wii U, Xbox, Vita, PS4 e 3DS ainda fora) |
-| M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES prontas; opções do ES, controles e configurações de todos os emuladores prontos (08/11/2026: PCSX2 com regra própria, os outros pela regra genérica; falta testar com o ES e os emuladores em dois PCs); coleções, favoritos e tempo jogado não iniciados |
+| M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES prontas; opções do ES, controles e configurações de todos os emuladores prontos (08/11/2026: PCSX2 com regra própria, os outros pela regra genérica; falta testar com o ES e os emuladores em dois PCs); favoritos, tempo jogado e coleções personalizadas prontos (10/11/2026; falta testar com o ES em dois PCs) |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; RB-010 pronto no fork e testado numa cópia isolada (08/11/2026); a pasta `build` usa o nosso ES desde 08/11/2026 (o oficial ficou em `emulationstation.oficial.exe`), sem o scraper do ES e o RetroAchievements até termos chaves próprias (RB-011); falta testar com o Drive real, gamepad e tela cheia |
 
 M0 e M1 podem andar em paralelo. Código em [app/](app/README.md).
@@ -195,8 +195,8 @@ Depende do fork e do build do ES (RB-011).
   - testado com 12 testes automáticos (227 no total) e com os arquivos reais do RetroArch deste build em
     dois PCs simulados: as 3.256 chaves portáveis do `retroarch.cfg` chegaram iguais, as 145 do PC
     ficaram no PC, e nenhuma senha, token ou caminho foi para a nuvem.
-- **Falta:** testar com o ES e os emuladores abrindo de verdade em dois PCs; coleções personalizadas,
-  favoritos e tempo jogado.
+- **Falta:** testar com o ES e os emuladores abrindo de verdade em dois PCs. Coleções personalizadas,
+  favoritos e tempo jogado vieram em 10/11/2026 (seção abaixo).
 
 ### Desinstalar e verificar pelo ES (08/11/2026)
 
@@ -225,6 +225,24 @@ Depende do fork e do build do ES (RB-011).
 - **Efeito conhecido:** durante o VERIFICANDO, a barra de ajuda continua com a do menu que fechou (a tela de espera do ES não
   tem ajuda própria). A entrada é ignorada até o fim.
 - **Falta:** testar com o Google Drive de verdade e com controle; pausar a fila inteira (hoje só dá para cancelar um jogo).
+
+### Favoritos, tempo jogado e coleções na nuvem (10/11/2026)
+
+- **Decisão:** como na Steam, o jogo mostra as partidas e as horas de todos os PCs. Partidas e tempo jogado são
+  somados; a última partida é a mais recente; o favorito fica com a mudança mais nova, para desmarcar num PC desmarcar
+  em todos (muda a ideia de 24/10 de unir os favoritos).
+- **Pronto e testado** (14 testes automáticos, 311 no total, mais um teste pelo CLI com cópias dos gamelists reais
+  de PS2 e PS1 deste build em dois PCs simulados):
+  - cada instalação do RetroBat envia só o que foi jogado nela (`retroboatperfiljogos` no Drive), e o gamelist de
+    cada PC mostra a soma: partidas nos dois PCs somaram (Guitar Hero III: 4 + 1 partidas, 1.367 + 300 s);
+  - um favorito marcado num PC chegou ao outro, e desmarcar também vale;
+  - uma pasta do RetroBat copiada para outro PC (ou levada num pen drive) não conta nada duas vezes, nem uma
+    sincronização interrompida no meio; uma partida que ficou só na `recovery` do ES (fechado à força) conta;
+  - coleções personalizadas (e as com filtro) vão como as opções do ES: uma coleção montada num PC aparece nos outros
+    com os caminhos da pasta de jogos de cada um, e apagar num PC apaga nos outros. A lista de coleções que aparecem
+    no ES viaja junto;
+  - roda ao abrir o Retroboat e quando o ES fecha; com o ES aberto, espera, porque ele regrava o gamelist ao sair.
+- **Falta:** testar com o ES de verdade em dois PCs.
 
 ## Etapa 2: redesign visual e de UX
 

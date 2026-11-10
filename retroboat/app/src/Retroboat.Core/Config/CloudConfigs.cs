@@ -22,7 +22,7 @@ namespace Retroboat.Config
     public static class CloudConfigs
     {
         public static IReadOnlyList<IConfigSource> EsSources(RetroBatInstall install) =>
-            new IConfigSource[] { new EsSettingsConfig(install), new EsInputConfig(install) };
+            new IConfigSource[] { new EsSettingsConfig(install), new EsInputConfig(install), new EsCollectionsConfig(install) };
 
         /// <summary>
         /// Os emuladores de &lt;RetroBat&gt;emulators: os com regra própria (PCSX2) e todos os outros pela regra genérica.

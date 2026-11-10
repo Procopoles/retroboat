@@ -222,7 +222,8 @@ isso, sincronizar as configurações do ES leva junto quase tudo. A regra é por
 - **Fica no PC:** resolução, monitor, dispositivo de áudio, pasta de jogos, rede, tudo que depende
   do hardware. É uma lista mantida no catálogo, igual às regras de save.
 - **Mescla por campo:** tempo jogado e número de partidas são somados entre os PCs, a data do último
-  jogo fica com a maior, favoritos são unidos.
+  jogo fica com a maior. Favoritos: vale a mudança mais nova (decisão de 10/11/2026; unidos, desmarcar num
+  PC nunca valeria).
 
 Risco semântico (para o registro de patches): chaves novas que o upstream criar no
 `es_settings.cfg` e que dependem da máquina precisam entrar na lista "fica no PC". O
@@ -266,7 +267,10 @@ dele) só existe nesses arquivos. Os emuladores, como programas, continuam por P
   parecidas) separa PCs com versões diferentes; um arquivo com versão que ainda não existe espera o
   emulador criá-lo. Mais de 1.000 arquivos de configuração numa pasta de emulador param a sincronização
   dele com um aviso. Todos os sistemas abrem pelo `retroboat-launch`.
-- **Ainda não:** coleções personalizadas (listas de caminhos deste PC), favoritos e tempo jogado.
+- **Coleções personalizadas, favoritos e tempo jogado (10/11/2026):** as coleções são mais uma fonte do mesmo motor
+  (`configuracoescolecoes`), com os jogos da pasta de jogos trocados por `jogos:<sistema>/<arquivo>`. Favoritos e
+  tempo jogado têm motor próprio (`perfiljogos<PC>-<id>.xml`, um arquivo por instalação, com o que foi jogado nela),
+  porque são somados e não substituídos. Detalhes no [registro de patches](../PATCHES.md).
 
 ## 6. Como aparece no ES
 

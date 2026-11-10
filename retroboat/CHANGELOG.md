@@ -33,6 +33,10 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   configurações do PCSX2 (o `PCSX2.ini`, os ajustes por jogo e os perfis de controle) vão para o
   Drive (`retroboat\configuracoes`). Um PC novo recebe tudo; uma mudança num PC chega aos outros, e
   o que depende da máquina (tela, áudio, pastas, janelas, senhas) fica em cada PC.
+- RB-005 (favoritos, tempo jogado e coleções): o número de partidas e o tempo jogado de cada jogo
+  somam os de todos os PCs, a última partida é a mais recente, e o favorito marcado ou desmarcado
+  num PC vale nos outros (`retroboatperfil` no Drive). As coleções personalizadas do ES vão junto
+  com as opções do ES, com os jogos apontando para a pasta de jogos de cada PC.
 - RB-009 (saves de todos os sistemas): a pasta `saves` de cada sistema vai para o Drive pela mesma
   base dos memory cards do PS2: saves do jogo, memory cards, VMUs, NVRAM e save states de qualquer
   emulador (PS1, GameCube, Dreamcast e os outros), com trava, conflito e histórico. O que veio com o

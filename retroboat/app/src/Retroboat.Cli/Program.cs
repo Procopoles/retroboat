@@ -53,6 +53,10 @@ Memory cards na nuvem (retroboat\saves no Drive; o emulador gerencia os cartões
 Configurações na nuvem (retroboat\configuracoes no Drive: opções do ES, controles, PCSX2):
   retroboat-cli config status --retrobat <pasta do RetroBat> [--pc NOME]
   retroboat-cli config sync --retrobat <pasta do RetroBat> [--pc NOME]   (com o ES e os emuladores fechados)
+  (inclui as coleções personalizadas do ES, com os jogos da pasta de jogos do retroboat.ini)
+
+Favoritos e tempo jogado na nuvem (retroboat\perfil\jogos no Drive; partidas e tempo somados entre os PCs):
+  retroboat-cli stats sync --retrobat <pasta do RetroBat> [--roms <pasta de jogos>] [--pc NOME]   (com o ES fechado)
 
 Biblioteca isolada (RB-003):
   retroboat-cli library apply --retrobat <pasta do RetroBat> [--roms <pasta de jogos>] [--dry-run]
@@ -103,6 +107,7 @@ Opções gerais:
                     case "saves restore": return SavesRestore(options);
                     case "config status": return ConfigCommand(options, ConfigSyncMode.DryRun);
                     case "config sync": return ConfigCommand(options, ConfigSyncMode.Full);
+                    case "stats sync": return StatsSync(options);
                     case "settings get": return SettingsGet(options);
                     case "settings set": return SettingsSet(options);
                     case "settings request-setup": return SettingsRequestSetup(options);
@@ -379,6 +384,32 @@ Opções gerais:
             }
 
             return problems > 0 ? ExitError : ExitOk;
+        }
+
+        /// <summary>stats sync: o mesmo que o lançador faz ao abrir e quando o ES fecha. Recusa com o ES aberto.</summary>
+        static int StatsSync(Options options)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            var location = LocateCloud(options);
+            if (location == null || !location.Exists)
+                throw new InvalidOperationException("Pasta do Retroboat na nuvem não encontrada. Use --cloud <pasta>.");
+
+            if (CloudConfigs.IsEsRunning())
+                throw new InvalidOperationException("Feche o ES antes: ele guarda as partidas na memória e regrava o gamelist ao sair.");
+
+            var roms = options.Value("--roms") ?? RetroboatSettings.Load(RetroboatSettings.GetPath(install)).RomsPath;
+            var sync = new Retroboat.Profile.GameStatsSync(install, location.RetroboatPath, roms, options.Value("--pc"));
+            var result = sync.Sync();
+
+            Console.WriteLine("Favoritos e tempo jogado (" + sync.PcName + "): " + install.GamelistsPath);
+            Console.WriteLine("  nuvem: " + sync.CloudFolder);
+            foreach (var game in result.Sent) Console.WriteLine("  " + "enviado:".PadRight(14) + game);
+            foreach (var game in result.Received) Console.WriteLine("  " + "recebido:".PadRight(14) + game);
+            foreach (var error in result.Errors) Console.WriteLine("  ERRO: " + error);
+            if (result.Sent.Count + result.Received.Count + result.Errors.Count == 0)
+                Console.WriteLine("  em dia");
+
+            return result.Errors.Count > 0 ? ExitError : ExitOk;
         }
 
         static int SavesStatus(Options options)

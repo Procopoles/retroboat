@@ -165,8 +165,12 @@ namespace Retroboat.Launcher
                     return;
                 }
 
-                Log.Info("ES fechado: sincronizando as configurações.");
+                Log.Info("ES fechado: sincronizando as configurações, os favoritos e o tempo jogado.");
                 Retroboat.Config.CloudConfigs.SyncAll(install, cloud.RetroboatPath);
+
+                // O ES acabou de gravar as partidas da sessão no gamelist. Com a vez da sincronização, porque a abertura
+                // seguinte do Retroboat também mexe nos gamelists.
+                WithSyncLock(() => LogStats(StartupSync.SyncStats(install, cloud.RetroboatPath, settings.RomsPath)));
             }
             catch (Exception ex)
             {
@@ -357,6 +361,22 @@ namespace Retroboat.Launcher
 
         internal static StartupSyncReport SyncWithCloud(RetroBatInstall install, RetroboatSettings settings, string leadingMessage = null)
         {
+            StartupSyncReport report = null;
+            WithSyncLock(() =>
+            {
+                // Com o Drive conectando com o ES aberto (CloudWatcher), a biblioteca pode ser adotada só agora.
+                ChooseLibrary(install, settings, out var adopted);
+                var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
+                report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media, libraryId: settings.CloudLibrary);
+                foreach (var message in new[] { adopted, leadingMessage }.Where(m => m != null))
+                    report.Messages.Insert(0, message);
+            });
+
+            return report;
+        }
+
+        static void WithSyncLock(Action work)
+        {
             using (var mutex = new Mutex(false, SyncMutexName))
             {
                 bool acquired;
@@ -374,14 +394,7 @@ namespace Retroboat.Launcher
 
                 try
                 {
-                    // Com o Drive conectando com o ES aberto (CloudWatcher), a biblioteca pode ser adotada só agora.
-                    ChooseLibrary(install, settings, out var adopted);
-                    var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
-                    var report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media, libraryId: settings.CloudLibrary);
-                    foreach (var message in new[] { adopted, leadingMessage }.Where(m => m != null))
-                        report.Messages.Insert(0, message);
-
-                    return report;
+                    work();
                 }
                 finally
                 {
@@ -498,6 +511,20 @@ namespace Retroboat.Launcher
                 foreach (var game in report.Library.PlaceholdersCreated) Log.Info("Jogo da nuvem no ES (marcador): " + game);
                 foreach (var game in report.Library.PlaceholdersRemoved) Log.Info("Saiu da nuvem, marcador removido: " + game);
             }
+
+            LogStats(report.Stats);
+        }
+
+        static void LogStats(Retroboat.Profile.GameStatsSyncResult stats)
+        {
+            if (stats == null)
+                return;
+
+            if (stats.Sent.Count > 0)
+                Log.Info("Favoritos e tempo jogado enviados para a nuvem: " + stats.Sent.Count + " jogo(s): " + string.Join(", ", stats.Sent.Take(15)) + (stats.Sent.Count > 15 ? " e mais " + (stats.Sent.Count - 15) : ""));
+            if (stats.Received.Count > 0)
+                Log.Info("Favoritos e tempo jogado da nuvem neste PC: " + stats.Received.Count + " jogo(s): " + string.Join(", ", stats.Received.Take(15)) + (stats.Received.Count > 15 ? " e mais " + (stats.Received.Count - 15) : ""));
+            foreach (var problem in stats.Errors) Log.Warn("Favoritos e tempo jogado: " + problem);
         }
 
         /// <summary>O lançador fica em segundo plano, sem janela, até o ES subir (a intro do RetroBat leva alguns segundos).</summary>

@@ -52,7 +52,8 @@ retroboat-cli saves status --retrobat <pasta>             memory cards: o que mu
 retroboat-cli saves sync --retrobat <pasta> [--keep local|cloud]   sincroniza (conflitos só com --keep)
 retroboat-cli saves history <cartão> --retrobat <pasta>   versões do cartão na nuvem
 retroboat-cli config status --retrobat <pasta>            configurações: o que iria e viria, sem mudar nada
-retroboat-cli config sync --retrobat <pasta>              sincroniza opções do ES, controles e emuladores
+retroboat-cli config sync --retrobat <pasta>              sincroniza opções do ES, controles, coleções e emuladores
+retroboat-cli stats sync --retrobat <pasta> [--roms <pasta>]   favoritos e tempo jogado (com o ES fechado)
 retroboat-cli themes status --retrobat <pasta>            temas suportados com ou sem o status do Retroboat
 retroboat-cli themes apply --retrobat <pasta>             põe o status de volta nos temas (Carbon, PlayStation-X)
 retroboat-cli settings get --retrobat <pasta>             estado da biblioteca e opções principais, em linhas Chave=valor
@@ -60,7 +61,7 @@ retroboat-cli settings set <chave> 0|1 --retrobat <pasta> Videos, Manuals, Autom
 retroboat-cli settings request-setup --retrobat <pasta>   o setup abre quando o ES fechar
 ```
 
-`--pc NOME` nos comandos `saves` e `config` faz a pasta valer como outro PC, para testar dois PCs numa máquina só.
+`--pc NOME` nos comandos `saves`, `config` e `stats` faz a pasta valer como outro PC, para testar dois PCs numa máquina só.
 `saves lock` e `saves unlock` existem só para testar a trava.
 
 Códigos de saída: 0 ok, 1 erro, 2 uso incorreto, 3 jogo corrompido encontrado, 130 cancelado.

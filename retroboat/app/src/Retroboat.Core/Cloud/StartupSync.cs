@@ -7,6 +7,7 @@ using Retroboat.Bios;
 using Retroboat.Config;
 using Retroboat.Library;
 using Retroboat.Media;
+using Retroboat.Profile;
 using Retroboat.Saves;
 
 namespace Retroboat.Cloud
@@ -24,6 +25,7 @@ namespace Retroboat.Cloud
         public AccountSyncResult Accounts { get; set; }
         public List<ConfigSyncResult> Configs { get; set; } = new List<ConfigSyncResult>();
         public SaveSyncResult Saves { get; set; }
+        public GameStatsSyncResult Stats { get; set; }
         public IReadOnlyList<BiosReport> BiosStatus { get; set; } = new List<BiosReport>();
 
         /// <summary>Frases curtas para a interface (notificação do ES, janela do lançador).</summary>
@@ -154,6 +156,12 @@ namespace Retroboat.Cloud
                         report.HasWarnings = true;
                     }
                 }
+
+                // Favoritos e tempo jogado, depois dos marcadores (um jogo da nuvem já tem a linha no gamelist). Só com o ES
+                // fechado: ele guarda as partidas na memória e regrava o gamelist ao sair. Com ele aberto, ficam para
+                // quando ele fechar.
+                if (!CloudConfigs.IsEsRunning())
+                    report.Stats = SyncStats(install, report.Cloud.RetroboatPath, romsPath, report);
             }
 
             // Capas e informações automáticas para o que nem este PC nem a nuvem têm. O que vier vai para o Drive na hora.
@@ -219,6 +227,37 @@ namespace Retroboat.Cloud
             }
 
             return report;
+        }
+
+        /// <summary>
+        /// Favoritos, partidas e tempo jogado (GameStatsSync). Também roda quando o ES fecha. Falha aqui fica nela: nada
+        /// do resto da sincronização depende disso.
+        /// </summary>
+        public static GameStatsSyncResult SyncStats(RetroBatInstall install, string cloudRetroboatPath, string romsPath, StartupSyncReport report = null)
+        {
+            GameStatsSyncResult result;
+            try
+            {
+                result = new GameStatsSync(install, cloudRetroboatPath, romsPath).Sync();
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException || ex is FormatException)
+            {
+                result = new GameStatsSyncResult();
+                result.Errors.Add(ex.Message);
+            }
+
+            if (report != null)
+            {
+                if (result.Received.Count > 0)
+                    report.Messages.Add("Favoritos e tempo jogado da nuvem: " + result.Received.Count + " jogo(s)");
+                if (result.Errors.Count > 0)
+                {
+                    report.Messages.Add("Atenção: problema ao sincronizar favoritos e tempo jogado. Detalhes no log do Retroboat.");
+                    report.HasWarnings = true;
+                }
+            }
+
+            return result;
         }
 
         static SaveSyncResult SyncSaves(RetroBatInstall install, string cloudRetroboatPath, StartupSyncReport report)

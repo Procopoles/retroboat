@@ -494,7 +494,7 @@ namespace Retroboat.Config
                 state.Hashes.OrderBy(h => h.Key, StringComparer.Ordinal).Select(h => new XElement("entry", new XAttribute("id", h.Key), new XAttribute("hash", h.Value))))));
         }
 
-        static void WriteXml(string path, XDocument document)
+        internal static void WriteXml(string path, XDocument document)
         {
             var options = new XmlWriterSettings { Indent = true, IndentChars = "\t", Encoding = new UTF8Encoding(false) };
             using (var memory = new MemoryStream())

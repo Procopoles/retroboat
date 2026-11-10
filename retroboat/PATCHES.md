@@ -284,6 +284,47 @@ o histórico.
   - na regra genérica, uma chave da máquina com nome fora do padrão (sem "monitor", "device", "driver" e afins)
     viaja. Se o emulatorLauncher a regrava a cada jogo, não faz mal; se não, o emulador ganha regra própria.
 
+## RB-005 — Favoritos, tempo jogado e coleções na nuvem (10/11/2026)
+
+- **Onde:** `retroboat/app` (`Profile\GameStatsSync`, `Config\EsCollectionsConfig`, `Cloud\StartupSync`, lançador, CLI
+  `stats sync`). Nada no upstream. Fecha o M4.
+- **Favoritos e tempo jogado** (`GameStatsSync`): o ES guarda tudo no gamelist (`favorite`, `playcount`, `gametime` em
+  segundos, `lastplayed`). Não dá para ficar com o gamelist mais novo, porque dois PCs jogam ao mesmo tempo:
+  - partidas e tempo jogado são **somados**: cada instalação do RetroBat grava em `retroboat\perfil\jogos\<PC>-<id>.xml`
+    só o que foi jogado nela, e o gamelist de cada PC mostra a soma de todos os arquivos;
+  - a **última partida** é a mais recente;
+  - o **favorito** fica com a mudança mais nova (a data do gamelist que o ES gravou). Muda a ideia de 24/10 de unir os
+    favoritos: com a união, desmarcar num PC nunca valeria, porque o outro marcaria de novo.
+  - neste PC, `retroboat\perfil-sync\jogos.xml` guarda o que o gamelist tinha na última sincronização (para separar o
+    que foi jogado aqui do que veio da nuvem) e uma cópia do arquivo desta instalação;
+  - o `<id>` muda quando a pasta muda de PC ou de lugar (cópia do RetroBat, pen drive): o arquivo antigo continua
+    contando e o novo começa do zero, a partir do que o gamelist já mostrava. Nada conta duas vezes;
+  - a ordem de gravação (estado, gamelist, nuvem) faz uma sincronização interrompida não contar nada de novo na seguinte;
+  - um jogo que ficou na pasta `recovery` do ES (ES fechado à força) vale por ela, como no ES, e ela recebe o total;
+  - um jogo com partidas na nuvem e sem linha no gamelist ganha a linha se o arquivo (ou o marcador da nuvem) estiver
+    na pasta de jogos.
+- **Coleções personalizadas** (`EsCollectionsConfig`, mais uma fonte do `ConfigSync`, em `retroboat\configuracoes\colecoes`):
+  cada `custom-<nome>.cfg` e cada coleção com filtro (`<nome>.xcc`) é uma entrada, e vale a mudança mais nova. As linhas do
+  `.cfg` são caminhos deste PC (o ES escreve `~/../../Jogos/ps2/Jogo.iso` quando a pasta de jogos está no mesmo disco da
+  pasta do ES); na nuvem, um jogo da pasta de jogos vira `jogos:ps2/Jogo.iso` e volta com a pasta de jogos de cada PC. Um
+  jogo de fora da pasta de jogos e da pasta do RetroBat fica só no PC dele, e continua lá quando a coleção vem da nuvem.
+  A pasta `collections` é um grupo só: apagar uma coleção num PC apaga nos outros. A chave `CollectionSystemsCustom`
+  (quais coleções aparecem) saiu da lista "fica no PC" e viaja com as opções do ES.
+- **Quando:** ao abrir o `Retroboat.exe` (depois dos marcadores, para um jogo da nuvem já ter a linha no gamelist) e quando
+  o ES fecha, com a mesma trava das outras sincronizações. Com o ES aberto, nada: ele guarda as partidas na memória (e na
+  `recovery`) e regrava o gamelist ao sair. As coleções seguem o ritmo das opções do ES.
+- **Testado em 10/11/2026:** 14 testes automáticos (311 no total) e um teste de ponta a ponta pelo CLI com cópias dos
+  gamelists reais de PS2 e PS1 deste build em dois PCs simulados: as partidas, o tempo e a última partida dos 8 jogos
+  jogados chegaram ao segundo PC; partidas nos dois PCs somaram (Guitar Hero III: 4 + 1 partidas, 1.367 + 300 s); um
+  favorito marcado no segundo PC chegou ao primeiro; uma coleção com uma linha `~/../..`, uma absoluta e uma de outro
+  disco chegou ao PC com outra pasta de jogos só com as duas da pasta de jogos; a segunda passada não mudou nada.
+  **Falta:** testar com o ES de verdade em dois PCs.
+- **Limites conhecidos:** apagar `retroboat\perfil-sync` com o gamelist intacto conta as partidas de novo; o ES não tem
+  "zerar o tempo jogado", e um valor menor no gamelist volta ao total da nuvem.
+- **Risco semântico baixo:** depende dos nomes dos campos do gamelist (`MetaData.cpp`), do formato da recovery
+  (`Gamelist.cpp`, `saveToGamelistRecovery`) e das coleções (`CollectionSystemManager.cpp`, `saveCustomCollection`); os três
+  entram na lista de vigilância.
+
 ## RB-013 — BIOS na nuvem
 
 - **Onde:** `retroboat/app` (`Bios\`, `Cloud\StartupSync`, `Es\EsApi`, lançador). Nada no upstream.
