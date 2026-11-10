@@ -256,6 +256,65 @@ namespace Retroboat.Tests
             }
         }
 
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void A_cancel_nobody_asked_for_keeps_the_game_waits_and_continues(bool throws)
+        {
+            using (var dir = new TempDir())
+            {
+                var queue = new DownloadQueue(new RetroBatInstall(dir.Path));
+                queue.Add(Item());
+
+                // O Google Drive reiniciou no meio: a leitura volta "cancelada", mas o jogo continua na fila.
+                int attempts = 0;
+                var phases = new List<DownloadPhase>();
+                var service = new DownloadService(queue, (i, progress, token) =>
+                {
+                    if (++attempts > 1)
+                        return Installed();
+                    if (throws)
+                        throw new OperationCanceledException();
+                    return new OnDemandResult(OnDemandOutcome.Cancelled);
+                }, () => true, TimeSpan.FromMilliseconds(5));
+                service.Changed += s => phases.Add(s.Phase);
+
+                bool cancelled = false;
+                DownloadStatus completed = null;
+                service.Cancelled += _ => cancelled = true;
+                service.Completed += s => completed = s;
+
+                service.Run(CancellationToken.None);
+
+                Assert.False(cancelled);
+                Assert.Equal(2, attempts);
+                Assert.Contains(DownloadPhase.WaitingForCloud, phases);
+                Assert.Equal(DownloadPhase.Finished, completed.Phase);
+            }
+        }
+
+        [Fact]
+        public void After_the_drive_drops_it_pauses_before_trying_again()
+        {
+            using (var dir = new TempDir())
+            {
+                var queue = new DownloadQueue(new RetroBatInstall(dir.Path));
+                queue.Add(Item());
+
+                var times = new List<DateTime>();
+                var service = new DownloadService(queue, (i, progress, token) =>
+                {
+                    times.Add(DateTime.UtcNow);
+                    return times.Count == 1 ? new OnDemandResult(OnDemandOutcome.CloudUnavailable) : Installed();
+                }, () => true, TimeSpan.FromMilliseconds(5)) { RetryPause = TimeSpan.FromMilliseconds(300) };
+
+                service.Run(CancellationToken.None);
+
+                Assert.Equal(2, times.Count);
+                Assert.True(times[1] - times[0] >= TimeSpan.FromMilliseconds(250));
+            }
+        }
+
         [Fact]
         public void Stopping_because_the_es_closed_keeps_the_game_for_the_next_session()
         {

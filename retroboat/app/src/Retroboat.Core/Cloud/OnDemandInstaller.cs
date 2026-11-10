@@ -112,6 +112,11 @@ namespace Retroboat.Cloud
                 case InstallOutcome.Cancelled:
                     return new OnDemandResult(OnDemandOutcome.Cancelled);
 
+                // O Drive abortou a leitura ao reiniciar. Ele pode ainda parecer disponível neste instante (o disco
+                // some meio segundo depois), então não depende de IsAvailable: o serviço espera e tenta de novo.
+                case InstallOutcome.Interrupted:
+                    return new OnDemandResult(OnDemandOutcome.CloudUnavailable, "O Google Drive interrompeu a leitura do jogo.");
+
                 case InstallOutcome.InsufficientSpace:
                     return new OnDemandResult(OnDemandOutcome.Failed, "Espaço insuficiente: " + result.Error + ".");
 

@@ -833,3 +833,32 @@ o histórico.
 - **Testado em 09/11/2026:** 6 testes automáticos novos (286 no total): a pasta (com `roms=` do `emulatorLauncher.cfg`, sem ele
   e com `decompressedpath`), o argumento com a resposta guardada, a opção do ES valendo por cima nos três níveis, manter e
   apagar aprendidos pela pasta, e nada aprendido sem descompressão. Falta um jogo compactado de verdade no build.
+
+## RB-025 — Google Drive reiniciando não cancela mais o download
+
+- **Onde:** só no app: `Cloud\GameInstaller`, `Cloud\OnDemandInstaller` e `Downloads\DownloadService`.
+- **Relato (09/11/2026):** o download do God of War (21:52) apareceu cancelado e teve de recomeçar do zero, sem o usuário ter
+  cancelado nada.
+- **Causa (logs do Retroboat e do Google Drive):** às 22:08:27 o Google Drive para computador baixou configurações novas e se
+  reiniciou sozinho (`RequestSafeRestart` → `RESTART_APP_NOW` no `drive_fs.txt`), desmontando o disco G: por uns 5 s. A
+  leitura do ZIP em andamento foi abortada pelo Windows (erro 995, `ERROR_OPERATION_ABORTED`), que o .NET Framework transforma
+  em `OperationCanceledException`, a mesma exceção do cancelamento do usuário. O `GameInstaller` tratava qualquer uma como
+  cancelamento (apagando o parcial), e o `DownloadService` tirava da fila todo jogo "cancelado" sem o ES ter fechado. O jogo
+  seguinte da fila (GTA) viu o Drive indisponível no mesmo segundo, esperou e terminou às 22:08:36.
+- **Como funciona agora:**
+  - `InstallOutcome.Interrupted`: a exceção só é cancelamento quando o token de cancelamento disparou; senão, é leitura
+    interrompida. A cópia byte a byte guarda o `.retroboat-part` para retomar; a extração de ZIP recomeça (o deflate não
+    continua do meio), mas o cache do Drive guarda o que já foi lido, e a nova tentativa passa rápido por essa parte (no
+    God of War, uns 5 GB em 3 minutos, contra ~1,8 MB/s depois dela);
+  - `OnDemandInstaller` responde `CloudUnavailable` para a leitura interrompida sem consultar o Drive: o disco some meio
+    segundo depois do aborto, e nesse meio segundo o Drive ainda parece disponível;
+  - `DownloadService`: cancelamento só com o token disparado (o jogo saiu da fila ou o ES fechou). Um "cancelado" sem token,
+    devolvido ou lançado, vira espera pelo Drive. Antes de tentar de novo, espera 5 s (`RetryPause`), para não pegar o disco
+    saindo.
+- **Classificação:** C0 (só app).
+- **Risco semântico:** baixo. Uma leitura abortada que se repita para sempre com o Drive no ar deixaria o jogo em AGUARDANDO,
+  tentando a cada 5 s; o usuário ainda pode cancelar.
+- **Testado em 09/11/2026:** 5 testes automáticos novos (291 no total): cópia e extração de ZIP com leitura abortada sem
+  token (interrompida, e não cancelada; a cópia retoma do parcial), o serviço com "cancelado" devolvido e lançado sem token
+  (o jogo fica, espera e termina) e a pausa antes de tentar de novo. A conversão do erro 995 em `OperationCanceledException`
+  foi conferida no .NET Framework 4.8 desta máquina. Não reproduzido com o Drive de verdade reiniciando.

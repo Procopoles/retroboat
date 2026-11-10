@@ -103,6 +103,32 @@ namespace Retroboat.Tests
         }
 
         [Fact]
+        public void Read_aborted_by_the_system_is_an_interruption_and_resumes_later()
+        {
+            using (var cloud = new TempDir())
+            using (var roms = new TempDir())
+            {
+                var content = TempDir.RandomBytes(GameSize);
+                cloud.WriteFile("jogos/psx/Jogo.chd", content);
+                var game = new CloudLibrary(cloud.Combine("jogos")).Find("psx/Jogo.chd");
+                var installer = new GameInstaller { BufferSize = 64 * 1024 };
+
+                // O Drive reiniciou: o Windows aborta a leitura e o .NET lança OperationCanceledException sem token.
+                var first = installer.Install(game, roms.Path, new AbortOnFirstReport(), CancellationToken.None);
+
+                Assert.Equal(InstallOutcome.Interrupted, first.Outcome);
+                Assert.Contains("interrompida", first.Error);
+                Assert.InRange(new FileInfo(roms.Combine("psx", "Jogo.chd" + GameInstaller.PartSuffix)).Length, 1, GameSize - 1);
+
+                var second = installer.Install(game, roms.Path);
+
+                Assert.Equal(InstallOutcome.Installed, second.Outcome);
+                Assert.True(second.BytesResumed > 0);
+                Assert.Equal(content, File.ReadAllBytes(second.Destination));
+            }
+        }
+
+        [Fact]
         public void Oversized_partial_copy_is_discarded()
         {
             using (var cloud = new TempDir())
@@ -201,6 +227,11 @@ namespace Retroboat.Tests
             }
 
             public void Report(TransferProgress value) => _cancel.Cancel();
+        }
+
+        internal sealed class AbortOnFirstReport : IProgress<TransferProgress>
+        {
+            public void Report(TransferProgress value) => throw new OperationCanceledException();
         }
 
         sealed class LastReport : IProgress<TransferProgress>

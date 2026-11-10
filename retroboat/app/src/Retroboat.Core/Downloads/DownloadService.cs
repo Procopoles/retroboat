@@ -66,6 +66,12 @@ namespace Retroboat.Downloads
             _checkEvery = checkEvery ?? TimeSpan.FromMilliseconds(500);
         }
 
+        /// <summary>
+        /// Pausa antes de olhar o Drive de novo quando ele sumiu. Ao reiniciar, o Google Drive aborta a leitura
+        /// meio segundo antes de desmontar o disco: sem a pausa, a nova tentativa pegaria o disco saindo.
+        /// </summary>
+        public TimeSpan RetryPause { get; set; } = TimeSpan.Zero;
+
         /// <summary>O andamento do jogo atual mudou.</summary>
         public event Action<DownloadStatus> Changed;
 
@@ -79,7 +85,7 @@ namespace Retroboat.Downloads
         public static DownloadService ForInstall(RetroBatInstall install, DownloadQueue queue)
         {
             var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
-            return new DownloadService(
+            var service = new DownloadService(
                 queue,
                 (item, progress, token) =>
                 {
@@ -90,6 +96,8 @@ namespace Retroboat.Downloads
                         : new OnDemandResult(OnDemandOutcome.Failed, "Este jogo não está mais na nuvem (" + item.Key + ").");
                 },
                 () => CloudLocator.IsAvailable(settings));
+            service.RetryPause = TimeSpan.FromSeconds(5);
+            return service;
         }
 
         /// <summary>Tira da fila o que não está mais pendente: só um marcador vazio ainda precisa de download.</summary>
@@ -170,17 +178,33 @@ namespace Retroboat.Downloads
                 {
                     result = _install(item, progress, cancel);
                 }
-                catch (Exception ex) when (!(ex is OperationCanceledException))
+                catch (OperationCanceledException) when (cancel.IsCancellationRequested)
+                {
+                    result = new OnDemandResult(OnDemandOutcome.Cancelled);
+                }
+                catch (OperationCanceledException)
+                {
+                    result = Interrupted();
+                }
+                catch (Exception ex)
                 {
                     Log.Error("Falha ao baixar " + item.Key, ex);
                     result = new OnDemandResult(OnDemandOutcome.Failed, "Erro inesperado: " + ex.Message);
                 }
 
+                // Cancelado é só quando o jogo saiu da fila ou o ES fechou, que é quando o token dispara. Qualquer
+                // outro "cancelado" veio do sistema e não pode tirar o jogo da fila.
+                if (result.Outcome == OnDemandOutcome.Cancelled && !cancel.IsCancellationRequested)
+                    result = Interrupted();
+
                 if (result.Outcome != OnDemandOutcome.CloudUnavailable)
                     return result;
 
-                Log.Info("Google Drive indisponível; aguardando para continuar: " + item.Key);
+                Log.Info("Google Drive indisponível" + (string.IsNullOrEmpty(result.Message) ? "" : " (" + result.Message + ")") + "; aguardando para continuar: " + item.Key);
                 Publish(new DownloadStatus { Item = item, Phase = DownloadPhase.WaitingForCloud });
+
+                if (RetryPause > TimeSpan.Zero && cancel.WaitHandle.WaitOne(RetryPause))
+                    return new OnDemandResult(OnDemandOutcome.Cancelled);
 
                 while (!_cloudAvailable())
                 {
@@ -192,6 +216,8 @@ namespace Retroboat.Downloads
                     return new OnDemandResult(OnDemandOutcome.Cancelled);
             }
         }
+
+        static OnDemandResult Interrupted() => new OnDemandResult(OnDemandOutcome.CloudUnavailable, "a leitura do Google Drive foi interrompida");
 
         void Watch(DownloadItem item, CancellationTokenSource cancel)
         {

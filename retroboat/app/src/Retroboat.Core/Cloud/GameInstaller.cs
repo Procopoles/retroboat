@@ -13,6 +13,12 @@ namespace Retroboat.Cloud
         Installed,
         AlreadyInstalled,
         Cancelled,
+
+        /// <summary>
+        /// O sistema abortou a leitura sem ninguém pedir (o Google Drive reiniciou e desmontou o disco). Não é
+        /// cancelamento do usuário: o download deve esperar o Drive e continuar.
+        /// </summary>
+        Interrupted,
         InsufficientSpace,
         Failed
     }
@@ -124,9 +130,14 @@ namespace Retroboat.Cloud
                 result.Outcome = InstallOutcome.Installed;
                 result.Integrity = CheckMainFile(game, destination);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 result.Outcome = InstallOutcome.Cancelled;
+            }
+            catch (OperationCanceledException)
+            {
+                // A cópia byte a byte continua do .retroboat-part na próxima tentativa.
+                Interrupted(result);
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
@@ -135,6 +146,17 @@ namespace Retroboat.Cloud
             }
 
             return result;
+        }
+
+        /// <summary>
+        /// O Windows devolve ERROR_OPERATION_ABORTED quando o disco do Drive é desmontado com uma leitura em
+        /// andamento, e o .NET transforma isso em OperationCanceledException, a mesma do cancelamento do usuário.
+        /// Só o token diz quem cancelou.
+        /// </summary>
+        static void Interrupted(InstallResult result)
+        {
+            result.Outcome = InstallOutcome.Interrupted;
+            result.Error = "a leitura do arquivo na nuvem foi interrompida (o Google Drive reiniciou ou desconectou)";
         }
 
         /// <summary>
@@ -215,10 +237,15 @@ namespace Retroboat.Cloud
                 result.Outcome = InstallOutcome.Installed;
                 result.Integrity = IntegrityChecker.QuickCheck(destination);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
                 TryDelete(part);
                 result.Outcome = InstallOutcome.Cancelled;
+            }
+            catch (OperationCanceledException)
+            {
+                TryDelete(part);
+                Interrupted(result);
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is InvalidDataException)
             {

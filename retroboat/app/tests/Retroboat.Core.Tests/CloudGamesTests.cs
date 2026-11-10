@@ -89,6 +89,22 @@ namespace Retroboat.Tests
         }
 
         [Fact]
+        public void Zip_extraction_aborted_by_the_system_is_an_interruption_not_a_cancel()
+        {
+            using (var cloud = new TempDir())
+            using (var roms = new TempDir())
+            {
+                WriteZip(cloud, @"jogos\ps2\Jogo.zip", IsoName, FakeIso());
+                var game = new CloudLibrary(cloud.Combine("jogos")).Find("ps2/Jogo.zip");
+
+                var result = new GameInstaller { BufferSize = 64 * 1024 }.Install(game, roms.Path, new GameInstallerTests.AbortOnFirstReport(), CancellationToken.None);
+
+                Assert.Equal(InstallOutcome.Interrupted, result.Outcome);
+                Assert.False(File.Exists(roms.Combine("ps2", IsoName + GameInstaller.PartSuffix)));
+            }
+        }
+
+        [Fact]
         public void Damaged_zip_content_fails_and_leaves_nothing_behind()
         {
             using (var cloud = new TempDir())
