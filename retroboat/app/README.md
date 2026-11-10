@@ -30,7 +30,8 @@ dotnet test retroboat/app/Retroboat.sln
    `build\`. O RetroBuild sempre clona todos os submódulos do git (inclusive os bezels, 1,3 GB),
    mesmo com `get_decorations=0` no `build.ini`; essa opção só evita copiá-los para o build.
 2. `bash retroboat/tools/package-app.sh`: compila em Release e copia `Retroboat.exe`, o CLI e a DLL
-   para `build\retroboat\`.
+   para `build\retroboat\`. Se o PlayStation-X ainda não estiver no build, adiciona a versão 43.1
+   para que o tema esteja disponível no menu após a instalação.
 3. `RetroBuild.exe`, opção 2 ou 3: gera o `.zip` ou o instalador.
 
 Para jogar, abra `build\retroboat\Retroboat.exe`. Atalho e instalador apontando para ele ainda faltam (M1).
