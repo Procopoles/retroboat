@@ -68,7 +68,9 @@ namespace Retroboat.Cloud
                 if (!folder.Exists)
                     continue;
 
-                foreach (var entry in folder.EnumerateFileSystemInfos().Where(IsGame))
+                var entries = folder.EnumerateFileSystemInfos().ToList();
+                var names = new HashSet<string>(entries.Select(e => e.Name), StringComparer.OrdinalIgnoreCase);
+                foreach (var entry in entries.Where(e => IsGame(e) && !PartialDownloads.HasPartialSibling(e.Name, names)))
                 {
                     if (entry is DirectoryInfo dir)
                     {
@@ -113,17 +115,18 @@ namespace Retroboat.Cloud
 
         /// <summary>
         /// Um jogo dentro da pasta de um console: arquivo ou pasta visível, fora os arquivos de controle (gamelist.xml...), as
-        /// pastas de mídia do scraper e o download pela metade. Vale para o Drive e para a pasta de jogos do PC (ActiveSystems).
+        /// pastas de mídia do scraper e o download pela metade, do Retroboat ou de um navegador (<see cref="PartialDownloads"/>).
+        /// Vale para o Drive e para a pasta de jogos do PC (ActiveSystems).
         /// </summary>
         internal static bool IsGame(FileSystemInfo entry)
         {
-            if (!IsVisible(entry))
+            if (!IsVisible(entry) || PartialDownloads.IsPartial(entry.Name))
                 return false;
 
             if (entry is DirectoryInfo)
                 return !IgnoredFolders.Contains(entry.Name);
 
-            return !IgnoredFiles.Contains(entry.Name) && !entry.Name.EndsWith(GameInstaller.PartSuffix, StringComparison.OrdinalIgnoreCase);
+            return !IgnoredFiles.Contains(entry.Name);
         }
 
         // "." e "_" no começo do nome marcam pastas e arquivos de controle (ex.: "_controle" com as planilhas de

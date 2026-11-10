@@ -19,6 +19,7 @@ namespace Retroboat.Cloud
         public BiosSyncResult Bios { get; set; }
         public CloudLibrarySyncResult Library { get; set; }
         public MediaRelocationResult Relocation { get; set; }
+        public PartialDownloadsCleanup PartialDownloads { get; set; }
         public CloudMediaSyncResult Media { get; set; }
         public AutoMediaResult AutoMedia { get; set; }
         public AutoInfoResult AutoInfo { get; set; }
@@ -65,6 +66,11 @@ namespace Retroboat.Cloud
             // Mídia que o scraper do ES gravou dentro da pasta de jogos vai para .emulationstation\media (item 1c).
             if (!string.IsNullOrEmpty(romsPath))
                 report.Relocation = new MediaRelocator(install).Apply(romsPath);
+
+            // Downloads pela metade de um navegador salvando direto no Drive (ex.: "Jogo.zip.opdownload") não são jogos;
+            // tira deste PC o que versões anteriores criaram para eles. Antes da biblioteca: com o Drive fechado, o gamelist
+            // é refeito a partir do índice.
+            report.PartialDownloads = PartialDownloads.Clean(install, romsPath);
 
             if (report.Cloud == null || !report.Cloud.Exists)
             {
@@ -139,6 +145,11 @@ namespace Retroboat.Cloud
                         if (library.Corrupt > 0)
                             report.HasWarnings = true;
                     }
+
+                    var partial = CloudMediaSync.RemovePartialDownloads(report.Cloud.RetroboatPath);
+                    report.PartialDownloads.Games.AddRange(partial.Games);
+                    report.PartialDownloads.FilesDeleted += partial.FilesDeleted;
+                    report.PartialDownloads.Errors.AddRange(partial.Errors);
 
                     report.Media = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();
                     var media = report.Media;

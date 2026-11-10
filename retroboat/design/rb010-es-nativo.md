@@ -36,7 +36,9 @@ Raiz do RetroBat = pasta-mãe de `Paths::getHomePath()` (o RetroBat abre o ES co
 ```
 
 `downloads.xml`: `<downloads><game system="ps2" cloud="Jogo.zip" local="Jogo.iso" title="..." added="..."/></downloads>`,
-na ordem da fila (o primeiro é o que está baixando). Arquivo ausente = fila vazia.
+na ordem da fila (o primeiro é o que está baixando). Arquivo ausente = fila vazia. Desde 10/11/2026 (RB-028),
+`<downloads paused="1">` é a fila inteira pausada: o primeiro continua `Downloading` e os outros `Queued`, e o ES mostra
+"Pausado", o ícone de pausa e RETOMAR (seções 3.3 e 5.4).
 
 **Chave de um jogo** = `minúsculas(<pasta do sistema>/<nome do arquivo>)`, onde a pasta do sistema é o nome da pasta-mãe do
 arquivo do jogo (`system` no XML). Funciona sem saber a pasta de jogos. Em coleções, usar `getSourceFileData()`.
@@ -65,7 +67,7 @@ Só de `127.0.0.1` (o servidor pode estar aberto à rede com `PublicWebAccess`).
 
 ```json
 {
-  "phase": "preparing | downloading | waiting | finished | failed | cancelled | idle",
+  "phase": "preparing | downloading | waiting | paused | finished | failed | cancelled | idle",
   "system": "ps2",
   "local": "Jogo.iso",
   "title": "Shadow of the Colossus",
@@ -99,6 +101,8 @@ Se não existir, tentar `<raiz>\retroboat-launch.exe`. O caminho é o `getPath()
 - `--baixar`: se o Google Drive estiver fechado, o C# mostra a pergunta dele (tela cheia); põe o jogo na fila e inicia o
   serviço. Código 0 = está na fila; 1 = não entrou (o usuário disse "Agora não", o jogo não é da nuvem, erro).
 - `--cancelar`: tira o jogo da fila. 0 = tirou; 1 = não estava.
+- `--pausar` e `--retomar` (RB-028, 10/11/2026): pausam ou retomam a fila inteira; o caminho do jogo vai junto e não importa.
+  Retomar abre o serviço se ele tiver fechado. 0 = mudou; 1 = já estava assim ou a fila está vazia. Nunca bloqueiam.
 - Menu do jogo (RB-004, fase 2, 08/11/2026): `--desinstalar`, `--verificar` e `--reparar`, para um jogo da nuvem que está neste
   PC. O texto para o usuário fica em `estado\resposta-<pedido>.txt` e o andamento da verificação em `estado\verificando`.
   Códigos: 0 = feito; 1 = nada mudou; 3 (`--verificar`) = cópia danificada, o ES oferece REPARAR. `--desinstalar` e `--reparar`
@@ -193,7 +197,7 @@ mantém o cursor; é o que o `/addgames` fazia no RB-020 e funcionou. Só nas tr
 | `inCloud` | bool | o jogo não está neste PC (`Cloud`, `Queued`, `Downloading`, `Corrupt`) |
 | `downloading` | bool | `Queued` ou `Downloading` |
 | `downloadPercent` | int | 0 a 100 |
-| `downloadProgress` | texto | "45% · restam 3:10", "Preparando", "Na fila", "Aguardando o Google Drive"; fora disso, um espaço (texto vazio vira "Unknown" no ES) |
+| `downloadProgress` | texto | "45% · restam 3:10", "Preparando", "Na fila", "Aguardando o Google Drive", "Pausado · 44%", "Na fila · pausado"; fora disso, um espaço (texto vazio vira "Unknown" no ES) |
 
 - `tick` (gancho em `ISimpleGameListView::update`, que roda a cada quadro só na visão do topo): se a versão do estado
   mudou e o jogo do cursor é o que está baixando, reavaliar só os extras cujas expressões citam essas propriedades

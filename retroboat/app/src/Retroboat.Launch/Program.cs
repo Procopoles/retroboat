@@ -54,6 +54,10 @@ namespace Retroboat.Launch
             if (target == DownloadVerb || target == CancelVerb)
                 return install != null ? FromNativeEs(install, target, CommandLine.SplitFirst(targetArguments, out _)) : 1;
 
+            // Menu do jogo no ES do Retroboat: pausar ou retomar a fila inteira, como na Steam.
+            if (target == PauseVerb || target == ResumeVerb)
+                return install != null ? PauseQueue(install, target == PauseVerb) : 1;
+
             // Menu do jogo no ES do Retroboat: desinstalar, verificar e reparar a cópia deste PC.
             if (LocalCopyFlow.Handles(target))
                 return install != null ? LocalCopyFlow.Run(install, target, CommandLine.SplitFirst(targetArguments, out _), ExeFolder) : 1;
@@ -103,6 +107,27 @@ namespace Retroboat.Launch
 
         const string DownloadVerb = "--baixar";
         const string CancelVerb = "--cancelar";
+        const string PauseVerb = "--pausar";
+        const string ResumeVerb = "--retomar";
+
+        /// <summary>
+        /// retroboat-launch --pausar|--retomar: a fila inteira para ou continua. O serviço percebe sozinho; ao retomar,
+        /// ele é aberto se tiver fechado (o ES reabriu, por exemplo). O argumento do jogo, que o ES manda junto, não importa.
+        /// 0 = mudou; 1 = já estava assim ou a fila está vazia.
+        /// </summary>
+        static int PauseQueue(RetroBatInstall install, bool pause)
+        {
+            var queue = new DownloadQueue(install);
+            bool changed = queue.SetPaused(pause);
+            Log.Info(changed
+                ? (pause ? "Fila de downloads pausada pelo ES." : "Fila de downloads retomada pelo ES.")
+                : (pause ? "Pausar pelo ES, mas a fila já estava pausada ou vazia." : "Retomar pelo ES, mas a fila não estava pausada."));
+
+            if (!pause)
+                DownloadProcess.EnsureRunning(install, ExeFolder);
+
+            return changed ? 0 : 1;
+        }
 
         /// <summary>
         /// retroboat-launch --baixar|--cancelar "&lt;jogo&gt;": o ES do Retroboat (RB-010) pede isto ao apertar A num jogo
@@ -190,17 +215,29 @@ namespace Retroboat.Launch
             Log.Info("Na fila de downloads: " + entry.System + "/" + entry.CloudName);
         }
 
-        /// <summary>O jogo já está baixando e o usuário apertou de novo: é aqui que dá para cancelar.</summary>
+        /// <summary>O jogo já está baixando e o usuário apertou de novo: é aqui que dá para pausar a fila ou cancelar o jogo.</summary>
         static void AskAboutDownload(DownloadQueue queue, DownloadItem item)
         {
-            bool isCurrent = queue.Items().FirstOrDefault()?.Key == item.Key;
-            string text = isCurrent ? "O download continua enquanto você navega." : "Este jogo está na fila e baixa depois dos que vêm antes dele.";
+            bool isCurrent = queue.Items(out var paused).FirstOrDefault()?.Key == item.Key;
+            string text = paused ? "Os downloads estão pausados. Este jogo continua de onde parou quando você retomar."
+                : isCurrent ? "O download continua enquanto você navega." : "Este jogo está na fila e baixa depois dos que vêm antes dele.";
             if (queue.TryReadProgress(item, out long done, out long total) && total > 0)
                 text = Format.Percent(done, total) + "   ·   " + Format.Bytes(done) + " de " + Format.Bytes(total) + "\r\n\r\n" + text;
 
-            const int cancelOption = 1;
-            int answer = ChoiceForm.Ask("Baixando da nuvem", item.Title, text, new[] { "Continuar baixando", "Cancelar o download" });
-            if (answer == cancelOption)
+            if (paused)
+            {
+                int choice = ChoiceForm.Ask("Downloads pausados", item.Title, text, new[] { "Retomar os downloads", "Deixar pausado", "Cancelar o download" });
+                if (choice == 0)
+                    queue.SetPaused(false);
+                else if (choice == 2)
+                    queue.Remove(item.Key);
+                return;
+            }
+
+            int answer = ChoiceForm.Ask("Baixando da nuvem", item.Title, text, new[] { "Continuar baixando", "Pausar os downloads", "Cancelar o download" });
+            if (answer == 1)
+                queue.SetPaused(true);
+            else if (answer == 2)
                 queue.Remove(item.Key);
         }
 

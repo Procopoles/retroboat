@@ -21,6 +21,7 @@ namespace Retroboat.Downloads
                 case DownloadPhase.Preparing: return "preparing";
                 case DownloadPhase.Downloading: return "downloading";
                 case DownloadPhase.WaitingForCloud: return "waiting";
+                case DownloadPhase.Paused: return "paused";
                 case DownloadPhase.Finished: return "finished";
                 default: return "failed";
             }

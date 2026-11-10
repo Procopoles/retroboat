@@ -471,6 +471,14 @@ namespace Retroboat.Launcher
             if (report.Relocation != null && report.Relocation.FilesMoved > 0)
                 Log.Info("Mídia movida para fora da pasta de jogos: " + report.Relocation.FilesMoved + " arquivo(s) (" + string.Join(", ", report.Relocation.Systems) + ")");
 
+            if (report.PartialDownloads != null)
+            {
+                if (report.PartialDownloads.Games.Count > 0)
+                    Log.Info("Downloads pela metade tirados da lista de jogos: " + string.Join(", ", report.PartialDownloads.Games.Distinct()) +
+                             " (" + report.PartialDownloads.FilesDeleted + " arquivo(s) apagado(s))");
+                foreach (var problem in report.PartialDownloads.Errors) Log.Warn("Downloads pela metade: " + problem);
+            }
+
             if (report.AutoMedia != null)
             {
                 Log.Info(string.Format("Capas automáticas (libretro): {0} jogo(s), {1} imagem(ns) baixada(s)", report.AutoMedia.GamesFilled, report.AutoMedia.FilesDownloaded));

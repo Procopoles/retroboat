@@ -267,6 +267,85 @@ namespace Retroboat.Media
             return changed;
         }
 
+        /// <summary>
+        /// Tira da nuvem o que este PC enviou de downloads pela metade, que versões anteriores tratavam como jogos
+        /// (<see cref="PartialDownloads"/>): as entradas deste PC nos metadados e a mídia delas que nenhuma outra entrada, de
+        /// nenhum PC, usa. Só mexe no arquivo deste PC; cada PC limpa o seu ao abrir.
+        /// </summary>
+        public static PartialDownloadsCleanup RemovePartialDownloads(string cloudRetroboatPath, string pcName = null)
+        {
+            var result = new PartialDownloadsCleanup();
+            var media = Path.Combine(cloudRetroboatPath, "midia");
+            if (!Directory.Exists(media))
+                return result;
+
+            var own = SafeFileName(string.IsNullOrEmpty(pcName) ? Environment.MachineName : pcName) + ".xml";
+            foreach (var cloudSystem in Directory.GetDirectories(media))
+            {
+                try
+                {
+                    RemovePartialDownloads(cloudSystem, own, result);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException || ex is FormatException)
+                {
+                    result.Errors.Add(Path.GetFileName(cloudSystem) + ": " + ex.Message);
+                }
+            }
+
+            return result;
+        }
+
+        static void RemovePartialDownloads(string cloudSystem, string ownFileName, PartialDownloadsCleanup result)
+        {
+            var metadataDir = Path.Combine(cloudSystem, "metadados");
+            var ownPath = Path.Combine(metadataDir, ownFileName);
+            if (!File.Exists(ownPath))
+                return;
+
+            var own = ReadEntries(ownPath);
+            var partial = own.Values.Where(e => PartialDownloads.IsPartial(e.Key)).ToList();
+            if (partial.Count == 0)
+                return;
+
+            foreach (var entry in partial)
+            {
+                own.Remove(entry.Key);
+                result.Games.Add(Path.GetFileName(cloudSystem) + "/" + entry.Key);
+            }
+
+            Save(ownPath, own);
+
+            // A mídia que outra entrada ainda usa fica. Um arquivo de outro PC no meio do envio pelo Drive não dá para ler:
+            // nada é apagado desta vez.
+            var stillUsed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var file in Directory.GetFiles(metadataDir, "*.xml"))
+            {
+                try
+                {
+                    stillUsed.UnionWith(ReadEntries(file).Values.SelectMany(MediaValues));
+                }
+                catch (System.Xml.XmlException)
+                {
+                    return;
+                }
+            }
+
+            var root = Path.GetFullPath(cloudSystem).TrimEnd('\\') + "\\";
+            foreach (var value in partial.SelectMany(MediaValues).Distinct(StringComparer.OrdinalIgnoreCase).Where(v => !stillUsed.Contains(v)))
+            {
+                var file = Path.GetFullPath(Path.Combine(cloudSystem, value.Replace('/', '\\')));
+                if (file.StartsWith(root, StringComparison.OrdinalIgnoreCase) && File.Exists(file))
+                {
+                    File.Delete(file);
+                    result.FilesDeleted++;
+                }
+            }
+        }
+
+        /// <summary>A mídia de uma entrada, como a nuvem guarda (ex.: "imagens/Jogo-thumb.png").</summary>
+        static IEnumerable<string> MediaValues(MediaEntry entry) =>
+            entry.Fields.Where(f => GameMedia.MediaFields.ContainsKey(f.Key) && !string.IsNullOrEmpty(f.Value)).Select(f => f.Value);
+
         sealed class MediaEntry
         {
             public string Key;

@@ -931,3 +931,78 @@ o histórico.
   janela de teste apareceu no canto certo desta máquina (1920×1080), sem tirar o foco da janela da frente, e sumiu sozinha
   depois de ~6,4 s. O ES do build respondeu 201 sem jogo aberto. Falta ver por cima de um emulador de verdade (PCSX2 e
   RetroArch em tela cheia) e com o ES respondendo 200 durante um jogo.
+
+## RB-027 — Downloads pela metade do navegador fora da biblioteca
+
+- **Onde:** só no app: `Cloud\PartialDownloads` (novo), `Cloud\CloudLibrary`, `Cloud\StartupSync`, `Media\CloudMediaSync` e o
+  log do `Retroboat.Launcher`.
+- **Relato (09/11/2026, nos logs):** o usuário baixa jogos com o Opera direto na pasta do console no Drive. Enquanto baixa, o
+  Opera grava `Jogo.zip.opdownload` e só no fim renomeia para `Jogo.zip`. O Retroboat tratava o parcial como jogo: marcador,
+  linha no gamelist, capa e informações automáticas (a capa ia para o Drive com o nome `Jogo.zip-thumb.png`). Quando o
+  download terminava, o marcador saía, mas a linha, as capas e as entradas nos metadados da nuvem ficavam para sempre. No
+  build sobraram 14 linhas e 39 capas; no Drive, 13 entradas e 37 imagens.
+- **Como funciona agora:**
+  - o que é jogo continua num lugar só (`CloudLibrary.IsGame`, que vale também para os consoles ativos). Ficam de fora os
+    nomes de download pela metade: Opera (`.opdownload`), Chrome, Edge e os outros do Chromium (`.crdownload`), Firefox e
+    JDownloader (`.part`), Edge antigo (`.partial`), Safari (`.download`), µTorrent (`.!ut`), qBittorrent (`.!qb`), BitComet
+    (`.bc!`), aria2 (`.aria2`), DownThemAll (`.dtapart`), o arquivo de troca do Chrome (`.crswap`), `.tmp` e o nosso
+    `.retroboat-part`;
+  - o nome final que ainda está chegando também fica de fora: o Firefox cria `Jogo.zip` vazio ao lado de `Jogo.zip.part`, e o
+    aria2 grava em `Jogo.zip` ao lado de `Jogo.zip.aria2`;
+  - a cada abertura, antes da biblioteca, o Retroboat tira deste PC o que versões anteriores criaram para parciais: a entrada
+    no índice, o marcador vazio, a linha no gamelist e a mídia dela que nenhum outro jogo usa (só dentro de
+    `.emulationstation\media`). Funciona com o Drive fechado: o gamelist seria refeito pelo índice;
+  - com o Drive aberto, tira do arquivo de metadados deste PC (`midia\<console>\metadados\<PC>.xml`) as entradas de parciais e
+    apaga do Drive a mídia delas que nenhuma entrada de nenhum PC usa. O arquivo de outro PC não é tocado: cada PC limpa o seu.
+    Um arquivo de outro PC ilegível (no meio do envio) adia a limpeza da mídia daquele console;
+  - um arquivo com conteúdo na pasta de jogos nunca é apagado.
+- **Classificação:** C0 (só app).
+- **Risco semântico:** baixo. Um jogo cujo nome termine com uma dessas extensões não apareceria; nenhum formato de jogo do
+  RetroBat usa. Um download feito por um programa que grava direto no nome final sem arquivo ao lado (qBittorrent sem
+  `.!qb`) continua aparecendo antes de terminar, e a verificação de integridade acusa o arquivo incompleto.
+- **Testado em 10/11/2026:** 5 testes automáticos novos (316 no total): parciais de vários navegadores e programas no Drive, o
+  jogo que entra quando o Opera renomeia, console só com parcial não fica ativo, limpeza local (índice, marcador, gamelist,
+  capas; capa compartilhada e arquivo com conteúdo ficam; nada volta com o Drive fechado) e limpeza na nuvem (só o arquivo
+  deste PC; imagem usada por outra entrada fica), mais a abertura completa com um parcial no Drive. A limpeza rodou numa
+  cópia dos dados reais (gamelists, mídia e índice do build, metadados do Drive com as imagens dos parciais): tirou as 14
+  linhas e as 39 capas dos parciais, nenhum outro arquivo (356 → 317), e as 13 entradas com as 37 imagens na nuvem.
+
+## RB-028 — Pausar a fila inteira de downloads
+
+- **Onde:** no app, `Downloads\DownloadQueue`, `Downloads\DownloadService`, `Downloads\DownloadStatusJson`,
+  `Retroboat.Launch\Program` (`--pausar`, `--retomar` e a pergunta do ES oficial) e `HeaderBarFace`. No fork do ES,
+  `es-app/src/retroboat/RetroboatCloud.cpp` e `CloudHeaderRegion.*`.
+- **Pedido:** item do M2 ("pausar a fila inteira; hoje só dá para cancelar um jogo").
+- **Como funciona:**
+  - a pausa é da fila inteira, como na Steam: `paused="1"` no `estado\downloads.xml`. Continua pausada depois de fechar e
+    abrir o ES; uma fila que esvazia deixa de estar pausada, e um jogo que entra numa fila pausada espera nela;
+  - o serviço percebe em até meio segundo, para o jogo atual sem tirá-lo da fila e mostra PAUSADO, em cinza, com a
+    porcentagem e o tamanho onde parou. Ao retomar, a cópia byte a byte continua do `.retroboat-part`; a extração de um ZIP
+    recomeça (o deflate não continua do meio), mas o cache do Drive guarda o que já foi lido;
+  - no nosso ES, o menu do jogo da fila (segurar A) tem PAUSAR DOWNLOADS ou RETOMAR DOWNLOADS antes de CANCELAR DOWNLOAD,
+    com quantos jogos estão na fila. Com a fila pausada, o A pergunta se retoma (e a ajuda diz RETOMAR), a lista mostra o
+    ícone de pausa no lugar da seta, o status diz "Pausado · 45%" ou "Na fila · pausado", e a região do cabeçalho mostra
+    PAUSADO com o ícone de pausa;
+  - no ES oficial, apertar de novo num jogo da fila oferece "Pausar os downloads"; com a fila pausada, "Retomar os
+    downloads", "Deixar pausado" ou "Cancelar o download";
+  - `retroboat-launch --pausar|--retomar` (o ES manda o caminho do jogo junto, que não importa). Retomar abre o serviço se
+    ele tiver fechado. Os dois não esperam o processo, nem com o Drive fechado.
+- **Classificação:** C0 no app; C1 no fork do ES (só os arquivos `retroboat/` do RB-010).
+- **Risco semântico:** baixo. Um ES sem o fork novo recebe a fase `paused`, não a reconhece e esconde a região; a fila
+  continua pausada até alguém retomar pelo ES oficial ou pelo nosso.
+- **Testado em 10/11/2026:** 4 testes automáticos novos (320 no total): pausar no meio guarda o jogo e o andamento, e retomar
+  continua o mesmo jogo e depois o próximo; uma fila pausada não baixa nada de uma sessão para outra; cancelar o jogo pausado
+  passa para o próximo, ainda pausado; fila vazia nunca fica pausada. E com o nosso ES (fork compilado com estas mudanças) numa
+  cópia isolada (tema Carbon, janela 1280×720 fora da tela, três jogos da nuvem, fila com dois, nuvem fora do ar), com o
+  `retroboat-launch` e o serviço de downloads de verdade:
+  - fila pausada ao abrir: ícone de pausa nos dois jogos da fila, nuvem no outro, ajuda com RETOMAR, cabeçalho com PAUSADO,
+    "44%", "1,8 GB de 4,0 GB · retome no menu do jogo" e "mais 1 na fila";
+  - menu do jogo: RETOMAR DOWNLOADS ("2 jogos na fila · continua de onde parou") e CANCELAR DOWNLOAD ("Pausado · 44%");
+  - retomar abriu o serviço, que foi para AGUARDANDO (sem nuvem); PAUSAR DOWNLOADS ("Para a fila inteira · 2 jogos na fila")
+    pausou no mesmo segundo, e o cabeçalho voltou a PAUSADO com os 44% guardados;
+  - o A num jogo pausado perguntou "Os downloads estão pausados. Retomar?" (NÃO com o foco); RETOMAR voltou a AGUARDANDO, com
+    o ícone de download e a ajuda BAIXANDO;
+  - ao fechar o ES, o serviço saiu e deixou a fila para a próxima abertura.
+  Falta ver com o Google Drive de verdade e um download grande em andamento.
+- **Encontrado no teste:** a ligação do fork falhou por um `GameNameFormatter.obj` vazio, de 08/11, na pasta `build` do fork
+  (sobra da compilação interrompida daquele dia); apagado, a compilação seguinte passou.

@@ -17,6 +17,8 @@ namespace Retroboat.Downloads
         Downloading,
         /// <summary>Sem o Google Drive agora: continua sozinho quando ele voltar.</summary>
         WaitingForCloud,
+        /// <summary>A fila foi pausada: o jogo fica onde parou e continua dali ao retomar.</summary>
+        Paused,
         Finished,
         Failed
     }
@@ -53,6 +55,7 @@ namespace Retroboat.Downloads
         readonly Func<bool> _cloudAvailable;
         readonly TimeSpan _checkEvery;
         volatile int _waiting;
+        volatile bool _pausing;
 
         public DownloadService(
             DownloadQueue queue,
@@ -112,21 +115,57 @@ namespace Retroboat.Downloads
             });
         }
 
+        /// <summary>Baixa até a fila esvaziar. Com a fila pausada, espera retomar sem sair: o andamento continua na tela.</summary>
         public void Run(CancellationToken stop)
         {
             while (!stop.IsCancellationRequested)
             {
-                var item = _queue.Items().FirstOrDefault();
+                var item = _queue.Items(out var paused).FirstOrDefault();
                 if (item == null)
                     return;
 
-                RunOne(item, stop);
+                if (paused)
+                    WaitWhilePaused(item, stop);
+                else
+                    RunOne(item, stop);
+            }
+        }
+
+        /// <summary>
+        /// Fila pausada: mostra o jogo da vez parado onde estava e espera a fila ser retomada, o jogo sair da fila ou o ES
+        /// fechar. Uma cópia byte a byte continua do .retroboat-part; a extração de um ZIP recomeça (o deflate não permite).
+        /// </summary>
+        void WaitWhilePaused(DownloadItem item, CancellationToken stop)
+        {
+            _waiting = Math.Max(0, _queue.Items().Count - 1);
+            _queue.TryReadProgress(item, out var done, out var total);
+            Log.Info("Fila de downloads pausada: " + item.Key + " espera ser retomado.");
+            Publish(new DownloadStatus { Item = item, Phase = DownloadPhase.Paused, BytesDone = done, BytesTotal = total });
+
+            while (!stop.WaitHandle.WaitOne(_checkEvery))
+            {
+                var items = _queue.Items(out var paused);
+                if (!items.Any(i => SameKey(i.Key, item.Key)))
+                {
+                    Log.Info("Download cancelado: " + item.Key);
+                    Cancelled?.Invoke(item);
+                    return;
+                }
+
+                if (!paused)
+                {
+                    Log.Info("Downloads retomados: " + item.Key);
+                    return;
+                }
+
+                _waiting = Math.Max(0, items.Count - 1);
             }
         }
 
         void RunOne(DownloadItem item, CancellationToken stop)
         {
             _waiting = Math.Max(0, _queue.Items().Count - 1);
+            _pausing = false;
 
             using (var cancel = CancellationTokenSource.CreateLinkedTokenSource(stop))
             using (new Timer(_ => Watch(item, cancel), null, _checkEvery, _checkEvery))
@@ -138,6 +177,10 @@ namespace Retroboat.Downloads
                 {
                     if (stop.IsCancellationRequested)
                         return; // O ES fechou: continua na próxima abertura.
+
+                    // A fila foi pausada: o jogo fica nela, e o laço mostra PAUSADO até retomar.
+                    if (_pausing && _queue.Contains(item.Key))
+                        return;
 
                     _queue.Remove(item.Key);
                     Log.Info("Download cancelado: " + item.Key);
@@ -223,14 +266,23 @@ namespace Retroboat.Downloads
         {
             try
             {
-                var items = _queue.Items();
+                var items = _queue.Items(out var paused);
                 _waiting = Math.Max(0, items.Count - 1);
-                if (!items.Any(i => string.Equals(i.Key, item.Key, StringComparison.OrdinalIgnoreCase)))
+                if (!items.Any(i => SameKey(i.Key, item.Key)))
+                {
                     cancel.Cancel();
+                }
+                else if (paused)
+                {
+                    _pausing = true;
+                    cancel.Cancel();
+                }
             }
             catch (ObjectDisposedException) { } // O jogo acabou enquanto o relógio disparava.
             catch (IOException) { }
         }
+
+        static bool SameKey(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
         void Publish(DownloadStatus status)
         {

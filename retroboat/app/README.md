@@ -215,6 +215,14 @@ ou `--cancelar "<jogo>"` (0 = feito, 1 = nada mudou). O serviço percebe esse ES
 andamento por `POST /retroboat/download`, no máximo 4 vezes por segundo e com um sinal a cada 2 s; a região do cabeçalho, o
 status ao vivo e a atualização das listas ficam com o ES, sem a janela e sem o `POST /addgames`.
 
+A fila inteira pode ser pausada (RB-028): `paused="1"` no `estado\downloads.xml`, por `retroboat-launch --pausar` e `--retomar`
+(menu do jogo no nosso ES) ou pela pergunta ao apertar de novo num jogo da fila (ES oficial). O jogo atual para onde está, sem
+sair da fila, e o cabeçalho mostra PAUSADO; ao retomar, a cópia continua do `.retroboat-part`. A pausa continua depois de fechar
+o ES e acaba quando a fila esvazia.
+
+Um arquivo que um navegador ainda está baixando direto na pasta do console no Drive (`.opdownload`, `.crdownload`, `.part` e
+outros, ou o nome final ao lado de um deles) não é jogo (RB-027): entra quando o download termina.
+
 ## Desinstalar e verificar pelo ES
 
 Com o nosso ES, o menu do jogo (segurar A) de um jogo da nuvem troca o JOGAR e o EXCLUIR JOGO por entradas do Retroboat. O ES
@@ -223,6 +231,7 @@ chama o `retroboat-launch` e mostra o que ele responde (`estado\resposta-<pedido
 | No menu | Quando | O que faz |
 |---|---|---|
 | BAIXAR · tamanho | o jogo não está no PC | o mesmo que o A: entra na fila |
+| PAUSAR DOWNLOADS ou RETOMAR DOWNLOADS · jogos na fila | na fila | `--pausar` ou `--retomar`: a fila inteira (RB-028) |
 | CANCELAR DOWNLOAD · andamento | na fila | `--cancelar`, sem perguntar de novo |
 | INDISPONÍVEL · motivo | corrompido na nuvem | explica o motivo |
 | VERIFICAR INTEGRIDADE | o jogo está no PC | `--verificar`: compara com a nuvem, com a porcentagem na tela (`estado\verificando`) |

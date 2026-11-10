@@ -33,6 +33,9 @@ namespace Retroboat.Downloads
     ///
     /// O tema só sabe perguntar se um arquivo existe. Cada jogo da fila tem um arquivo
     /// estado\baixando\&lt;nome do arquivo do jogo&gt;, que o status do tema usa para mostrar BAIXANDO.
+    ///
+    /// A fila inteira pode ser pausada, como na Steam (atributo paused="1" no downloads.xml, que o ES do Retroboat lê): o
+    /// jogo atual para e continua de onde parou ao retomar. Uma fila que esvazia deixa de estar pausada.
     /// </summary>
     public sealed class DownloadQueue
     {
@@ -55,6 +58,46 @@ namespace Retroboat.Downloads
         public IReadOnlyList<DownloadItem> Items() => Locked(Read);
 
         public bool IsEmpty => Items().Count == 0;
+
+        /// <summary>A fila está pausada (e tem jogos).</summary>
+        public bool IsPaused
+        {
+            get
+            {
+                Items(out var paused);
+                return paused;
+            }
+        }
+
+        /// <summary>Os jogos e se a fila está pausada, numa leitura só.</summary>
+        public IReadOnlyList<DownloadItem> Items(out bool paused)
+        {
+            bool isPaused = false;
+            var items = Locked(() =>
+            {
+                var read = Read();
+                isPaused = read.Count > 0 && ReadPaused();
+                return read;
+            });
+
+            paused = isPaused;
+            return items;
+        }
+
+        /// <summary>Pausa ou retoma a fila inteira.</summary>
+        /// <returns>false se nada mudou (já estava assim, ou a fila está vazia).</returns>
+        public bool SetPaused(bool paused)
+        {
+            return Locked(() =>
+            {
+                var items = Read();
+                if (items.Count == 0 || ReadPaused() == paused)
+                    return false;
+
+                Write(items, paused);
+                return true;
+            });
+        }
 
         public DownloadItem Find(string key) => Items().FirstOrDefault(i => SameKey(i.Key, key));
 
@@ -159,6 +202,18 @@ namespace Retroboat.Downloads
 
         static bool SameKey(string a, string b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
+        bool ReadPaused()
+        {
+            try
+            {
+                return File.Exists(_path) && (string)XDocument.Load(_path).Root.Attribute("paused") == "1";
+            }
+            catch (Exception ex) when (ex is XmlException || ex is IOException)
+            {
+                return false;
+            }
+        }
+
         List<DownloadItem> Read()
         {
             if (!File.Exists(_path))
@@ -183,7 +238,8 @@ namespace Retroboat.Downloads
             }
         }
 
-        void Write(List<DownloadItem> items)
+        /// <param name="paused">Nulo: como está.</param>
+        void Write(List<DownloadItem> items, bool? paused = null)
         {
             if (items.Count == 0)
             {
@@ -191,9 +247,10 @@ namespace Retroboat.Downloads
                 return;
             }
 
+            bool isPaused = paused ?? ReadPaused();
             Directory.CreateDirectory(Path.GetDirectoryName(_path));
             var temp = _path + ".retroboat-part";
-            new XDocument(new XElement("downloads", items.Select(i => new XElement("game",
+            new XDocument(new XElement("downloads", isPaused ? new XAttribute("paused", "1") : null, items.Select(i => new XElement("game",
                 new XAttribute("system", i.System),
                 new XAttribute("cloud", i.CloudName),
                 new XAttribute("local", i.LocalName),

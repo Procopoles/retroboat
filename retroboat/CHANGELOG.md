@@ -122,6 +122,12 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   não sai mais da fila como se tivesse sido cancelado: o download espera o Drive voltar e continua sozinho.
 - RB-026: um jogo que termina de baixar enquanto outro está aberto avisa no canto inferior direito da tela do jogo, como as
   notificações da Steam: a capa, DOWNLOAD CONCLUÍDO, o nome e "Pronto para jogar neste PC", por 6 s. Não tira o foco do jogo.
+- RB-027: um jogo que o navegador ainda está baixando direto no Drive (`Jogo.zip.opdownload` do Opera, `.crdownload` do
+  Chrome e do Edge, `.part` do Firefox e outros) não aparece mais como jogo; ele entra quando o download termina. O que
+  versões anteriores criaram para esses arquivos (linha no gamelist, capas, entradas no Drive) é tirado sozinho ao abrir.
+- RB-028: a fila de downloads inteira pode ser pausada, como na Steam: PAUSAR DOWNLOADS e RETOMAR DOWNLOADS no menu do jogo
+  do nosso ES (e no ES oficial, ao apertar de novo num jogo da fila). O jogo para onde está e continua dali; com a fila
+  pausada, o A pergunta se retoma, a lista mostra o ícone de pausa e o cabeçalho mostra PAUSADO.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

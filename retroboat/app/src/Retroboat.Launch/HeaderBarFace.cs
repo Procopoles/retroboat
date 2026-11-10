@@ -67,6 +67,7 @@ namespace Retroboat.Launch
                 case DownloadPhase.Preparing: return "PREPARANDO";
                 case DownloadPhase.Downloading: return "BAIXANDO";
                 case DownloadPhase.WaitingForCloud: return "AGUARDANDO";
+                case DownloadPhase.Paused: return "PAUSADO";
                 case DownloadPhase.Finished: return "PRONTO";
                 default: return "NÃO BAIXOU";
             }
@@ -77,6 +78,7 @@ namespace Retroboat.Launch
             switch (phase)
             {
                 case DownloadPhase.WaitingForCloud: return Warning;
+                case DownloadPhase.Paused: return SecondaryText; // parado de propósito: cinza, como na Steam
                 case DownloadPhase.Finished: return Ready;
                 case DownloadPhase.Failed: return Danger;
                 default: return Accent;
@@ -95,6 +97,9 @@ namespace Retroboat.Launch
                     return "Pronto para jogar neste PC";
                 case DownloadPhase.Failed:
                     return "Veja o motivo na notificação";
+                case DownloadPhase.Paused:
+                    return (status.BytesTotal > 0 ? Format.Bytes(status.BytesDone) + " de " + Format.Bytes(status.BytesTotal) + "  ·  " : "") +
+                           "retome no menu do jogo";
                 default:
                     return Format.Bytes(status.BytesDone) + " de " + Format.Bytes(status.BytesTotal) +
                            (status.BytesPerSecond > 0 ? "  ·  " + Format.Speed(status.BytesPerSecond) : "") +
@@ -133,7 +138,7 @@ namespace Retroboat.Launch
             DrawText(caption, _caption, color, left, rowTop, captionWidth + 2, rowHeight, StringAlignment.Near);
 
             float textRight = right;
-            if (status.Phase == DownloadPhase.Downloading)
+            if (status.Phase == DownloadPhase.Downloading || (status.Phase == DownloadPhase.Paused && status.BytesTotal > 0))
             {
                 var percent = ((int)Math.Floor(status.Fraction * 100)).ToString(Format.Culture) + "%";
                 float percentWidth = g.MeasureString(percent, _percent, 200, _singleLine).Width + 2;
@@ -210,6 +215,11 @@ namespace Retroboat.Launch
                             new PointF(box.X + s * 0.40f, box.Y + s * 0.78f),
                             new PointF(box.X + s * 0.88f, box.Y + s * 0.24f)
                         });
+                        break;
+
+                    case DownloadPhase.Paused:
+                        g.DrawLine(pen, cx - s * 0.18f, box.Y + s * 0.18f, cx - s * 0.18f, box.Y + s * 0.82f);
+                        g.DrawLine(pen, cx + s * 0.18f, box.Y + s * 0.18f, cx + s * 0.18f, box.Y + s * 0.82f);
                         break;
 
                     case DownloadPhase.Failed:

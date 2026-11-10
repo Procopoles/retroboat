@@ -13,7 +13,7 @@ e sem login próprio. Desenho completo em [design/cloud-first.md](design/cloud-f
 |---|---|---|---|
 | M0 | Fundações: build, provedor de pasta sobre o Google Drive para computador, verificação de integridade | RB-006 | base pronta; falta empacotar no build |
 | M1 | Biblioteca isolada: pasta de jogos própria, metadados fora dela | RB-003 | base pronta; falta teste com o ES real e empacotar |
-| M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020); fase 2 pronta no nosso ES (08/11/2026): desinstalar, verificar e reparar no menu do jogo; falta testar com o Drive real e o controle |
+| M2 | Biblioteca na nuvem: instalar, fila, desinstalar, verificar | RB-004 | fase 1 pronta: jogos da nuvem no ES, fila e download em segundo plano (RB-020); fase 2 pronta no nosso ES (08/11/2026): desinstalar, verificar e reparar no menu do jogo; pausar a fila inteira e downloads pela metade do navegador fora da biblioteca (10/11/2026); falta testar com o Drive real e o controle |
 | M3 | Saves e memory cards na nuvem, com conflito e histórico | RB-009 | memory cards do PS2 prontos (falta testar com o PCSX2); saves de todos os sistemas pela regra genérica (08/11/2026; falta testar com os emuladores em dois PCs; PS3, Switch, Wii U, Xbox, Vita, PS4 e 3DS ainda fora) |
 | M4 | Perfil e configurações na nuvem, PC novo em poucos passos | RB-005 | contas do ES prontas; opções do ES, controles e configurações de todos os emuladores prontos (08/11/2026: PCSX2 com regra própria, os outros pela regra genérica; falta testar com o ES e os emuladores em dois PCs); favoritos, tempo jogado e coleções personalizadas prontos (10/11/2026; falta testar com o ES em dois PCs) |
 | M5 | Interface nativa de nuvem no ES (fork e build do ES) | RB-010, RB-011 | build do ES pronto no GitHub Actions; RB-010 pronto no fork e testado numa cópia isolada (08/11/2026); a pasta `build` usa o nosso ES desde 08/11/2026 (o oficial ficou em `emulationstation.oficial.exe`), sem o scraper do ES e o RetroAchievements até termos chaves próprias (RB-011); falta testar com o Drive real, gamepad e tela cheia |
@@ -224,7 +224,7 @@ Depende do fork e do build do ES (RB-011).
   de menos de 3 bytes; o motivo de corrompido não cabia numa linha.
 - **Efeito conhecido:** durante o VERIFICANDO, a barra de ajuda continua com a do menu que fechou (a tela de espera do ES não
   tem ajuda própria). A entrada é ignorada até o fim.
-- **Falta:** testar com o Google Drive de verdade e com controle; pausar a fila inteira (hoje só dá para cancelar um jogo).
+- **Falta:** testar com o Google Drive de verdade e com controle. A pausa da fila inteira veio em 10/11/2026 (seção abaixo).
 
 ### Favoritos, tempo jogado e coleções na nuvem (10/11/2026)
 
@@ -243,6 +243,31 @@ Depende do fork e do build do ES (RB-011).
     no ES viaja junto;
   - roda ao abrir o Retroboat e quando o ES fecha; com o ES aberto, espera, porque ele regrava o gamelist ao sair.
 - **Falta:** testar com o ES de verdade em dois PCs.
+
+### Downloads pela metade do navegador fora da biblioteca (10/11/2026)
+
+- **Problema (logs de 09/11/2026):** jogos baixados com o Opera direto no Drive apareciam enquanto baixavam
+  (`Jogo.zip.opdownload`), com marcador, linha no gamelist, capa e informações automáticas, e as capas iam para o Drive. O
+  marcador saía quando o download terminava, mas o resto ficava.
+- **Pronto e testado** (RB-027; 5 testes automáticos, 316 no total):
+  - os nomes de download pela metade de navegadores e programas de download (Opera, Chrome, Edge, Firefox, Safari, µTorrent,
+    qBittorrent, aria2 e outros) não são jogos, nem o nome final que ainda está chegando (o Firefox e o aria2 criam o arquivo
+    final antes de terminar); o jogo entra quando o download termina;
+  - a cada abertura, o Retroboat tira o que versões anteriores criaram para eles: linha no gamelist, capas, marcador e
+    índice neste PC, e as entradas e imagens que este PC mandou para o Drive;
+  - numa cópia dos dados reais, a limpeza tirou 14 linhas e 39 capas do build e 13 entradas e 37 imagens do Drive, e nada
+    além disso.
+
+### Pausar a fila inteira (10/11/2026)
+
+- **Pronto e testado** (RB-028; 4 testes automáticos, 320 no total, e o nosso ES numa cópia isolada com o serviço de
+  downloads de verdade):
+  - como na Steam, a pausa vale para a fila inteira e continua depois de fechar e abrir o ES. O jogo atual para onde está e
+    continua dali ao retomar (a extração de um ZIP recomeça);
+  - no nosso ES, o menu do jogo da fila tem PAUSAR DOWNLOADS ou RETOMAR DOWNLOADS; com a fila pausada, o A pergunta se
+    retoma, a lista mostra o ícone de pausa, o status diz "Pausado · 44%" e o cabeçalho mostra PAUSADO, em cinza;
+  - no ES oficial, apertar de novo num jogo da fila oferece pausar ou retomar.
+- **Falta:** testar com o Google Drive de verdade, com um download grande em andamento.
 
 ## Etapa 2: redesign visual e de UX
 
