@@ -1105,3 +1105,41 @@ o histórico.
   SDL (o PC do usuário e um caso com o principal no fim da lista). Com o `ChoiceForm` do `retroboat-launch` compilado e um ES
   de teste na janela do monitor 4K, a tela "Abrindo o Google Drive..." abriu maximizada no 4K. A volta do foco não pôde ser
   vista: o PC estava bloqueado (a tela de bloqueio do Windows fica com o foco). Falta o usuário ver o foco voltar ao ES.
+
+## RB-032 — ESTADO DA NUVEM dos saves na página do jogo
+
+- **Onde:** no app, `SavesSaveStatus` (novo), `SaveSync.ItemStates`, `SaveRules.ForSystem`, `StartupSync` (ao abrir), `SaveFlow`
+  e o fim do `retroboat-launch` (em volta do jogo) e `retroboat-cli saves games`. No fork do ES, `es-app/src/retroboat/RetroboatSaves.*`
+  (novo), chamado pelo `RetroboatCloud` (`getProperty`, `onFrame`, `tick`): nenhum arquivo do upstream muda. Nos temas, a seção
+  RB-032 do `retroboat/status.xml` do PlayStation-X e do Carbon (e as cópias em `ThemesOverlays`).
+- **Pedido (11/11/2026):** a aplicação é baseada na nuvem, então a interface tem que mostrar, de forma elegante e discreta, se o
+  save de cada jogo está na nuvem, como o "Estado da nuvem" da Steam, para qualquer console. O usuário jogou Soul Reaver (PS1) e
+  não tinha como saber se o save tinha ido para a nuvem (tinha: o log mostra os envios de 10/11 às 23:39, 23:45 e 23:55).
+- **Como funciona:**
+  - a cada sincronização de saves (ao abrir o `Retroboat.exe`, antes do jogo, a cada save enviado durante o jogo, ao fechar o
+    jogo e depois de um jogo sem o Drive), o Retroboat recalcula o estado dos saves do sistema e grava
+    `retroboatestadosaves-jogos.xml` (por jogo, com o pior estado e a data da versão mais nova, e o que os jogos dividem);
+  - o estado vem só deste PC: o arquivo local contra o `saves-sync.xml` (tamanho e data; o conteúdo só quando a data mudou e o
+    tamanho não). Mudou e não foi para a nuvem = não sincronizada. Conflito deixado para depois, versão de outro PC chegando e
+    envio que falhou vêm do resultado da última sincronização. O que veio com o RetroBat, o cartão em branco e o arquivo zerado
+    não contam;
+  - um save é de um jogo quando o nome começa com o nome do arquivo do jogo seguido de "." ou "_" (`Jogo.srm`, `Jogo_1.mcd`,
+    `Jogo.01.p2s`) ou uma pasta tem o nome do jogo (`nvramsf2`); vale o nome mais longo. O resto (`Mcd001.ps2`, VMU) é do
+    console e conta, no ES, para os jogos dele já jogados (`playcount` ou `lastplayed`);
+  - o ES relê o arquivo quando ele muda (no máximo a cada 2 s) e refaz só os textos do jogo do cursor, como o andamento do download.
+    `{game:saveState}` (synced, incoming, pending, conflict, none, local, unknown) e `{game:saveStatus}` (o texto, com a data
+    "hoje 23:55", "ontem 22:10" ou "24 de out." e o PC de origem, se for outro);
+  - nos temas, só com o `estadoes-nativo`: ps4Style e single mostram o bloco à direita do status do jogo; detailed ganha uma
+    segunda linha na barra de ação, com a mídia um pouco menor. O `test-medias` do PlayStation-X, que herda o detailed, volta ao normal.
+- **Classificação:** C0 no app; C1 no fork do ES (só arquivos `retroboat/` e o `retroboat.cmake`); C0 nos temas (arquivo só nosso).
+- **Risco semântico:** baixo. "Na nuvem" é a pasta do Google Drive para computador: o envio dela para o Google é do Drive, e um PC
+  desligado logo depois do jogo pode ainda não ter enviado. Um save cujo nome não segue o do jogo (ex.: memory card do DuckStation
+  pelo título, N64 pelo nome interno) conta como do console. Uma versão nova de outro PC só aparece como "chegando" depois de uma
+  sincronização; até lá, "Atualizada" é a da última.
+- **Testado em 11/11/2026:** 24 testes automáticos novos (349 no total): em dia com a data e o PC da versão, não sincronizada sem o
+  Drive e de volta a em dia, data mudada sem mudar o conteúdo, save de outro PC, save apagado aqui que está na nuvem, arquivos do
+  RetroBat e zerados, cartão em branco, conflito, erro da trava, o jogo de cada arquivo, agrupamento, o arquivo do ES e o recálculo.
+  `saves games` numa cópia dos saves e do `saves-sync.xml` do build: os três jogos de PS1 (Soul Reaver "em dia · 10/11 23:55") e o
+  memory card do PS2 em dia, 230 sistemas em 1,5 s. Com o nosso ES numa cópia isolada, no PlayStation-X (ps4Style, single e
+  detailed) e no Carbon: todos os estados, a troca ao vivo com o cursor parado (o arquivo mudou e o Drive fechou) e o memory card
+  do PS2 só nos jogos jogados. Falta ver num jogo de verdade o estado mudar ao fechar o jogo, e as proporções de tela fora do 16:9.

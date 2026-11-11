@@ -352,4 +352,109 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <color>67707B</color>
     </text>
   </view>
+
+  <!-- RB-032: ESTADO DA NUVEM dos saves, como na Steam, numa segunda linha da barra de ação (ao lado do botão não cabe).
+       Só com o ES do Retroboat, que tem {game:saveState} e {game:saveStatus} e muda o valor ao vivo (um save que chega à
+       nuvem, o Drive que volta). A mídia fica um pouco menor para a barra crescer para cima; o fim da barra e a descrição
+       continuam onde estavam. Nenhuma visão personalizada herda de detailed no Carbon. -->
+  <view name="detailed" if='exists(${themePath} + "/../../../../retroboat/estado/es-nativo")'>
+    <video name="md_video">
+      <pos>0.74 0.375</pos>
+      <maxSize>0.39 0.39</maxSize>
+    </video>
+    <image name="md_image">
+      <pos>0.74 0.375</pos>
+      <maxSize>0.39 0.39</maxSize>
+    </image>
+
+    <image name="rbActionBar" extra="true">
+      <pos>0.545 0.585</pos>
+      <size>0.39 0.13</size>
+    </image>
+    <image name="rbPlayButton, rbDownloadButton, rbDownloadingButton, rbUnavailableButton" extra="true">
+      <pos>0.553 0.62</pos>
+    </image>
+    <text name="rbPlayLabel, rbDownloadLabel, rbDownloadingLabel, rbUnavailableLabel" extra="true">
+      <pos>0.553 0.62</pos>
+    </text>
+    <text name="rbPlayCaption, rbDownloadCaption, rbDownloadingCaption, rbUnavailableCaption" extra="true">
+      <pos>0.68 0.603</pos>
+    </text>
+    <text name="rbPlayValue, rbDownloadValue, rbDownloadingValue, rbUnavailableValue" extra="true">
+      <pos>0.68 0.634</pos>
+    </text>
+
+    <text name="rbSaveIconOk, rbSaveIconDim, rbSaveIconIn, rbSaveIconUp, rbSaveIconWarn, rbSaveMarkCheck, rbSaveMarkX" extra="true">
+      <pos>0.674 0.68</pos>
+      <origin>1 0.5</origin>
+      <size>0.04 0.06</size>
+      <alignment>center</alignment>
+      <fontSize>0.034</fontSize>
+      <zIndex>37</zIndex>
+    </text>
+    <text name="rbSaveMarkCheck, rbSaveMarkX" extra="true">
+      <fontSize>0.018</fontSize>
+      <color>23262E</color>
+      <zIndex>38</zIndex>
+    </text>
+    <text name="rbSaveCaption" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} != "unknown"</visible>
+      <text>ESTADO DA NUVEM</text>
+      <pos>0.68 0.663</pos>
+      <origin>0 0.5</origin>
+      <size>0.25 0.03</size>
+      <fontPath>./../art/fonts/Cabin-Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>8B929A</color>
+      <zIndex>37</zIndex>
+    </text>
+    <text name="rbSaveValue" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} != "unknown"</visible>
+      <text>{game:saveStatus}</text>
+      <pos>0.68 0.694</pos>
+      <origin>0 0.5</origin>
+      <size>0.25 0.035</size>
+      <fontPath>./../art/fonts/Cabin-Regular.ttf</fontPath>
+      <fontSize>0.02</fontSize>
+      <color>DCDEDF</color>
+      <zIndex>37</zIndex>
+    </text>
+
+    <!-- Estados: a nuvem é a do cabeçalho (F0C2); o check e o X são glifos por cima, na cor da barra. Amarelo só no que
+         espera algo (não enviado, conflito); azul no que está chegando de outro PC; cinza apagado sem save ainda e nos
+         sistemas cujos saves ficam só neste PC. -->
+    <text name="rbSaveIconOk" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "synced"</visible>
+      <text>&#xF0C2;</text>
+      <color>B8BCBF</color>
+    </text>
+    <text name="rbSaveMarkCheck" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "synced"</visible>
+      <text>&#xF00C;</text>
+    </text>
+    <text name="rbSaveIconDim" extra="true">
+      <visible>${rbGame} &amp;&amp; ({game:saveState} == "none" || {game:saveState} == "local")</visible>
+      <text>&#xF0C2;</text>
+      <color>67707B</color>
+    </text>
+    <text name="rbSaveMarkX" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "local"</visible>
+      <text>&#xF00D;</text>
+    </text>
+    <text name="rbSaveIconIn" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "incoming"</visible>
+      <text>&#xF0ED;</text>
+      <color>1A9FFF</color>
+    </text>
+    <text name="rbSaveIconUp" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "pending"</visible>
+      <text>&#xF0EE;</text>
+      <color>FFC82C</color>
+    </text>
+    <text name="rbSaveIconWarn" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "conflict"</visible>
+      <text>&#xF071;</text>
+      <color>FFC82C</color>
+    </text>
+  </view>
 </theme>

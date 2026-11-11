@@ -51,6 +51,7 @@ retroboat-cli bios organize [--dry-run]                   só organiza as BIOS s
 retroboat-cli saves status --retrobat <pasta>             memory cards: o que mudou aqui, na nuvem ou nos dois
 retroboat-cli saves sync --retrobat <pasta> [--keep local|cloud]   sincroniza (conflitos só com --keep)
 retroboat-cli saves history <cartão> --retrobat <pasta>   versões do cartão na nuvem
+retroboat-cli saves games --retrobat <pasta> [--roms <pasta>]   ESTADO DA NUVEM de cada jogo (só este PC, sem o Drive)
 retroboat-cli config status --retrobat <pasta>            configurações: o que iria e viria, sem mudar nada
 retroboat-cli config sync --retrobat <pasta>              sincroniza opções do ES, controles, coleções e emuladores
 retroboat-cli stats sync --retrobat <pasta> [--roms <pasta>]   favoritos e tempo jogado (com o ES fechado)
@@ -287,6 +288,14 @@ saves do GameCube no Dolphin, VMUs do Dreamcast, NVRAM e EEPROM do arcade e save
 - **Ainda fora:** PS3, Switch, Wii U, Xbox, Xbox 360, Vita, PS4 e 3DS, que guardam jogos instalados, firmware ou chaves
   junto com os saves.
 - Com o Drive fechado, só pergunta se abre o Drive quando o sistema já tem saves sincronizados neste PC (ou é PS2).
+- **ESTADO DA NUVEM na página do jogo (RB-032):** a cada sincronização (ao abrir o `Retroboat.exe`, antes do jogo, a cada save
+  enviado durante o jogo, ao fechar o jogo e depois de um jogo com o Drive fechado), o Retroboat grava o estado dos saves de
+  cada jogo em `retroboatestadosaves-jogos.xml`, e o nosso ES mostra ao lado do JOGAR: Atualizada (com a data da versão na
+  nuvem), Não sincronizada, Conflito, Chegando de outro PC ou Nenhum save ainda. Um save é do jogo quando o nome do arquivo
+  começa com o nome do arquivo do jogo (`Jogo.srm`, `Jogo_1.mcd`, `Jogo.state1`) ou uma pasta tem esse nome; o resto (o
+  `Mcd001.ps2`, a VMU do Dreamcast) é do console e conta para os jogos dele que já foram jogados. Só olha este PC e o
+  `saves-sync.xml`: não lê o Drive. O "na nuvem" é a pasta do Google Drive para computador; o envio dela para o Google é
+  do próprio Drive.
 
 ## Memory cards
 

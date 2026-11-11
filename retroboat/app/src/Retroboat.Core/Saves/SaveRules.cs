@@ -180,6 +180,16 @@ namespace Retroboat.Saves
             return rules;
         }
 
+        /// <summary>Todas as regras de um sistema, de qualquer emulador: as próprias e a genérica.</summary>
+        public static IReadOnlyList<SaveRule> ForSystem(string system)
+        {
+            var rules = All.Where(r => string.Equals(r.System, system, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (HasGenericRule(system))
+                rules.Add(Generic(system));
+
+            return rules;
+        }
+
         /// <summary>As regras próprias e a genérica de cada sistema com pasta em saves\ neste PC ou na nuvem.</summary>
         public static IReadOnlyList<SaveRule> AllFor(string savesPath, string cloudSavesPath)
         {

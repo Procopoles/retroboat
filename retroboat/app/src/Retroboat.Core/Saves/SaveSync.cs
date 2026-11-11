@@ -219,11 +219,12 @@ namespace Retroboat.Saves
         readonly Func<DateTime> _utcNow;
         readonly HashSet<string> _keptConflicts = new HashSet<string>(StringComparer.Ordinal);
 
+        /// <param name="cloudRetroboatPath">Nulo só para <see cref="ItemStates"/>, que não lê a nuvem (Drive fechado).</param>
         public SaveSync(string savesPath, string retroboatDataPath, string cloudRetroboatPath, SaveRule rule, string pcName = null, Func<DateTime> utcNow = null)
         {
             Rule = rule;
             LocalFolder = Path.Combine(savesPath, rule.Folder);
-            CloudFolder = Path.Combine(cloudRetroboatPath, "saves", rule.Folder);
+            CloudFolder = cloudRetroboatPath == null ? null : Path.Combine(cloudRetroboatPath, "saves", rule.Folder);
             _statePath = Path.Combine(retroboatDataPath, StateFileName);
             _historyRoot = Path.Combine(retroboatDataPath, "historico", "saves", rule.Folder);
             PcName = SafeFileName(string.IsNullOrEmpty(pcName) ? Environment.MachineName : pcName);
@@ -848,6 +849,75 @@ namespace Retroboat.Saves
             var files = new List<string>();
             WalkLocal(LocalFolder, "", 0, files);
             return files;
+        }
+
+        /// <summary>
+        /// Como cada save desta regra está em relação à nuvem, para a página do jogo (ESTADO DA NUVEM). Só olha este PC e o
+        /// estado da última sincronização: não lê a nuvem, então funciona com o Drive fechado. Um arquivo só é lido quando
+        /// a data mudou e o tamanho não. Nulo se a pasta local está inacessível (pen drive fora): vale o estado anterior.
+        /// </summary>
+        public List<SaveItemStatus> ItemStates()
+        {
+            if (!LocalDeviceAvailable)
+                return null;
+
+            var state = SaveSyncState.Load(_statePath);
+            var since = Rule.OnlyChangedHere ? state.TrackedSince : null;
+            var items = new List<SaveItemStatus>();
+            var present = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var path in LocalItems())
+            {
+                var name = ItemName(path);
+                present.Add(name);
+                try
+                {
+                    var status = ItemState(name, new FileInfo(path), state.Get(Rule.Folder, name), since);
+                    if (status != null)
+                        items.Add(status);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException) { } // Sumiu ou está sendo regravado agora.
+            }
+
+            // Sumiu deste PC mas está na nuvem: volta antes do próximo jogo. O save continua salvo.
+            foreach (var name in state.Names(Rule.Folder).Where(n => !present.Contains(n)))
+            {
+                var synced = state.Get(Rule.Folder, name);
+                if (!synced.Deleted && IsValidName(name))
+                    items.Add(Synced(name, synced, DateTime.MinValue));
+            }
+
+            return items;
+        }
+
+        SaveItemStatus ItemState(string name, FileInfo local, SyncedItem synced, DateTime? since)
+        {
+            bool known = synced != null && !synced.Deleted;
+            if (known && synced.Length == local.Length && synced.ModifiedTicks == local.LastWriteTimeUtc.Ticks)
+                return Synced(name, synced, local.LastWriteTimeUtc);
+
+            // O que veio com o RetroBat e nunca mudou aqui não é save (OnlyChangedHere).
+            if (!known && since != null && local.LastWriteTimeUtc <= since.Value)
+                return null;
+
+            if (!known && Rule.OnlyChangedHere && since == null)
+                return null; // A regra ainda não rodou neste PC: tudo o que existe é de antes do Retroboat.
+
+            var data = ReadShared(local.FullName);
+            if (known && Sha1(data) == synced.Sha1)
+                return Synced(name, synced, local.LastWriteTimeUtc);
+
+            // Em branco, vazio ou danificado nunca vai para a nuvem: não é um save esperando envio.
+            if (Rule.IsBlankNew?.Invoke(data) == true || Problem(data) != null)
+                return null;
+
+            return new SaveItemStatus { Name = name, State = SaveCloudState.Pending, TimeUtc = local.LastWriteTimeUtc };
+        }
+
+        static SaveItemStatus Synced(string name, SyncedItem synced, DateTime fallbackUtc)
+        {
+            var version = synced.Version != null ? SaveVersion.TryParse(synced.Version + SaveVersion.DataExtension) : null;
+            return new SaveItemStatus { Name = name, State = SaveCloudState.Synced, TimeUtc = version?.TimeUtc ?? fallbackUtc, Pc = version?.Pc };
         }
 
         const int MaxDepth = 12;

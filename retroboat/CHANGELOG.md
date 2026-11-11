@@ -134,6 +134,9 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   os jogos vão junto) e o Retroboat volta para ela ao abrir, se o Windows tiver trocado sozinho para o som de um monitor ou TV.
 - RB-031: com dois monitores, as telas do Retroboat (Google Drive, memory cards, downloads, setup) abrem no monitor do ES, e o
   foco volta para o ES quando elas fecham.
+- RB-032: ESTADO DA NUVEM na página de cada jogo, como na Steam: "Atualizada · ontem 23:55" quando o save do jogo está na
+  nuvem, "Não sincronizada" quando ele foi salvo sem o Drive, conflito e "Chegando de outro PC". Vale para qualquer console e
+  muda ao vivo, inclusive durante o jogo (cada save que chega à nuvem). No PlayStation-X e no Carbon, com o nosso ES.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

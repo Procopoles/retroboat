@@ -47,6 +47,7 @@ BIOS na nuvem (pasta bios\ dentro da pasta do Retroboat no Drive):
 Memory cards na nuvem (retroboat\saves no Drive; o emulador gerencia os cartões):
   retroboat-cli saves status --retrobat <pasta do RetroBat> [--pc NOME]
   retroboat-cli saves sync --retrobat <pasta do RetroBat> [--pc NOME] [--keep local|cloud]
+  retroboat-cli saves games --retrobat <pasta do RetroBat> [--roms <pasta de jogos>]   (ESTADO DA NUVEM de cada jogo, sem o Drive)
   retroboat-cli saves history <cartão> --retrobat <pasta do RetroBat>
   retroboat-cli saves verify --retrobat <pasta do RetroBat>
   retroboat-cli saves restore <cartão> [<id da cópia>] --retrobat <pasta do RetroBat>   (com o emulador fechado)
@@ -106,6 +107,7 @@ Opções gerais:
                     case "bios organize": return BiosSyncCommand(options, organizeOnly: true);
                     case "saves status": return SavesStatus(options);
                     case "saves sync": return SavesSync(options);
+                    case "saves games": return SavesGames(options);
                     case "saves history": return SavesHistory(options);
                     case "saves verify": return SavesVerify(options);
                     case "saves restore": return SavesRestore(options);
@@ -471,6 +473,33 @@ Opções gerais:
             }
 
             return problems > 0 ? ExitError : ExitOk;
+        }
+
+        /// <summary>
+        /// saves games: o ESTADO DA NUVEM que a página de cada jogo mostra no ES, recalculado agora (grava o
+        /// estadosaves-jogos.xml). Só lê este PC: funciona com o Drive fechado.
+        /// </summary>
+        static int SavesGames(Options options)
+        {
+            var install = new RetroBatInstall(options.Required("--retrobat"));
+            var roms = options.Value("--roms") ?? RetroboatSettings.Load(RetroboatSettings.GetPath(install)).RomsPath;
+            var savesPath = SaveRules.GetSavesPath(install);
+            SaveStatus.Refresh(install, roms, SaveRules.AllFor(savesPath, null).Select(r => r.System), pcName: options.Value("--pc"));
+
+            var names = new[] { "em dia", "chegando de outro PC", "NÃO SINCRONIZADO", "CONFLITO" };
+            string Describe(SaveGroupStatus group) => names[(int)group.State] + " · " + group.Files + " arquivo(s)" +
+                (group.TimeUtc > DateTime.MinValue ? " · " + group.TimeUtc.ToLocalTime().ToString("dd/MM HH:mm") : "") + (group.Pc != null ? " (" + group.Pc + ")" : "");
+
+            foreach (var system in SaveStatus.Read(SaveStatus.GetPath(install)).Values.OrderBy(s => s.System, StringComparer.Ordinal))
+            {
+                Console.WriteLine(system.System);
+                foreach (var game in system.Games.OrderBy(g => g.Key, StringComparer.OrdinalIgnoreCase))
+                    Console.WriteLine("  " + game.Key + ": " + Describe(game.Value));
+                if (system.Shared != null)
+                    Console.WriteLine("  (dos jogos do sistema): " + Describe(system.Shared));
+            }
+
+            return ExitOk;
         }
 
         static int SavesHistory(Options options)

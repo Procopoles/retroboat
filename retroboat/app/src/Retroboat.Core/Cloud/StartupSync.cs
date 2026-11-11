@@ -82,6 +82,13 @@ namespace Retroboat.Cloud
                         : "Nuvem: Google Drive para computador não encontrado. Usando só o que está neste PC.");
                 report.HasWarnings = true;
 
+                // ESTADO DA NUVEM dos jogos: o que foi salvo sem o Drive aparece como "não sincronizada".
+                if (System.Diagnostics.Process.GetProcessesByName("retroboat-launch").Length == 0)
+                {
+                    var savesPath = SaveRules.GetSavesPath(install);
+                    SaveStatus.Refresh(install, romsPath, SaveRules.AllFor(savesPath, null).Select(r => r.System));
+                }
+
                 // Os jogos da nuvem continuam no ES; os gamelists acompanham o índice deste PC.
                 try
                 {
@@ -132,7 +139,7 @@ namespace Retroboat.Cloud
                 // Memory cards: envia o que ficou de uma partida offline e baixa o que chegou. Conflitos ficam para
                 // a abertura do jogo, onde dá para perguntar. Com um jogo aberto neste PC, não mexe nos cartões.
                 if (System.Diagnostics.Process.GetProcessesByName("retroboat-launch").Length == 0)
-                    report.Saves = SyncSaves(install, report.Cloud.RetroboatPath, report);
+                    report.Saves = SyncSaves(install, report.Cloud.RetroboatPath, romsPath, report);
 
                 if (!string.IsNullOrEmpty(romsPath) && Directory.Exists(report.Cloud.GamesPath))
                 {
@@ -271,16 +278,19 @@ namespace Retroboat.Cloud
             return result;
         }
 
-        static SaveSyncResult SyncSaves(RetroBatInstall install, string cloudRetroboatPath, StartupSyncReport report)
+        static SaveSyncResult SyncSaves(RetroBatInstall install, string cloudRetroboatPath, string romsPath, StartupSyncReport report)
         {
             var total = new SaveSyncResult();
             var savesPath = SaveRules.GetSavesPath(install);
-            foreach (var rule in SaveRules.AllFor(savesPath, Path.Combine(cloudRetroboatPath, "saves")))
+            var rules = SaveRules.AllFor(savesPath, Path.Combine(cloudRetroboatPath, "saves"));
+            var results = new Dictionary<string, SaveSyncResult>(StringComparer.OrdinalIgnoreCase);
+            foreach (var rule in rules)
             {
                 try
                 {
                     var result = new SaveSync(savesPath, install.RetroboatDataPath, cloudRetroboatPath, rule).Sync();
                     total.Add(result);
+                    results[rule.Folder] = result;
 
                     var parts = new List<string>();
                     if (result.Uploaded.Count > 0) parts.Add(result.Uploaded.Count + " enviado(s)");
@@ -323,6 +333,8 @@ namespace Retroboat.Cloud
                 }
             }
 
+            // ESTADO DA NUVEM de cada jogo, para o ES: todos os sistemas com saves aqui ou na nuvem.
+            SaveStatus.Refresh(install, romsPath, rules.Select(r => r.System), results, replaceAll: true);
             return total;
         }
 

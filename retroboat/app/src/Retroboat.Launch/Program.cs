@@ -111,7 +111,16 @@ namespace Retroboat.Launch
                 run = () => ConfigFlow.Around(install, args, emulator);
             }
 
-            return saves == null ? run() : saves.During(run);
+            if (saves != null)
+                return saves.During(run);
+
+            int code = run();
+
+            // Sem o Drive (ou sem sessão de saves), o que o jogo salvou fica só aqui: a página do jogo mostra isso.
+            if (install != null && rom != null)
+                SaveFlow.AfterGameWithoutCloud(install, args, rom);
+
+            return code;
         }
 
         static string ExeFolder => AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');

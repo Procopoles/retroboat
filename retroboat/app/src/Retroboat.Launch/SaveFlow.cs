@@ -31,6 +31,9 @@ namespace Retroboat.Launch
         static readonly TimeSpan MaxWait = TimeSpan.FromMinutes(2);
 
         readonly List<SaveSession> _sessions = new List<SaveSession>();
+        RetroBatInstall _install;
+        string _romsPath;
+        string _system;
 
         SaveFlow() { }
 
@@ -44,10 +47,11 @@ namespace Retroboat.Launch
             if (rules.Count == 0)
                 return null;
 
-            var flow = new SaveFlow();
+            var flow = new SaveFlow { _install = install, _system = CommandLine.GetOption(args, "-system") };
             try
             {
                 var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
+                flow._romsPath = RomsPath(settings, rom);
 
                 // Com o Drive fechado, só pergunta se este sistema já usa a nuvem aqui (ou é o PS2): abrir um jogo de um
                 // sistema que nunca teve save não vale uma pergunta.
@@ -65,6 +69,7 @@ namespace Retroboat.Launch
                 var game = string.IsNullOrEmpty(rom) ? null : Path.GetFileNameWithoutExtension(rom);
 
                 bool playAnyway = false;
+                var results = new Dictionary<string, SaveSyncResult>(StringComparer.OrdinalIgnoreCase);
                 foreach (var rule in rules)
                 {
                     var sync = new SaveSync(savesPath, install.RetroboatDataPath, cloud.RetroboatPath, rule);
@@ -79,7 +84,7 @@ namespace Retroboat.Launch
                         return flow;
                     }
 
-                    if (!SyncWithChoices(sync, beforeGame: true))
+                    if (!SyncWithChoices(sync, beforeGame: true, results))
                     {
                         flow.Cancelled = true;
                         flow.FinishSessions();
@@ -91,6 +96,8 @@ namespace Retroboat.Launch
                     flow._sessions.Add(session);
                     Log.Info(rule.DisplayName + ": " + rule.ItemName + "s em dia; trava deste PC para " + game);
                 }
+
+                flow.RefreshStatus(results);
             }
             catch (Exception ex)
             {
@@ -111,8 +118,20 @@ namespace Retroboat.Launch
                 {
                     while (!stop.WaitOne(PollEvery))
                     {
+                        bool changed = false;
                         foreach (var session in _sessions)
-                            Safe("durante o jogo", () => LogResult(session.Sync.Rule, session.Poll(), "durante o jogo"));
+                        {
+                            Safe("durante o jogo", () =>
+                            {
+                                var result = session.Poll();
+                                LogResult(session.Sync.Rule, result, "durante o jogo");
+                                changed |= result.Uploaded.Count + result.DeletedInCloud.Count + result.Errors.Count > 0;
+                            });
+                        }
+
+                        // Cada save que chega à nuvem já vale na página do jogo.
+                        if (changed)
+                            RefreshStatus(null);
                     }
                 }) { IsBackground = true };
 
@@ -132,15 +151,53 @@ namespace Retroboat.Launch
 
         void FinishSessions()
         {
+            var results = new Dictionary<string, SaveSyncResult>(StringComparer.OrdinalIgnoreCase);
             foreach (var session in _sessions)
             {
                 Safe("ao fechar o jogo", () => LogResult(session.Sync.Rule, session.Finish(), "ao fechar o jogo"));
 
                 // Outro PC pode ter salvo no mesmo cartão durante a partida.
-                Safe("depois do jogo", () => SyncWithChoices(session.Sync, beforeGame: false));
+                Safe("depois do jogo", () => SyncWithChoices(session.Sync, beforeGame: false, results));
             }
 
+            if (_sessions.Count > 0)
+                RefreshStatus(results);
+
             _sessions.Clear();
+        }
+
+        /// <summary>ESTADO DA NUVEM na página dos jogos do sistema (todas as regras dele, de qualquer emulador).</summary>
+        void RefreshStatus(IDictionary<string, SaveSyncResult> results)
+        {
+            if (_install != null && !string.IsNullOrEmpty(_system))
+                SaveStatus.Refresh(_install, _romsPath, new[] { _system }, results);
+        }
+
+        /// <summary>
+        /// Depois de um jogo sem sessão de saves (Drive fechado, ou a sincronização falhou): o que foi salvo aparece como
+        /// "não sincronizada" na página do jogo até ir para a nuvem.
+        /// </summary>
+        public static void AfterGameWithoutCloud(RetroBatInstall install, string[] args, string rom)
+        {
+            var system = CommandLine.GetOption(args, "-system");
+            if (string.IsNullOrEmpty(system) || SaveRules.ForSystem(system).Count == 0)
+                return;
+
+            Safe("depois do jogo sem a nuvem", () =>
+            {
+                var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
+                SaveStatus.Refresh(install, RomsPath(settings, rom), new[] { system });
+            });
+        }
+
+        /// <summary>A pasta de jogos deste PC; sem ela no retroboat.ini, a que contém a pasta do sistema do jogo.</summary>
+        static string RomsPath(RetroboatSettings settings, string rom)
+        {
+            if (!string.IsNullOrEmpty(settings.RomsPath))
+                return settings.RomsPath;
+
+            var systemFolder = string.IsNullOrEmpty(rom) ? null : Path.GetDirectoryName(rom);
+            return string.IsNullOrEmpty(systemFolder) ? null : Path.GetDirectoryName(systemFolder);
         }
 
         /// <returns>false se o usuário preferiu voltar.</returns>
@@ -168,7 +225,7 @@ namespace Retroboat.Launch
 
         /// <summary>Planeja, espera o que está chegando, pergunta os conflitos e aplica.</summary>
         /// <returns>false se o usuário preferiu voltar (só antes do jogo).</returns>
-        static bool SyncWithChoices(SaveSync sync, bool beforeGame)
+        static bool SyncWithChoices(SaveSync sync, bool beforeGame, IDictionary<string, SaveSyncResult> results)
         {
             var rule = sync.Rule;
             var started = DateTime.UtcNow;
@@ -221,6 +278,7 @@ namespace Retroboat.Launch
 
                 var result = ChoiceForm.Busy(Title, Busy, () => sync.Apply(plans, p => choices.TryGetValue(p.Name, out var c) ? c : (ConflictChoice?)null));
                 LogResult(rule, result, beforeGame ? "antes do jogo" : "depois do jogo");
+                results[rule.Folder] = result;
                 return ExplainDamage(rule, result, beforeGame);
             }
         }

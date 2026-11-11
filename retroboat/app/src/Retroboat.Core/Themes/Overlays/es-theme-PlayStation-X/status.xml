@@ -462,4 +462,294 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <text>{game:downloadProgress}</text>
     </text>
   </customView>
+
+  <!-- RB-032: ESTADO DA NUVEM dos saves, como na Steam: ícone + legenda + valor, ao lado do status do jogo. Só com o
+       ES do Retroboat, que tem {game:saveState} e {game:saveStatus} e muda o valor ao vivo (um save que chega à nuvem, o
+       Drive que volta). Primeiro as posições de cada visão; os estados e as cores ficam num bloco comum, depois. -->
+
+  <!-- ps4Style e single: à direita do status do jogo, na mesma linha. -->
+  <customView name="ps4Style" if='exists(${themePath} + "/../../../../retroboat/estado/es-nativo")'>
+    <text name="rbSaveIconOk, rbSaveIconDim, rbSaveIconIn, rbSaveIconUp, rbSaveIconWarn, rbSaveMarkCheck, rbSaveMarkX" extra="true">
+      <pos>0.525 0.501</pos>
+      <x ifSubset="aspect-ratio:4-3">0.643</x>
+      <x ifSubset="aspect-ratio:5-4">0.675</x>
+      <x ifSubset="aspect-ratio:16-10">0.563</x>
+      <x ifSubset="aspect-ratio:3-2">0.590</x>
+      <x ifSubset="aspect-ratio:5-3">0.553</x>
+      <x ifSubset="aspect-ratio:21-9">0.435</x>
+      <size>0.032 0.062</size>
+      <size ifSubset="aspect-ratio:4-3">0.043 0.062</size>
+      <size ifSubset="aspect-ratio:5-4">0.046 0.062</size>
+      <size ifSubset="aspect-ratio:16-10">0.036 0.062</size>
+      <size ifSubset="aspect-ratio:3-2">0.038 0.062</size>
+      <size ifSubset="aspect-ratio:5-3">0.034 0.062</size>
+      <size ifSubset="aspect-ratio:21-9">0.024 0.062</size>
+      <alignment>center</alignment>
+      <fontSize>0.036</fontSize>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+    <text name="rbSaveCaption" extra="true">
+      <pos>0.557 0.501</pos>
+      <x ifSubset="aspect-ratio:4-3">0.686</x>
+      <x ifSubset="aspect-ratio:5-4">0.721</x>
+      <x ifSubset="aspect-ratio:16-10">0.599</x>
+      <x ifSubset="aspect-ratio:3-2">0.628</x>
+      <x ifSubset="aspect-ratio:5-3">0.587</x>
+      <x ifSubset="aspect-ratio:21-9">0.459</x>
+      <size>0.30 0.028</size>
+      <size ifSubset="aspect-ratio:4-3">0.30 0.028</size>
+      <size ifSubset="aspect-ratio:5-4">0.27 0.028</size>
+      <size ifSubset="aspect-ratio:16-10">0.33 0.028</size>
+      <size ifSubset="aspect-ratio:3-2">0.33 0.028</size>
+      <size ifSubset="aspect-ratio:5-3">0.32 0.028</size>
+      <size ifSubset="aspect-ratio:21-9">0.25 0.028</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>B8BCBF</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+    <text name="rbSaveValue" extra="true">
+      <pos>0.557 0.529</pos>
+      <x ifSubset="aspect-ratio:4-3">0.686</x>
+      <x ifSubset="aspect-ratio:5-4">0.721</x>
+      <x ifSubset="aspect-ratio:16-10">0.599</x>
+      <x ifSubset="aspect-ratio:3-2">0.628</x>
+      <x ifSubset="aspect-ratio:5-3">0.587</x>
+      <x ifSubset="aspect-ratio:21-9">0.459</x>
+      <size>0.30 0.034</size>
+      <size ifSubset="aspect-ratio:4-3">0.30 0.034</size>
+      <size ifSubset="aspect-ratio:5-4">0.27 0.034</size>
+      <size ifSubset="aspect-ratio:16-10">0.33 0.034</size>
+      <size ifSubset="aspect-ratio:3-2">0.33 0.034</size>
+      <size ifSubset="aspect-ratio:5-3">0.32 0.034</size>
+      <size ifSubset="aspect-ratio:21-9">0.25 0.034</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Roman.ttf</fontPath>
+      <fontSize>0.021</fontSize>
+      <color>DCDEDF</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+  </customView>
+
+  <customView name="single" if='exists(${themePath} + "/../../../../retroboat/estado/es-nativo")'>
+    <text name="rbSaveIconOk, rbSaveIconDim, rbSaveIconIn, rbSaveIconUp, rbSaveIconWarn, rbSaveMarkCheck, rbSaveMarkX" extra="true">
+      <pos>0.345 0.311</pos>
+      <x ifSubset="aspect-ratio:4-3">0.423</x>
+      <x ifSubset="aspect-ratio:5-4">0.439</x>
+      <x ifSubset="aspect-ratio:16-10">0.364</x>
+      <x ifSubset="aspect-ratio:3-2">0.377</x>
+      <x ifSubset="aspect-ratio:5-3">0.357</x>
+      <x ifSubset="aspect-ratio:21-9">0.303</x>
+      <size>0.032 0.056</size>
+      <size ifSubset="aspect-ratio:4-3">0.043 0.056</size>
+      <size ifSubset="aspect-ratio:5-4">0.046 0.056</size>
+      <size ifSubset="aspect-ratio:16-10">0.036 0.056</size>
+      <size ifSubset="aspect-ratio:3-2">0.038 0.056</size>
+      <size ifSubset="aspect-ratio:5-3">0.034 0.056</size>
+      <size ifSubset="aspect-ratio:21-9">0.024 0.056</size>
+      <alignment>center</alignment>
+      <fontSize>0.036</fontSize>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+    <text name="rbSaveCaption" extra="true">
+      <pos>0.377 0.311</pos>
+      <x ifSubset="aspect-ratio:4-3">0.466</x>
+      <x ifSubset="aspect-ratio:5-4">0.484</x>
+      <x ifSubset="aspect-ratio:16-10">0.400</x>
+      <x ifSubset="aspect-ratio:3-2">0.415</x>
+      <x ifSubset="aspect-ratio:5-3">0.391</x>
+      <x ifSubset="aspect-ratio:21-9">0.328</x>
+      <size>0.30 0.028</size>
+      <size ifSubset="aspect-ratio:4-3">0.30 0.028</size>
+      <size ifSubset="aspect-ratio:5-4">0.30 0.028</size>
+      <size ifSubset="aspect-ratio:16-10">0.33 0.028</size>
+      <size ifSubset="aspect-ratio:3-2">0.33 0.028</size>
+      <size ifSubset="aspect-ratio:5-3">0.32 0.028</size>
+      <size ifSubset="aspect-ratio:21-9">0.30 0.028</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>B8BCBF</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+    <text name="rbSaveValue" extra="true">
+      <pos>0.377 0.335</pos>
+      <x ifSubset="aspect-ratio:4-3">0.466</x>
+      <x ifSubset="aspect-ratio:5-4">0.484</x>
+      <x ifSubset="aspect-ratio:16-10">0.400</x>
+      <x ifSubset="aspect-ratio:3-2">0.415</x>
+      <x ifSubset="aspect-ratio:5-3">0.391</x>
+      <x ifSubset="aspect-ratio:21-9">0.328</x>
+      <size>0.30 0.034</size>
+      <size ifSubset="aspect-ratio:4-3">0.30 0.034</size>
+      <size ifSubset="aspect-ratio:5-4">0.30 0.034</size>
+      <size ifSubset="aspect-ratio:16-10">0.33 0.034</size>
+      <size ifSubset="aspect-ratio:3-2">0.33 0.034</size>
+      <size ifSubset="aspect-ratio:5-3">0.32 0.034</size>
+      <size ifSubset="aspect-ratio:21-9">0.30 0.034</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Roman.ttf</fontPath>
+      <fontSize>0.021</fontSize>
+      <color>DCDEDF</color>
+      <glowColor>00000035</glowColor>
+      <glowSize>1</glowSize>
+      <glowOffset>3 2</glowOffset>
+      <zIndex>99</zIndex>
+    </text>
+  </customView>
+
+  <!-- detailed: a barra de ação ganha uma segunda linha, com o ESTADO DA NUVEM embaixo do status do jogo (ao lado do botão
+       não cabe). A mídia fica um pouco menor para a barra crescer para cima; o fim da barra e as linhas de informação
+       continuam onde estavam. <view> chega também ao test-medias, que volta ao normal no fim do arquivo. -->
+  <view name="detailed" if='exists(${themePath} + "/../../../../retroboat/estado/es-nativo")'>
+    <image name="image-detailed, thumbnail-detailed, marquee-detailed, boxart-detailed, cartridge-detailed, fanart-detailed, titleshot-detailed, boxback-detailed">
+      <pos>0.76 0.335</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.76 0.27</pos>
+    </image>
+    <image name="image-detailed, thumbnail-detailed, boxart-detailed, titleshot-detailed, fanart-detailed, boxback-detailed">
+      <maxSize>0.42 0.42</maxSize>
+      <maxSize ifSubset="aspect-ratio:4-3|5-4">0.42 0.28</maxSize>
+    </image>
+    <video name="game-video" ifSubset="game-video:window|inside|default">
+      <pos>0.76 0.335</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.76 0.27</pos>
+      <maxSize>0.42 0.42</maxSize>
+      <maxSize ifSubset="aspect-ratio:4-3|5-4">0.42 0.28</maxSize>
+    </video>
+
+    <image name="rbActionBar" extra="true">
+      <pos>0.55 0.555</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.55 0.418</pos>
+      <size>0.42 0.13</size>
+    </image>
+    <image name="rbPlayButton, rbDownloadButton, rbDownloadingButton, rbUnavailableButton" extra="true">
+      <pos>0.557 0.59</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.557 0.453</pos>
+    </image>
+    <text name="rbPlayLabel, rbDownloadLabel, rbDownloadingLabel, rbUnavailableLabel" extra="true">
+      <pos>0.557 0.59</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.557 0.453</pos>
+    </text>
+    <text name="rbPlayCaption, rbDownloadCaption, rbDownloadingCaption, rbUnavailableCaption" extra="true">
+      <pos>0.69 0.574</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.71 0.437</pos>
+    </text>
+    <text name="rbPlayValue, rbDownloadValue, rbDownloadingValue, rbUnavailableValue" extra="true">
+      <pos>0.69 0.604</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.71 0.467</pos>
+    </text>
+
+    <text name="rbSaveIconOk, rbSaveIconDim, rbSaveIconIn, rbSaveIconUp, rbSaveIconWarn, rbSaveMarkCheck, rbSaveMarkX" extra="true">
+      <pos>0.684 0.65</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.704 0.513</pos>
+      <origin>1 0.5</origin>
+      <size>0.04 0.06</size>
+      <alignment>center</alignment>
+      <fontSize>0.034</fontSize>
+      <zIndex>94</zIndex>
+    </text>
+    <text name="rbSaveCaption" extra="true">
+      <pos>0.69 0.634</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.71 0.497</pos>
+      <origin>0 0.5</origin>
+      <size>0.27 0.028</size>
+      <size ifSubset="aspect-ratio:4-3|5-4">0.26 0.028</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Bold.ttf</fontPath>
+      <fontSize>0.017</fontSize>
+      <color>8B929A</color>
+      <zIndex>94</zIndex>
+    </text>
+    <text name="rbSaveValue" extra="true">
+      <pos>0.69 0.664</pos>
+      <pos ifSubset="aspect-ratio:4-3|5-4">0.71 0.527</pos>
+      <origin>0 0.5</origin>
+      <size>0.27 0.032</size>
+      <size ifSubset="aspect-ratio:4-3|5-4">0.26 0.032</size>
+      <fontPath>${themePath}/_theme_inc/fonts/SST Roman.ttf</fontPath>
+      <fontSize>0.02</fontSize>
+      <fontSize ifSubset="aspect-ratio:4-3|5-4">0.018</fontSize>
+      <color>DCDEDF</color>
+      <zIndex>94</zIndex>
+    </text>
+  </view>
+
+  <!-- ESTADO DA NUVEM: estados, iguais nas três visões. A nuvem é a do cabeçalho (F0C2); o check e o X são glifos por cima,
+       na cor do fundo, como o X do Drive fechado. Amarelo só no que espera algo (não enviado, conflito); azul no que está
+       chegando de outro PC; cinza apagado sem save ainda e nos sistemas cujos saves ficam só neste PC. -->
+  <customView name="detailed, ps4Style, single" if='exists(${themePath} + "/../../../../retroboat/estado/es-nativo")'>
+    <text name="rbSaveMarkCheck, rbSaveMarkX" extra="true">
+      <fontSize>0.018</fontSize>
+      <glowSize>0</glowSize>
+      <color>0E141B</color>
+      <zIndex>100</zIndex>
+    </text>
+    <text name="rbSaveIconOk" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "synced"</visible>
+      <text>&#xF0C2;</text>
+      <color>B8BCBF</color>
+    </text>
+    <text name="rbSaveMarkCheck" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "synced"</visible>
+      <text>&#xF00C;</text>
+    </text>
+    <text name="rbSaveIconDim" extra="true">
+      <visible>${rbGame} &amp;&amp; ({game:saveState} == "none" || {game:saveState} == "local")</visible>
+      <text>&#xF0C2;</text>
+      <color>67707B</color>
+    </text>
+    <text name="rbSaveMarkX" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "local"</visible>
+      <text>&#xF00D;</text>
+    </text>
+    <text name="rbSaveIconIn" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "incoming"</visible>
+      <text>&#xF0ED;</text>
+      <color>1A9FFF</color>
+    </text>
+    <text name="rbSaveIconUp" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "pending"</visible>
+      <text>&#xF0EE;</text>
+      <color>FFC82C</color>
+    </text>
+    <text name="rbSaveIconWarn" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} == "conflict"</visible>
+      <text>&#xF06A;</text>
+      <color>FFC82C</color>
+    </text>
+    <text name="rbSaveCaption" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} != "unknown"</visible>
+      <text>ESTADO DA NUVEM</text>
+    </text>
+    <text name="rbSaveValue" extra="true">
+      <visible>${rbGame} &amp;&amp; {game:saveState} != "unknown"</visible>
+      <text>{game:saveStatus}</text>
+    </text>
+  </customView>
+
+  <!-- test-medias herdou a mídia e a barra de duas linhas do detailed acima: a mídia e o vídeo voltam para o lugar dele, e
+       o ESTADO DA NUVEM some, como a barra. -->
+  <customView name="test-medias" if='exists(${themePath} + "/../../../../retroboat/estado/es-nativo")'>
+    <image name="image-detailed, thumbnail-detailed, marquee-detailed, boxart-detailed, cartridge-detailed, fanart-detailed, titleshot-detailed, boxback-detailed">
+      <pos>-2 -2</pos>
+    </image>
+    <video name="game-video" ifSubset="game-video:window|inside|default">
+      <pos>0.32 0.29</pos>
+      <maxSize>0.2 0.25</maxSize>
+    </video>
+    <text name="rbSaveIconOk, rbSaveIconDim, rbSaveIconIn, rbSaveIconUp, rbSaveIconWarn, rbSaveMarkCheck, rbSaveMarkX, rbSaveCaption, rbSaveValue" extra="true">
+      <visible>false</visible>
+    </text>
+  </customView>
 </theme>

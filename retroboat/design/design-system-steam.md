@@ -236,6 +236,35 @@ canto inferior direito da tela do jogo, como as notificações da Steam durante 
   por cima. Só para download concluído; com o ES na frente, quem avisa é a região do cabeçalho.
 - **Escala:** tudo na proporção da altura da tela do jogo (2× num 4K), no monitor onde o jogo está.
 
+### 4.8 Estado da nuvem dos saves
+
+Como o "Estado da nuvem" da página de um jogo na Steam: ícone + legenda + valor (4.5) na seção do jogo, ao lado do status
+dele. Responde "o meu save está na nuvem?" sem abrir nada. Só com o ES do Retroboat (RB-032), que lê o estado ao vivo.
+
+```
+[ ▶ JOGAR ]  INSTALADO                    ☁✓  ESTADO DA NUVEM
+             Pronto para jogar neste PC        Atualizada · ontem 23:55
+```
+
+| Estado | Ícone | Valor |
+|---|---|---|
+| Em dia | nuvem `neutral-12` com check recortado (`neutral-2`) | Atualizada · hoje 23:55 (e "no NOTEBOOK" se veio de outro PC) |
+| Chegando de outro PC | nuvem com seta para baixo, `accent` | Chegando de outro PC |
+| Não enviado | nuvem com seta para cima, `warning` | Não sincronizada · espera o Drive (Drive fechado) ou · vai no próximo jogo |
+| Conflito | alerta, `warning` | Conflito · escolha ao abrir o jogo |
+| Sem save | nuvem `neutral-10` | Nenhum save ainda |
+| Sistema cujos saves não vão para a nuvem (PS3, Switch...) | nuvem `neutral-10` com X recortado | Saves ficam só neste PC |
+
+- **Cor:** nada aqui é defeito, então nunca vermelho. Amarelo só no que espera algo; o resto fica cinza, para o bloco ser discreto
+  ao lado do botão.
+- **Data:** a da versão que está na nuvem, na hora deste PC: "hoje 23:55", "ontem 22:10", depois "24 de out." (e o ano, se
+  for outro), como a "Última sessão" da Steam.
+- **Onde:** nas visões com o status ao lado do botão (ps4Style e single do PlayStation-X), à direita dele, na mesma linha. Na
+  visão detalhada, a barra de ação (4.2) ganha uma segunda linha, com o ícone embaixo do botão; a mídia fica um pouco menor
+  para a barra crescer para cima, e o que vem embaixo dela não muda de lugar.
+- **Memory card dividido pelos jogos** (o `Mcd001.ps2` do PS2, a VMU do Dreamcast): conta para os jogos do console que já
+  foram jogados; um jogo nunca aberto mostra "Nenhum save ainda".
+
 ## 5. Aplicação nos temas
 
 ### Carbon do Retroboat (RB-014)
@@ -245,6 +274,7 @@ canto inferior direito da tela do jogo, como as notificações da Steam durante 
 | Barra de ação (botão + status) | visão detalhada, abaixo da mídia | `retroboat/status.xml` do fork do Carbon |
 | Selo de status | faixa de informações das visões em grade e carrossel | idem |
 | Ícone global de nuvem | cabeçalho, canto superior direito | idem |
+| ESTADO DA NUVEM (4.8) | segunda linha da barra de ação, só com o ES do Retroboat | idem |
 
 ### PlayStation-X do Retroboat (RB-017)
 
@@ -254,6 +284,7 @@ canto inferior direito da tela do jogo, como as notificações da Steam durante 
 | Barra de ação | detailed, abaixo da mídia | idem |
 | Selo de status | fim da faixa de ícones (`contenedor-iconos`) de todas as visões em grade | idem |
 | Ícone global de nuvem | cabeçalho, entre "★ 2026" e o relógio (na linha do "v.43" em 4:3, 5:4 e 3:2) | idem |
+| ESTADO DA NUVEM (4.8) | ps4Style e single: à direita do status do jogo; detailed: segunda linha da barra. Só com o ES do Retroboat | idem |
 
 No PlayStation-X a fonte é a SST, do próprio tema, e o alerta de corrompido usa o glifo `F06A`: o
 tema troca o `F071` por uma imagem própria, que ignora a cor.
