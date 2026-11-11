@@ -80,5 +80,33 @@ namespace Retroboat.Tests
                 Assert.Equal(Original, File.ReadAllText(path));
             }
         }
+
+        [Fact]
+        public void Monitor_is_read_from_the_EmulationStation_section_only()
+        {
+            using (var dir = new TempDir())
+            {
+                var path = dir.WriteText("retrobat.ini", Original.Replace("MonitorIndex=0", "MonitorIndex=2"));
+                Assert.Equal(2, RetroBatIni.GetMonitorIndex(path)); // o 7 do [SplashScreen] não conta
+
+                Assert.Equal(0, RetroBatIni.GetMonitorIndex(dir.WriteText("ruim.ini", "[EmulationStation]\nMonitorIndex=abc\n")));
+                Assert.Equal(0, RetroBatIni.GetMonitorIndex(dir.Combine("nao-existe.ini")));
+            }
+        }
+
+        [Fact]
+        public void Es_monitor_number_follows_the_sdl_order()
+        {
+            // O Windows lista DISPLAY2, DISPLAY1, DISPLAY3, e o principal é o DISPLAY3: o ES conta o principal primeiro e
+            // depois os outros na ordem dos adaptadores.
+            var names = new[] { @"\\.\DISPLAY2", @"\\.\DISPLAY1", @"\\.\DISPLAY3" };
+            Assert.Equal(2, RetroBatIni.ScreenFor(0, names, primary: 2));
+            Assert.Equal(1, RetroBatIni.ScreenFor(1, names, primary: 2));
+            Assert.Equal(0, RetroBatIni.ScreenFor(2, names, primary: 2));
+            Assert.Equal(-1, RetroBatIni.ScreenFor(3, names, primary: 2)); // monitor desligado: fica o principal
+
+            // O PC do usuário: notebook (DISPLAY1, principal) e o 4K (DISPLAY2).
+            Assert.Equal(1, RetroBatIni.ScreenFor(1, new[] { @"\\.\DISPLAY1", @"\\.\DISPLAY2" }, primary: 0));
+        }
     }
 }

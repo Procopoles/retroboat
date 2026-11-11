@@ -49,7 +49,18 @@ namespace Retroboat.Launch
                 return install != null ? DownloadHost.Run(install) : 1;
 
             Application.EnableVisualStyles();
+            try
+            {
+                return Handle(install, target, targetArguments, args);
+            }
+            finally
+            {
+                Theme.ReturnFocusToEs();
+            }
+        }
 
+        static int Handle(RetroBatInstall install, string target, string targetArguments, string[] args)
+        {
             // Pedidos do ES do Retroboat (RB-010), que atende o A num jogo da nuvem sem abrir o jogo.
             if (target == DownloadVerb || target == CancelVerb)
                 return install != null ? FromNativeEs(install, target, CommandLine.SplitFirst(targetArguments, out _)) : 1;

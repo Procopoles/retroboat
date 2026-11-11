@@ -224,7 +224,10 @@ namespace Retroboat.Launcher
 
         static string PickFolder(string start)
         {
-            using (var owner = new Form { TopMost = true, ShowInTaskbar = false, StartPosition = FormStartPosition.CenterScreen, Size = new System.Drawing.Size(1, 1), Opacity = 0 })
+            // O diálogo abre no monitor do dono: o mesmo do ES (RB-029).
+            var area = Retroboat.Launch.Theme.GameScreen().WorkingArea;
+            using (var owner = new Form { TopMost = true, ShowInTaskbar = false, StartPosition = FormStartPosition.Manual, Size = new System.Drawing.Size(1, 1), Opacity = 0,
+                                          Location = new System.Drawing.Point(area.Left + area.Width / 2, area.Top + area.Height / 2) })
             using (var dialog = new FolderBrowserDialog { Description = "Pasta dos jogos deste PC", ShowNewFolderButton = true })
             {
                 owner.Show();

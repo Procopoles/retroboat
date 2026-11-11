@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -24,6 +25,51 @@ namespace Retroboat.Settings
         static readonly Regex MonitorLine = new Regex(@"^(\s*MonitorIndex\s*=\s*)(.*?)(\s*)$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
         public static string PathFor(RetroBatInstall install) => Path.Combine(install.Root, FileName);
+
+        /// <summary>O monitor do ES gravado no retrobat.ini; 0 (o principal do Windows) sem arquivo ou sem a linha.</summary>
+        public static int GetMonitorIndex(string path)
+        {
+            if (!File.Exists(path))
+                return 0;
+
+            bool inSection = false;
+            foreach (var raw in File.ReadAllLines(path))
+            {
+                var line = raw.Trim();
+                if (line.StartsWith("[", StringComparison.Ordinal) && line.EndsWith("]", StringComparison.Ordinal))
+                {
+                    inSection = string.Equals(line.Substring(1, line.Length - 2).Trim(), Section, StringComparison.OrdinalIgnoreCase);
+                    continue;
+                }
+
+                var match = inSection ? MonitorLine.Match(raw) : Match.Empty;
+                if (match.Success)
+                    return int.TryParse(match.Groups[2].Value.Trim('"'), out var index) && index > 0 && index <= MaxMonitorIndex ? index : 0;
+            }
+
+            return 0;
+        }
+
+        /// <summary>
+        /// Onde está o monitor <paramref name="monitorIndex"/> do ES na lista de monitores do Windows (os nomes \\.\DISPLAYn,
+        /// na ordem de Screen.AllScreens). O SDL do ES põe o principal primeiro e os outros na ordem dos adaptadores.
+        /// </summary>
+        /// <returns>O índice em <paramref name="deviceNames"/>; -1 se esse monitor não está ligado.</returns>
+        public static int ScreenFor(int monitorIndex, IReadOnlyList<string> deviceNames, int primary)
+        {
+            var order = Enumerable.Range(0, deviceNames.Count).Where(i => i != primary)
+                .OrderBy(i => DisplayNumber(deviceNames[i])).ThenBy(i => i).ToList();
+            if (primary >= 0 && primary < deviceNames.Count)
+                order.Insert(0, primary);
+
+            return monitorIndex >= 0 && monitorIndex < order.Count ? order[monitorIndex] : -1;
+        }
+
+        static int DisplayNumber(string deviceName)
+        {
+            var digits = Regex.Match(deviceName ?? "", @"(\d+)\s*$");
+            return digits.Success && int.TryParse(digits.Groups[1].Value, out var number) ? number : int.MaxValue;
+        }
 
         /// <summary>
         /// Grava o monitor do ES. Não cria o retrobat.ini: quem cria é o retrobat.exe, com todas as opções; um arquivo só com

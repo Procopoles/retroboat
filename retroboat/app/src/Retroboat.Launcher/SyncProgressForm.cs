@@ -11,7 +11,13 @@ namespace Retroboat.Launcher
             Text = "Retroboat";
             FormBorderStyle = FormBorderStyle.FixedDialog;
             ControlBox = false;
-            StartPosition = FormStartPosition.CenterScreen;
+            // RB-029: no centro do monitor do ES (o escolhido no retrobat.ini), depois da escala por DPI.
+            StartPosition = FormStartPosition.Manual;
+            Load += (s, e) =>
+            {
+                var area = Retroboat.Launch.Theme.GameScreen().WorkingArea;
+                Location = new Point(area.Left + (area.Width - Width) / 2, area.Top + (area.Height - Height) / 2);
+            };
             AutoScaleMode = AutoScaleMode.Dpi;
             Font = new Font("Segoe UI", 10f);
             ClientSize = new Size(420, 96);

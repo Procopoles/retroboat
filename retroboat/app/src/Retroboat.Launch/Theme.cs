@@ -1,7 +1,12 @@
 using System;
+using System.Diagnostics;
 using System.Drawing;
+using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using Retroboat.Library;
+using Retroboat.Settings;
 
 namespace Retroboat.Launch
 {
@@ -34,17 +39,88 @@ namespace Retroboat.Launch
                 return;
 
             _lastReclaim = now;
+            ForceForeground(form.Handle);
+            form.Activate();
+        }
 
-            // O Windows nega SetForegroundWindow a quem não está em primeiro plano (o Activate sozinho não
-            // resolve); ligado à fila de entrada de quem está, o pedido passa.
+        /// <summary>ChoiceForm: uma tela do Retroboat apareceu, e o foco saiu do ES.</summary>
+        public static void ScreenShown() => _screensShown = true;
+
+        static bool _screensShown;
+
+        /// <summary>
+        /// RB-029: o monitor das telas do Retroboat. Com o ES aberto, o dele; antes, o do retrobat.ini (onde o RetroBat vai
+        /// abrir o ES); senão, o principal do Windows. Sem isto, o Windows abre a tela no principal e tira o foco do ES.
+        /// </summary>
+        public static Screen GameScreen()
+        {
+            var es = EsWindow();
+            if (es != IntPtr.Zero)
+                return Screen.FromHandle(es);
+
+            try
+            {
+                var install = RetroBatInstall.FindFrom(AppDomain.CurrentDomain.BaseDirectory);
+                if (install != null)
+                {
+                    var screens = Screen.AllScreens;
+                    int index = RetroBatIni.ScreenFor(RetroBatIni.GetMonitorIndex(RetroBatIni.PathFor(install)),
+                        screens.Select(s => s.DeviceName).ToList(), Array.FindIndex(screens, s => s.Primary));
+                    if (index >= 0)
+                        return screens[index];
+                }
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+            }
+
+            return Screen.PrimaryScreen;
+        }
+
+        /// <summary>
+        /// RB-029: ao sair do retroboat-launch, se uma tela dele apareceu por cima do ES, o foco volta para o ES. Sem isto, o
+        /// Windows dá o foco a outra janela (às vezes em outro monitor) e é preciso clicar no ES. Só no fim: antes de um jogo,
+        /// quem pega o foco é o emulador.
+        /// </summary>
+        public static void ReturnFocusToEs()
+        {
+            if (!_screensShown)
+                return;
+
+            var es = EsWindow();
+            if (es != IntPtr.Zero && GetForegroundWindow() != es)
+                ForceForeground(es);
+        }
+
+        /// <summary>A janela do ES, se ele está aberto e visível.</summary>
+        static IntPtr EsWindow()
+        {
+            foreach (var process in Process.GetProcessesByName("emulationstation"))
+            {
+                using (process)
+                {
+                    var window = process.MainWindowHandle;
+                    if (window != IntPtr.Zero && IsWindowVisible(window))
+                        return window;
+                }
+            }
+
+            return IntPtr.Zero;
+        }
+
+        /// <summary>
+        /// O Windows nega SetForegroundWindow a quem não está em primeiro plano (o Activate sozinho não resolve); ligado à
+        /// fila de entrada de quem está, o pedido passa.
+        /// </summary>
+        static void ForceForeground(IntPtr window)
+        {
             uint current = GetCurrentThreadId();
             uint foreground = GetWindowThreadProcessId(GetForegroundWindow(), IntPtr.Zero);
             bool attached = foreground != 0 && foreground != current && AttachThreadInput(current, foreground, true);
             try
             {
-                BringWindowToTop(form.Handle);
-                SetForegroundWindow(form.Handle);
-                form.Activate();
+                BringWindowToTop(window);
+                SetForegroundWindow(window);
             }
             finally
             {
@@ -53,6 +129,7 @@ namespace Retroboat.Launch
             }
         }
 
+        [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, IntPtr processId);
         [DllImport("user32.dll")] static extern bool AttachThreadInput(uint attach, uint attachTo, bool on);
@@ -72,11 +149,13 @@ namespace Retroboat.Launch
             };
         }
 
-        /// <summary>Tela cheia, sem borda, por cima do ES.</summary>
+        /// <summary>Tela cheia, sem borda, por cima do ES, no monitor dele.</summary>
         public static void ApplyFullScreen(Form form)
         {
             form.Text = "Retroboat";
             form.FormBorderStyle = FormBorderStyle.None;
+            form.StartPosition = FormStartPosition.Manual;
+            form.Location = GameScreen().WorkingArea.Location; // maximiza no monitor onde a janela está
             form.WindowState = FormWindowState.Maximized;
             form.BackColor = Background;
             form.ForeColor = Foreground;

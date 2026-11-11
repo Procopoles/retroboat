@@ -1082,3 +1082,26 @@ o histórico.
   o nosso ES numa cópia isolada, a opção apareceu no topo de AJUSTES DE ÁUDIO com as duas saídas do PC (alto-falantes
   Realtek e SAMSUNG), marcando a padrão. A troca em si não foi feita no teste (muda a configuração do Windows): falta o usuário
   escolher pelo menu e ver o ES e um jogo saírem na saída nova.
+
+## RB-031 — Telas do Retroboat no monitor do ES, com o foco de volta
+
+- **Onde:** só no app: `Retroboat.Launch\Theme` (compartilhado com o `Retroboat.exe`), `ChoiceForm`, o fim do
+  `retroboat-launch`, `SyncProgressForm`, a escolha de pasta do `SetupFlow` e `Settings\RetroBatIni` (ler o monitor e
+  achá-lo na lista do Windows).
+- **Pedido (10/11/2026):** com dois monitores, a tela "Abrindo o Google Drive..." aparecia no monitor 1, tirava o foco do ES
+  e era preciso clicar no ES de novo.
+- **Como funciona:**
+  - todas as telas do Retroboat (Google Drive, memory cards, downloads do ES oficial, desinstalar e verificar, setup) abrem
+    maximizadas no monitor do ES. Com o ES aberto, o monitor da janela dele; antes, o `MonitorIndex` do `retrobat.ini`, na
+    ordem do SDL (o principal primeiro, depois os outros na ordem dos adaptadores \.\DISPLAYn); senão, o principal. A janela
+    de sincronização e o diálogo de pasta do setup também;
+  - quando o `retroboat-launch` mostrou alguma tela, ao terminar ele devolve o foco ao ES (o mesmo truque de
+    `AttachThreadInput` que as telas usam para pegar o foco de volta do Google Drive). Só no fim do processo: antes de um jogo,
+    quem pega o foco é o emulador, e depois do jogo o ES volta ao primeiro plano.
+- **Classificação:** C0 (só app).
+- **Risco semântico:** baixo. Se o RetroBat mudar a ordem dos monitores do ES, uma tela aberta antes do ES pode ir para o
+  monitor errado; com o ES aberto, vale a posição real da janela dele.
+- **Testado em 11/11/2026:** 2 testes automáticos novos (327 no total): o `MonitorIndex` só do `[EmulationStation]` e a ordem do
+  SDL (o PC do usuário e um caso com o principal no fim da lista). Com o `ChoiceForm` do `retroboat-launch` compilado e um ES
+  de teste na janela do monitor 4K, a tela "Abrindo o Google Drive..." abriu maximizada no 4K. A volta do foco não pôde ser
+  vista: o PC estava bloqueado (a tela de bloqueio do Windows fica com o foco). Falta o usuário ver o foco voltar ao ES.

@@ -145,6 +145,7 @@ namespace Retroboat.Launch
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
+            Theme.ScreenShown();
             LayoutControls();
             SelectOption(InitialSelection);
             Activate();
