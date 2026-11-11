@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Retroboat.Bios;
@@ -70,6 +71,7 @@ Configurações deste PC (o menu NUVEM do ES usa estes comandos; RB-021):
   retroboat-cli settings get --retrobat <pasta do RetroBat>
   retroboat-cli settings set Videos|Manuals|Automatic|AutoOpen 0|1 --retrobat <pasta do RetroBat>
   retroboat-cli settings set MonitorIndex <0-15> --retrobat <pasta do RetroBat>   (monitor do ES no retrobat.ini; 0 = o principal do Windows)
+  retroboat-cli settings set AudioOutput <id do Windows> --retrobat <pasta do RetroBat>   (troca a saída de som padrão e lembra dela)
   retroboat-cli settings request-setup --retrobat <pasta do RetroBat>   (o setup abre quando o ES fechar)
 
 Opções gerais:
@@ -646,6 +648,29 @@ Opções gerais:
 
             var path = RetroboatSettings.GetPath(install);
             var settings = RetroboatSettings.Load(path);
+
+            // RB-030: troca a saída padrão do Windows (o ES e os jogos vão junto) e guarda a escolha para as próximas aberturas.
+            if (string.Equals(key, "AudioOutput", StringComparison.OrdinalIgnoreCase))
+            {
+                bool changed;
+                try
+                {
+                    changed = AudioOutputs.SetDefault(value);
+                }
+                catch (COMException ex)
+                {
+                    throw new InvalidOperationException("O Windows não trocou a saída de som: " + ex.Message);
+                }
+
+                if (!changed)
+                    throw new InvalidOperationException("Saída de som não encontrada ou desligada: " + value);
+
+                settings.AudioOutput = value;
+                settings.Save(path);
+                Console.WriteLine("AudioOutput=" + value);
+                return ExitOk;
+            }
+
             if (!SettingsSummary.TrySet(settings, key, value, out var error))
                 throw new UsageException(error);
 

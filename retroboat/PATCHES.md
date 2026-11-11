@@ -1056,3 +1056,29 @@ o histórico.
   de verdade, ida e volta, medido com `GetWindowRect`/`GetClientRect` por monitor: tela cheia sem borda e exclusiva em
   3840×2160 no 4K e 1920×1080 no notebook, sem moldura; janela de 1280×720 continua janela, centrada em cada monitor; o fundo
   atrás do menu reaberto fica no lugar. Falta ver um jogo abrindo no segundo monitor.
+
+## RB-030 — Saída de áudio escolhida no menu do ES
+
+- **Onde:** no app, `Settings\AudioOutputs` (novo), `[Audio] Output` no `RetroboatSettings`, `retroboat-cli settings set
+  AudioOutput` e o `Retroboat.exe` antes de abrir o RetroBat. No fork do ES, `es-app/src/retroboat/RetroboatAudio.*` (novo) e
+  uma linha no `GuiMenu::openSoundSettings`.
+- **Pedido (10/11/2026):** o ES ficava mudo depois da abertura, e não havia opção de saída de áudio na interface.
+- **Causa do mudo:** ao ligar o monitor 4K, o Windows passou a usar o som dele (SAMSUNG, HD Audio Driver for Display Audio)
+  como saída padrão. O ES tocava a música do tema normalmente (log), só que no monitor. Não tem relação com o RB-029.
+- **Como funciona:**
+  - AJUSTES DE ÁUDIO ganha SAÍDA DE ÁUDIO no topo, só com mais de uma saída ligada, com o nome do Windows de cada uma;
+  - o ES e os emuladores tocam na saída padrão do Windows, então a opção troca a padrão (som em geral; a de chamadas fica
+    como está), pelo `retroboat-cli settings set AudioOutput <id>`, em segundo plano, só a última escolha. O som do ES segue
+    sozinho (o SDL abre a saída padrão e acompanha a troca) e o VOLUME DO SISTEMA do ES passa a ser o da saída nova;
+  - a escolha fica em `[Audio] Output` no `retroboat.ini` (deste PC). Ao abrir, antes do RetroBat, o `Retroboat.exe` volta
+    para ela se ela estiver ligada e o Windows tiver trocado sozinho; desligada, fica a do Windows;
+  - a troca usa a interface não documentada `IPolicyConfig` do Windows (Vista ao 11), a mesma do painel de som e de
+    ferramentas como o SoundSwitch; só `SetDefaultEndpoint` é chamado.
+- **Classificação:** C0 no app; C1 no fork do ES (arquivos `retroboat/` e uma linha no `GuiMenu.cpp`).
+- **Risco semântico:** baixo. Uma versão futura do Windows pode mudar a `IPolicyConfig`; aí a troca falha com erro no log do
+  ES e a saída fica como estava.
+- **Testado em 10/11/2026:** 2 testes automáticos novos (325 no total): a escolha fica no `retroboat.ini` e chega ao
+  `Retroboat.exe` aberto sem ser apagada; a lista das saídas só lê. A CLI recusa uma saída que não existe sem gravar nada. Com
+  o nosso ES numa cópia isolada, a opção apareceu no topo de AJUSTES DE ÁUDIO com as duas saídas do PC (alto-falantes
+  Realtek e SAMSUNG), marcando a padrão. A troca em si não foi feita no teste (muda a configuração do Windows): falta o usuário
+  escolher pelo menu e ver o ES e um jogo saírem na saída nova.

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Windows.Forms;
 using Retroboat.Cloud;
@@ -99,6 +100,7 @@ namespace Retroboat.Launcher
                 return 0;
             }
 
+            ApplyAudioOutput(settings);
             ClearNativeEsFlag(install);
             int exitCode = StartRetroBat(install, passThrough);
             if (exitCode == 0 && WaitForEs())
@@ -601,6 +603,24 @@ namespace Retroboat.Launcher
                 Log.Warn(warning);
 
             return result;
+        }
+
+        /// <summary>
+        /// RB-030: antes de abrir o RetroBat, volta para a saída de som escolhida no menu do ES. O Windows troca sozinho para o
+        /// som de um monitor ou TV que acabou de ser ligado, e aí o ES e os jogos ficam mudos.
+        /// </summary>
+        static void ApplyAudioOutput(RetroboatSettings settings)
+        {
+            try
+            {
+                var message = AudioOutputs.ApplyChosen(settings);
+                if (message != null)
+                    Log.Info(message);
+            }
+            catch (Exception ex) when (ex is COMException || ex is InvalidCastException)
+            {
+                Log.Warn("Não foi possível voltar para a saída de som escolhida: " + ex.Message);
+            }
         }
 
         /// <summary>O ES do Retroboat recria o es-nativo ao abrir. Com um ES já aberto, o arquivo é dele e fica.</summary>

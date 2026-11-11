@@ -78,6 +78,38 @@ namespace Retroboat.Tests
         }
 
         [Fact]
+        public void Audio_output_is_remembered_and_reaches_the_running_launcher()
+        {
+            using (var dir = new TempDir())
+            {
+                const string Speakers = "{0.0.0.00000000}.{6b1a1c2e-0f4d-4c6a-9a59-2d1c3b4a5e6f}";
+                var path = dir.Combine("retroboat.ini");
+                new RetroboatSettings { RomsPath = @"D:\Jogos", AudioOutput = Speakers }.Save(path);
+                Assert.Equal(Speakers, RetroboatSettings.Load(path).AudioOutput);
+
+                // O Retroboat.exe aberto pega a escolha do menu e não a apaga ao gravar outra coisa.
+                var running = new RetroboatSettings { RomsPath = @"D:\Jogos" };
+                running.TakeMainOptionsFrom(RetroboatSettings.Load(path));
+                running.Save(path);
+                Assert.Equal(Speakers, RetroboatSettings.Load(path).AudioOutput);
+
+                new RetroboatSettings { RomsPath = @"D:\Jogos" }.Save(path);
+                Assert.Null(RetroboatSettings.Load(path).AudioOutput);
+            }
+        }
+
+        [Fact]
+        public void Audio_outputs_are_listed_without_changing_anything()
+        {
+            // Só leitura: o teste nunca troca a saída padrão do PC.
+            var outputs = AudioOutputs.List();
+            Assert.All(outputs, o => Assert.False(string.IsNullOrEmpty(o.Id)));
+            Assert.All(outputs, o => Assert.False(string.IsNullOrEmpty(o.Name)));
+            Assert.True(outputs.Count(o => o.IsDefault) <= 1);
+            Assert.Null(AudioOutputs.ApplyChosen(new RetroboatSettings()));
+        }
+
+        [Fact]
         public void Setup_request_is_taken_once()
         {
             using (var dir = new TempDir())

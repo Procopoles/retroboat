@@ -51,12 +51,18 @@ namespace Retroboat.Settings
         /// </summary>
         public bool? KeepUncompressed { get; set; }
 
+        /// <summary>
+        /// RB-030: a saída de som escolhida no menu do ES (id do Windows). O Retroboat.exe volta para ela ao abrir, se ela estiver
+        /// ligada. Vazio = a padrão do Windows. Ver <see cref="AudioOutputs"/>.
+        /// </summary>
+        public string AudioOutput { get; set; }
+
         public static string GetPath(RetroBatInstall install) => Path.Combine(install.RetroboatDataPath, FileName);
 
         /// <summary>
         /// RB-021: traz as quatro opções principais de <paramref name="loaded"/> (o retroboat.ini que o menu NUVEM acabou de
-        /// mudar) e a resposta sobre jogos descompactados (que o retroboat-launch grava). Biblioteca e pasta de jogos não mudam
-        /// assim: só pelo setup.
+        /// mudar), a resposta sobre jogos descompactados (que o retroboat-launch grava) e a saída de som (menu do ES, RB-030).
+        /// Biblioteca e pasta de jogos não mudam assim: só pelo setup.
         /// </summary>
         /// <returns>true se vídeos, manuais ou capas automáticas acabaram de ser ligados (há o que buscar).</returns>
         public bool TakeMainOptionsFrom(RetroboatSettings loaded)
@@ -67,6 +73,7 @@ namespace Retroboat.Settings
             AutoMedia = loaded.AutoMedia;
             CloudAppAutoOpen = loaded.CloudAppAutoOpen;
             KeepUncompressed = loaded.KeepUncompressed;
+            AudioOutput = loaded.AudioOutput;
             return turnedOn;
         }
 
@@ -83,7 +90,8 @@ namespace Retroboat.Settings
                 CloudAppAutoOpen = Get(ini, "Cloud", "AutoOpen") == "1",
                 AutoMedia = Get(ini, "Media", "Automatic") != "0",
                 EsBiosCheckHandled = Get(ini, "Bios", "EsCheckHandled") == "1",
-                KeepUncompressed = Get(ini, "Games", "KeepUncompressed") == "1" ? true : Get(ini, "Games", "KeepUncompressed") == "0" ? false : (bool?)null
+                KeepUncompressed = Get(ini, "Games", "KeepUncompressed") == "1" ? true : Get(ini, "Games", "KeepUncompressed") == "0" ? false : (bool?)null,
+                AudioOutput = Get(ini, "Audio", "Output")
             };
         }
 
@@ -120,7 +128,12 @@ namespace Retroboat.Settings
                 .AppendLine("[Games]")
                 .AppendLine("; Jogo compactado que o RetroBat descompacta para abrir: 1 = manter a cópia descompactada, 0 = apagar ao fechar o")
                 .AppendLine("; jogo. Vazio = perguntar uma vez e guardar a resposta aqui. A opção de descompressão do ES, se definida, vale por cima.")
-                .AppendLine("KeepUncompressed=" + (KeepUncompressed.HasValue ? (KeepUncompressed.Value ? "1" : "0") : ""));
+                .AppendLine("KeepUncompressed=" + (KeepUncompressed.HasValue ? (KeepUncompressed.Value ? "1" : "0") : ""))
+                .AppendLine()
+                .AppendLine("[Audio]")
+                .AppendLine("; Saída de som escolhida no menu do ES (id do Windows). O Retroboat volta para ela ao abrir, se ela estiver ligada.")
+                .AppendLine("; Vazio = a padrão do Windows.")
+                .AppendLine("Output=" + (AudioOutput ?? ""));
 
             File.WriteAllText(path, text.ToString(), new UTF8Encoding(false));
         }

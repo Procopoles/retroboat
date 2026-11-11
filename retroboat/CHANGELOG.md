@@ -130,6 +130,8 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   pausada, o A pergunta se retoma, a lista mostra o ícone de pausa e o cabeçalho mostra PAUSADO.
 - RB-029: MONITOR PRINCIPAL em AJUSTES DE SISTEMA, com mais de um monitor ligado. Escolher leva o ES na hora para o
   monitor; os jogos abrem nele e o RetroBat abre o ES nele da próxima vez (`MonitorIndex` no `retrobat.ini`).
+- RB-030: SAÍDA DE ÁUDIO em AJUSTES DE ÁUDIO, com mais de uma saída ligada. Troca a saída padrão do Windows na hora (o ES e
+  os jogos vão junto) e o Retroboat volta para ela ao abrir, se o Windows tiver trocado sozinho para o som de um monitor ou TV.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e
