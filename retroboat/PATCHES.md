@@ -1143,3 +1143,73 @@ o histórico.
   memory card do PS2 em dia, 230 sistemas em 1,5 s. Com o nosso ES numa cópia isolada, no PlayStation-X (ps4Style, single e
   detailed) e no Carbon: todos os estados, a troca ao vivo com o cursor parado (o arquivo mudou e o Drive fechou) e o memory card
   do PS2 só nos jogos jogados. Falta ver num jogo de verdade o estado mudar ao fechar o jogo, e as proporções de tela fora do 16:9.
+
+## RB-033 — Emuladores sempre na última versão, junto com o jogo
+
+- **Onde:** no app, `Retroboat.Core/Emulators/` (novo, uma peça por arquivo: catálogo, escolha do ES, repositório, cache,
+  versões, estado, conferência, 7-Zip, instalador, junto com o jogo, compatibilidade e log), `Logging/LogFile` (novo, o `Log`
+  passa a usá-lo), `DownloadService.ForInstall` (o emulador vem com o jogo), `retroboat-launch` (`EmulatorFlow`, `ProgressForm` e
+  as chamadas em `Program`) e `retroboat-cli emulators` (`EmulatorCommands`). No fork do ES, só o `RetroboatEmulatorsGui.cpp`.
+  Desenho: `retroboat/design/rb033-emuladores.md`.
+- **Pedido (11/11/2026):**
+  - a regra mudou: os emuladores ficam sempre na última versão. Antes, o plano era uma versão fixa e testada;
+  - se uma versão nova tiver conflito com o app (pastas trocadas etc.), basta detectar, deixar claro no log e avisar o
+    problema; a correção vem depois. Essa verificação fica num arquivo separado, com a estrutura de arquivos fácil de manter;
+  - implementar o download junto com o jogo, o aviso no estilo da Steam em português e a conferência do arquivo.
+- **Como funciona:**
+  - **Repositório:** é o mesmo do RetroBat, achado consultando o servidor, porque o endereço não aparece no emulatorLauncher:
+    - emuladores em `https://www.retrobat.ovh/repo/win64/stable/emulators/<nome>.7z`;
+    - versões em `versions.xml`;
+    - cores em `cores/<core>_libretro.dll.zip`.
+  - **Instalado:** o executável existe. O RetroBat traz uma pasta para cada emulador, com modelos de configuração e sem `.exe`.
+  - **Emulador do jogo:**
+    - ao abrir, o `-emulator`/`-core` que o ES passou;
+    - para um jogo da fila, a mesma ordem do ES: gamelist, depois `es_settings.cfg`, depois o padrão (overlay do Retroboat ou
+      `es_systems.cfg`).
+  - **Última versão:**
+    - um emulador compara a versão do `versions.xml` com a que o Retroboat instalou (ou, se foi o RetroBat, com a
+      `FileVersion` ou a data do executável);
+    - um core compara o `Last-Modified` do pacote. Um core instalado pelo RetroBat é adotado;
+    - as respostas do servidor ficam 6 h em cache. Sem conexão, o app espera 10 min antes de tentar de novo, e o jogo abre
+      com o que está instalado.
+  - **Conferência:** tamanho igual ao `Content-Length`, `7za t`, extração numa pasta temporária (`emulators\.retroboat-temp`)
+    e programa válido (MZ/PE, x64/x86/ARM64). Só então copia por cima, menos o `<neveroverwrite>` do `system\upgrade.xml`
+    que já existe. Um download pela metade continua de onde parou (o pedaço tem o tamanho esperado no nome).
+  - **Junto com o jogo:** a barra soma o jogo e o emulador desde o começo. Se o emulador falhar, o jogo fica instalado
+    assim mesmo, e o aviso ao abrir oferece o emulador.
+  - **Aviso ao abrir:**
+    - mostra "Este jogo precisa do X" (Baixar e jogar / Agora não) e o andamento, com B para cancelar;
+    - sem conexão, mostra o motivo e "Tentar de novo";
+    - uma atualização roda sem perguntar.
+  - **Compatibilidade (arquivo próprio):** antes do jogo, o app confere:
+    - `EXECUTAVEL_MUDOU` e `EXECUTAVEL_INVALIDO`: o programa;
+    - `RETROARCH_AUSENTE`: o RetroArch dos cores;
+    - `REPOSITORIO_MUDOU`: o repositório.
+
+    Depois do jogo:
+    - `SAVE_FORA_DA_NUVEM`: um save novo ou alterado fora de `saves\`, na pasta do emulador ou em `bios\`;
+    - `PASTA_DE_SAVES_MUDOU`: o `[Folders] MemoryCards` do PCSX2;
+    - `CONFIGURACAO_SUMIU`: as configurações que o Retroboat sincroniza.
+
+    Tudo vai em bloco para `logs\emuladores.log`. Na tela, cada problema aparece uma vez por versão; o que impede o jogo
+    aparece sempre.
+  - **Menu EMULADORES (RB-023):** "Instalado" exige um `.exe`; quem falta mostra "baixa junto com o primeiro jogo".
+- **Classificação:** C0 no app (novo, e o `retroboat-launch` só ganha chamadas antes e depois do jogo); C1 no fork do ES
+  (arquivo `retroboat/`).
+- **Risco semântico:** médio. A regra de ficar na última versão é do usuário: uma versão nova pode quebrar algo, e o
+  Retroboat só avisa (é para isso a compatibilidade).
+  - **Janela em inglês do RetroBat:** continua possível se a instalação do Retroboat for recusada ou falhar e o jogo abrir
+    mesmo assim.
+  - **Atualização antes do jogo:** só quando o repositório anuncia versão nova; a primeira de um emulador grande (PCSX2,
+    24 MB) atrasa aquele jogo.
+- **Testado em 11/11/2026:**
+  - **25 testes automáticos novos** (374 no total). Cobrem: catálogo, escolha do ES, versões, `versions.xml` com outro
+    formato, pasta modelo sem programa, conferência (tamanho, corrompido, curto, sem programa), instalação, atualização
+    mantendo a configuração do usuário, core adotado e atualizado, sem internet e espera depois da falha, junto com o jogo
+    (barra única e jogo mantido se o emulador falha), cada código de compatibilidade e aviso uma vez por versão.
+  - **Repositório de verdade, numa cópia isolada:**
+    - Flycast do RetroArch (5,4 MB) e Flycast 2.7.0.1 (7,3 MB) baixados, conferidos e instalados;
+    - atualização 2.6 → 2.7.0.1;
+    - `EXECUTAVEL_MUDOU` com o `flycast.exe` renomeado.
+  - **Telas** desenhadas fora da tela: a pergunta, o andamento e o aviso.
+  - **Falta ver:** um jogo aberto pelo ES com o emulador faltando, e o download junto com um jogo da nuvem no build.

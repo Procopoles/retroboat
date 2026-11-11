@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using Retroboat.Cloud;
+using Retroboat.Emulators;
 using Retroboat.Library;
 using Retroboat.Logging;
 using Retroboat.Settings;
@@ -84,7 +85,10 @@ namespace Retroboat.Downloads
         /// <summary>O jogo atual saiu da fila a pedido do usuário.</summary>
         public event Action<DownloadItem> Cancelled;
 
-        /// <summary>Instalação de verdade: cada jogo lê o índice de novo, porque a nuvem pode ter sincronizado no meio.</summary>
+        /// <summary>
+        /// Instalação de verdade: cada jogo lê o índice de novo, porque a nuvem pode ter sincronizado no meio. O emulador do
+        /// jogo vem no mesmo download, se falta ou tem versão nova (RB-033).
+        /// </summary>
         public static DownloadService ForInstall(RetroBatInstall install, DownloadQueue queue)
         {
             var settings = RetroboatSettings.Load(RetroboatSettings.GetPath(install));
@@ -95,7 +99,7 @@ namespace Retroboat.Downloads
                     var installer = new OnDemandInstaller(install);
                     var entry = installer.FindEntry(item.System, item.CloudName);
                     return entry != null
-                        ? installer.Install(entry, progress, token)
+                        ? GameEmulatorDownload.Install(install, entry, installer.RomsRoot, gameProgress => installer.Install(entry, gameProgress, token), progress, token)
                         : new OnDemandResult(OnDemandOutcome.Failed, "Este jogo não está mais na nuvem (" + item.Key + ").");
                 },
                 () => CloudLocator.IsAvailable(settings));

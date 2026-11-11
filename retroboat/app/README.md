@@ -56,6 +56,9 @@ retroboat-cli config status --retrobat <pasta>            configurações: o que
 retroboat-cli config sync --retrobat <pasta>              sincroniza opções do ES, controles, coleções e emuladores
 retroboat-cli stats sync --retrobat <pasta> [--roms <pasta>]   favoritos e tempo jogado (com o ES fechado)
 retroboat-cli themes status --retrobat <pasta>            temas suportados com ou sem o status do Retroboat
+retroboat-cli emulators status --retrobat <pasta> [--emulator X [--core Y]]   emuladores dos consoles com jogos: instalado, atualização, tamanho
+retroboat-cli emulators install --retrobat <pasta> --emulator X [--core Y]   instala ou atualiza (última versão), com a conferência
+retroboat-cli emulators check --retrobat <pasta> --emulator X [--core Y]   só a verificação de compatibilidade
 retroboat-cli themes apply --retrobat <pasta>             põe o status de volta nos temas (Carbon, PlayStation-X)
 retroboat-cli settings get --retrobat <pasta>             estado da biblioteca e opções principais, em linhas Chave=valor
 retroboat-cli settings set <chave> 0|1 --retrobat <pasta> Videos, Manuals, Automatic ou AutoOpen (o menu NUVEM usa)
@@ -159,6 +162,40 @@ As capas automáticas não precisam de conta: o lançador procura o nome do arqu
 No-Intro/Redump) nos thumbnails do libretro, guarda a lista de nomes de cada sistema por uma semana
 em `retroboat\cache\libretro` e envia as imagens para o Drive. Descrição e vídeo vêm do scraper do
 ES, que precisa de uma conta gratuita no ScreenScraper (menu Procurar mídias de jogo, aba Contas).
+
+## Emuladores (RB-033)
+
+O Retroboat instala e atualiza os emuladores, sempre na **última versão** do repositório do RetroBat
+(`https://www.retrobat.ovh/repo/win64/stable/emulators/`). Eles vão para `emulators\<nome>` e os cores para
+`emulators\retroarch\cores`, como o RetroBat faria. Desenho completo: `retroboat/design/rb033-emuladores.md`.
+
+- **Junto com o jogo:** o download de um jogo da nuvem traz o emulador que ele vai usar, se falta ou tem versão nova. A ordem
+  da escolha é a do ES: o jogo, depois o sistema, depois o padrão. A barra soma os dois. Se o emulador falhar, o jogo fica
+  instalado assim mesmo.
+- **Ao abrir um jogo** (`retroboat-launch`):
+  - se o emulador falta, aparece a tela "Este jogo precisa do X", com "Baixar e jogar" ou "Agora não", e o andamento com B
+    para cancelar;
+  - uma versão nova é instalada sem perguntar;
+  - sem internet, o jogo abre com o que está instalado.
+- **Conferência do arquivo:** tamanho igual ao anunciado, `7za t` (CRC de cada arquivo), extração numa pasta temporária e
+  programa válido do Windows (MZ/PE). Só então os arquivos vão para o lugar, sem trocar os que o RetroBat nunca sobrescreve
+  (`system\upgrade.xml`).
+- **Compatibilidade** (`Emulators/EmulatorCompatibility.cs`, arquivo próprio): antes e depois de cada jogo, o app confere o
+  que uma versão nova pode ter mudado. Cada problema tem um código:
+  - `EXECUTAVEL_MUDOU`, `EXECUTAVEL_INVALIDO` e `RETROARCH_AUSENTE`: o programa;
+  - `REPOSITORIO_MUDOU`: o repositório;
+  - `SAVE_FORA_DA_NUVEM`: um save gravado fora de `saves\`, como a VMU do Flycast em `bios\dc`;
+  - `PASTA_DE_SAVES_MUDOU`: a pasta de memory cards do PCSX2;
+  - `CONFIGURACAO_SUMIU`: as configurações sincronizadas.
+
+  Tudo vai para `retroboat\logs\emuladores.log`, em bloco, com esperado e achado. O usuário vê uma tela com o problema em
+  português, uma vez por versão; o que impede o jogo aparece sempre, com "Voltar" e "Abrir mesmo assim".
+- **Estado:** em `retroboat\estado\`:
+  - `emuladores-instalados.xml`: o que o Retroboat instalou, com a versão anunciada e a data do pacote no servidor;
+  - `emuladores-servidor.xml`: o cache das consultas, por 6 h, com 10 min de espera depois de uma falha de conexão;
+  - `emuladores-avisos.xml`: os avisos já mostrados.
+- **Catálogo:** `Emulators/EmulatorCatalog.xml` diz qual pacote cada emulador do ES abre e que executável o emulatorLauncher
+  procura. Se uma versão nova renomear o executável, corrija o `exe` ali.
 
 ## Configurações na nuvem
 

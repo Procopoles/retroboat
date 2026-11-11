@@ -1,0 +1,173 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Catálogo de emuladores do Retroboat (RB-033): emulador do ES → pacote do repositório do RetroBat.
+
+  <emulator>
+    package  nome no repositório (emulators/<package>.7z) e da pasta em <RetroBat>\emulators;
+    display  como o usuário vê o nome;
+    exe      o executável que o emulatorLauncher procura, relativo à pasta (vários: separados por "|", o primeiro é o
+             principal). Vem da tabela de instaladores do emulatorLauncher. Sem exe, qualquer .exe na pasta vale e a
+             verificação de compatibilidade não confere o nome;
+    es       outros nomes do ES (-emulator) que abrem este pacote, separados por vírgula.
+  <core>     core do RetroArch (-emulator libretro -core <name>); só o nome para mostrar. Um core fora da lista também é
+             baixado, com o nome dele.
+
+  Emulador fora da lista e sem pasta em <RetroBat>\emulators (programas do Windows, lojas): o Retroboat não mexe.
+  Se uma versão nova trocar o nome do executável, corrija o exe aqui: a verificação de compatibilidade avisa com
+  EXECUTAVEL_MUDOU e lista os .exe que vieram no pacote.
+-->
+<catalog>
+  <emulator package="2ship" display="2 Ship 2 Harkinian" exe="2ship.exe" />
+  <emulator package="altirra" display="Altirra" exe="Altirra64.exe" />
+  <emulator package="amiberry" display="Amiberry" exe="Amiberry.exe" />
+  <emulator package="applewin" display="AppleWin" es="apple2,apple2gs" />
+  <emulator package="arcadeduck" display="ArcadeDuck" exe="ArcadeDuck.exe" />
+  <emulator package="ares" display="ares" exe="ares.exe" />
+  <emulator package="azahar" display="Azahar" exe="azahar.exe" />
+  <emulator package="bigpemu" display="BigPEmu" exe="BigPEmu.exe" />
+  <emulator package="bizhawk" display="BizHawk" exe="EmuHawk.exe" />
+  <emulator package="blastem" display="BlastEm" exe="blastem.exe" />
+  <emulator package="bstone" display="BStone" exe="bstone.exe" />
+  <emulator package="bsyndrome" display="Blood Syndrome" exe="bs.exe" />
+  <emulator package="capriceforever" display="Caprice Forever" exe="Caprice.exe|Caprice64.exe" es="caprice32,caprice64" />
+  <emulator package="cdogs" display="C-Dogs" exe="bin\cdogs-sdl.exe|cdogs-sdl.exe" />
+  <emulator package="cemu" display="Cemu" exe="Cemu.exe" />
+  <emulator package="cgenius" display="Commander Genius" exe="CGenius.exe" />
+  <emulator package="chihiro" display="Chihiro" exe="cxbx.exe" es="chihiro-gun" />
+  <emulator package="chihiro-ds" display="Chihiro DS" />
+  <emulator package="citra" display="Citra" exe="citra-qt.exe" />
+  <emulator package="citron" display="Citron" exe="citron.exe" />
+  <emulator package="corsixth" display="CorsixTH" exe="CorsixTH.exe" />
+  <emulator package="cxbx-reloaded" display="Cxbx-Reloaded" exe="cxbx.exe" es="cxbx,cxbx-r" />
+  <emulator package="demul" display="Demul" exe="demul.exe" />
+  <emulator package="demul-old" display="Demul (antigo)" exe="demul.exe" />
+  <emulator package="desmume" display="DeSmuME" exe="DeSmuME-VS2022-x64-Release.exe" />
+  <emulator package="devilutionx" display="DevilutionX" exe="devilutionx.exe" />
+  <emulator package="dhewm3" display="dhewm3" exe="dhewm3.exe" />
+  <emulator package="dolphin-emu" display="Dolphin" exe="Dolphin.exe" es="dolphin" />
+  <emulator package="dolphin-triforce" display="Dolphin Triforce" exe="dolphinWX.exe|dolphin.exe" es="triforce" />
+  <emulator package="dosbox-pure" display="DOSBox Pure" exe="DOSBoxPure.exe" />
+  <emulator package="dosbox-staging" display="DOSBox Staging" exe="dosbox.exe" />
+  <emulator package="duckstation" display="DuckStation" exe="duckstation-qt-x64-ReleaseLTCG.exe" />
+  <emulator package="dusklight" display="Dusklight" exe="dusklight.exe" />
+  <emulator package="eden" display="Eden" exe="eden.exe" />
+  <emulator package="eduke32" display="EDuke32" exe="eduke32.exe" />
+  <emulator package="eka2l1" display="EKA2L1" exe="eka2l1_qt.exe" />
+  <emulator package="fbneo" display="FinalBurn Neo" exe="fbneo64.exe" es="fbneo64" />
+  <emulator package="flycast" display="Flycast" exe="flycast.exe" />
+  <emulator package="fpinball" display="Future Pinball" exe="Future Pinball.exe" es="bam" />
+  <emulator package="gemrb" display="GemRB" exe="gemrb.exe" />
+  <emulator package="ghostship" display="Ghostship" exe="Ghostship.exe" />
+  <emulator package="gopher64" display="gopher64" exe="gopher64-windows-x86_64.exe" />
+  <emulator package="groovymame" display="GroovyMAME" exe="mame.exe" />
+  <emulator package="gzdoom" display="GZDoom" exe="gzdoom.exe" />
+  <emulator package="hatari" display="Hatari" exe="hatari.exe" />
+  <emulator package="hbmame" display="HBMAME" exe="hbmameui.exe" />
+  <emulator package="hypseus" display="Hypseus" exe="hypseus.exe" />
+  <emulator package="jgenesis" display="jgenesis" exe="jgenesis-gui.exe" />
+  <emulator package="jynx" display="Jynx" exe="Jynx-Windows-64bit.exe" />
+  <emulator package="jzintv" display="jzIntv" exe="jzintv.exe" />
+  <emulator package="kega-fusion" display="Kega Fusion" exe="Fusion.exe" />
+  <emulator package="kronos" display="Kronos" exe="kronos.exe" />
+  <emulator package="lime3ds" display="Lime3DS" exe="lime3ds.exe" />
+  <emulator package="linuxloader" display="Linux Loader" exe="linuxloader.exe" />
+  <emulator package="m2emulator" display="Model 2 Emulator" exe="emulator_multicpu.exe" />
+  <emulator package="magicengine" display="MagicEngine" exe="pce.exe" />
+  <emulator package="mame" display="MAME" exe="mame.exe|mame64.exe|mame32.exe" es="mame64" />
+  <emulator package="mandarine" display="Mandarine" exe="mandarine.exe" />
+  <emulator package="mednafen" display="Mednafen" />
+  <emulator package="melonds" display="melonDS" exe="melonDS.exe" />
+  <emulator package="mesen" display="Mesen" />
+  <emulator package="mgba" display="mGBA" exe="mGBA.exe" />
+  <emulator package="mupen64" display="Rosalie's Mupen GUI" exe="RMG.exe" />
+  <emulator package="nosgba" display="No$GBA" exe="no$gba.exe" />
+  <emulator package="openbor" display="OpenBOR" />
+  <emulator package="opengoal" display="OpenGOAL" exe="gk.exe" />
+  <emulator package="openjazz" display="OpenJazz" exe="OpenJazz.exe" />
+  <emulator package="openmsx" display="openMSX" exe="openmsx.exe" />
+  <emulator package="oricutron" display="Oricutron" />
+  <emulator package="pcsx2" display="PCSX2" exe="pcsx2-qt.exe" />
+  <emulator package="pcsx2-16" display="PCSX2 1.6" exe="pcsx2.exe" />
+  <emulator package="pcsx2x6" display="PCSX2x6" />
+  <emulator package="pdark" display="Perfect Dark" exe="pd.x86_64.exe" />
+  <emulator package="phoenix" display="Phoenix" exe="PhoenixEmuProject.exe" />
+  <emulator package="play" display="Play!" exe="Play.exe" />
+  <emulator package="powerbomberman" display="Power Bomberman" exe="Power Bomberman.exe" />
+  <emulator package="ppsspp" display="PPSSPP" exe="PPSSPPWindows64.exe" />
+  <emulator package="project64" display="Project64" />
+  <emulator package="quiverlauncher" display="Quiver" exe="QuiverLauncher.exe" />
+  <emulator package="raine" display="Raine" />
+  <emulator package="raze" display="Raze" exe="raze.exe" />
+  <emulator package="redream" display="Redream" />
+  <emulator package="rpcs3" display="RPCS3" es="ps3" />
+  <emulator package="rtcw" display="RealRTCW" exe="RealRTCW.x64.exe" />
+  <emulator package="ruffle" display="Ruffle" exe="ruffle.exe" />
+  <emulator package="ryujinx" display="Ryujinx" exe="Ryujinx.exe" />
+  <emulator package="scummvm" display="ScummVM" exe="scummvm.exe" />
+  <emulator package="shadps4" display="shadPS4" exe="shadPS4QtLauncher.exe|shadPS4.exe" />
+  <emulator package="simcoupe" display="SimCoupe" />
+  <emulator package="simple64" display="simple64" exe="simple64-gui.exe" />
+  <emulator package="singe2" display="Singe 2" exe="Singe-v2.10-Windows-x86_64.exe" />
+  <emulator package="snes9x" display="Snes9x" exe="snes9x-x64.exe" />
+  <emulator package="soh" display="Ship of Harkinian" exe="soh.exe" />
+  <emulator package="solarus" display="Solarus" exe="solarus-run.exe" />
+  <emulator package="sonic3air" display="Sonic 3 A.I.R." exe="Sonic3AIR.exe" />
+  <emulator package="sonicmania" display="Sonic Mania" exe="RSDKv5U_x64.exe" />
+  <emulator package="sonicretro" display="Sonic (RSDKv4)" exe="RSDKv4_64.exe" />
+  <emulator package="sonicretrocd" display="Sonic CD (RSDKv3)" exe="RSDKv3_64.exe" />
+  <emulator package="ssf" display="SSF" exe="SSF.exe" />
+  <emulator package="starship" display="Starship" exe="Starship.exe" />
+  <emulator package="stella" display="Stella" exe="Stella.exe" />
+  <emulator package="sudachi" display="Sudachi" exe="sudachi.exe" />
+  <emulator package="supermodel" display="Supermodel" exe="supermodel.exe" es="model3" />
+  <emulator package="teknoparrot" display="TeknoParrot" exe="TeknoParrotUi.exe" />
+  <emulator package="theforceengine" display="The Force Engine" exe="TheForceEngine.exe" />
+  <emulator package="tsugaru" display="Tsugaru" exe="tsugaru_cui.exe" />
+  <emulator package="uzdoom" display="UZDoom" exe="uzdoom.exe" />
+  <emulator package="vita3k" display="Vita3K" exe="Vita3K.exe" />
+  <emulator package="vkquake" display="vkQuake" exe="vkQuake.exe" />
+  <emulator package="vkquake2" display="vkQuake2" exe="quake2.exe" />
+  <emulator package="vpinball" display="Visual Pinball" exe="VPinballX.exe|vpinballx.exe|VPinballX64.exe" />
+  <emulator package="winuae" display="WinUAE" exe="winuae64.exe" />
+  <emulator package="xash3d" display="Xash3D" exe="xash3d.exe" />
+  <emulator package="xemu" display="xemu" exe="xemu.exe" es="xbox" />
+  <emulator package="xenia" display="Xenia" exe="xenia.exe" />
+  <emulator package="xenia-canary" display="Xenia Canary" exe="xenia_canary.exe" />
+  <emulator package="xenia-edge" display="Xenia Edge" exe="xenia_edge.exe" />
+  <emulator package="xenia-manager" display="Xenia Manager" exe="XeniaManager.exe" />
+  <emulator package="xm6pro" display="XM6 Pro-68k" exe="XM6.exe" />
+  <emulator package="xroar" display="XRoar" exe="xroar.exe" />
+  <emulator package="yabasanshiro" display="Yaba Sanshiro" exe="yabasanshiro.exe" />
+  <emulator package="ymir" display="Ymir" exe="ymir-sdl3.exe" />
+  <emulator package="yuzu" display="yuzu" exe="yuzu.exe" />
+  <emulator package="zesarux" display="ZEsarUX" exe="zesarux.exe" />
+  <emulator package="zinc" display="ZiNc" exe="ZiNc.exe" />
+  <emulator package="zquestclassic" display="ZQuest Classic" exe="zplayer.exe" />
+
+  <core name="flycast" display="Flycast" />
+  <core name="swanstation" display="SwanStation" />
+  <core name="mednafen_psx_hw" display="Beetle PSX HW" />
+  <core name="mednafen_psx" display="Beetle PSX" />
+  <core name="mednafen_saturn" display="Beetle Saturn" />
+  <core name="pcsx_rearmed" display="PCSX ReARMed" />
+  <core name="pcsx2" display="LRPS2" />
+  <core name="mupen64plus_next" display="Mupen64Plus-Next" />
+  <core name="parallel_n64" display="ParaLLEl N64" />
+  <core name="dolphin" display="Dolphin" />
+  <core name="ppsspp" display="PPSSPP" />
+  <core name="snes9x" display="Snes9x" />
+  <core name="mesen" display="Mesen" />
+  <core name="mesen-s" display="Mesen-S" />
+  <core name="nestopia" display="Nestopia" />
+  <core name="fceumm" display="FCEUmm" />
+  <core name="genesis_plus_gx" display="Genesis Plus GX" />
+  <core name="picodrive" display="PicoDrive" />
+  <core name="mgba" display="mGBA" />
+  <core name="gambatte" display="Gambatte" />
+  <core name="melondsds" display="melonDS DS" />
+  <core name="desmume" display="DeSmuME" />
+  <core name="fbneo" display="FinalBurn Neo" />
+  <core name="mame" display="MAME" />
+  <core name="yabasanshiro" display="Yaba Sanshiro" />
+  <core name="kronos" display="Kronos" />
+</catalog>

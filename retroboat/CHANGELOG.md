@@ -137,6 +137,15 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-032: ESTADO DA NUVEM na página de cada jogo, como na Steam: "Atualizada · ontem 23:55" quando o save do jogo está na
   nuvem, "Não sincronizada" quando ele foi salvo sem o Drive, conflito e "Chegando de outro PC". Vale para qualquer console e
   muda ao vivo, inclusive durante o jogo (cada save que chega à nuvem). No PlayStation-X e no Carbon, com o nosso ES.
+- RB-033: emuladores sempre na última versão, cuidados pelo Retroboat:
+  - o emulador vem junto com o jogo da nuvem, no mesmo download;
+  - ao abrir um jogo cujo emulador falta, aparece uma tela em português no estilo das outras ("Baixar e jogar"), no lugar
+    da janela em inglês do RetroBat;
+  - uma versão nova é instalada antes do jogo, sem perguntar;
+  - todo pacote é conferido (tamanho, CRC, programa válido) antes de ir para a pasta do emulador;
+  - se uma versão nova mudar algo de que o Retroboat depende (executável, pasta de saves, configuração), o app avisa o
+    problema e registra os detalhes em `logs\emuladores.log`;
+  - o menu EMULADORES do ES passa a ver se o programa está instalado, não só a pasta.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

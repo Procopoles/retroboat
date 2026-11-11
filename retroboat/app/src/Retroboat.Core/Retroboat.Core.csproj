@@ -21,4 +21,9 @@
     <EmbeddedResource Include="Themes\Overlays\es-theme-PlayStation-X\status.xml" LogicalName="Retroboat.Themes.es-theme-PlayStation-X.status.xml" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Emulador do ES → pacote do repositório do RetroBat (EmulatorCatalog, RB-033). -->
+    <EmbeddedResource Include="Emulators\EmulatorCatalog.xml" LogicalName="Retroboat.Emulators.EmulatorCatalog.xml" />
+  </ItemGroup>
+
 </Project>

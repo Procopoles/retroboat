@@ -81,6 +81,15 @@ namespace Retroboat.Launch
             if (install != null)
                 DownloadProcess.EnsureRunning(install, ExeFolder);
 
+            // RB-033: o emulador do jogo, sempre na última versão. Se falta, pergunta e baixa; depois confere a compatibilidade.
+            EmulatorFlow emulator = null;
+            if (install != null)
+            {
+                emulator = EmulatorFlow.Before(install, args, out bool openGame);
+                if (!openGame)
+                    return 1;
+            }
+
             // Memory cards: puxa antes, envia cada gravação durante o jogo e o que faltar no fim.
             var saves = install != null ? SaveFlow.Before(install, args, rom) : null;
             if (saves != null && saves.Cancelled)
@@ -107,19 +116,26 @@ namespace Retroboat.Launch
             // Configurações: o emulador abre com as da nuvem, e o que mudou nos menus do ES e do emulador vai para lá.
             if (install != null)
             {
-                var emulator = run;
-                run = () => ConfigFlow.Around(install, args, emulator);
+                var launch = run;
+                run = () => ConfigFlow.Around(install, args, launch);
             }
 
+            int code;
             if (saves != null)
-                return saves.During(run);
+            {
+                code = saves.During(run);
+            }
+            else
+            {
+                code = run();
 
-            int code = run();
+                // Sem o Drive (ou sem sessão de saves), o que o jogo salvou fica só aqui: a página do jogo mostra isso.
+                if (install != null && rom != null)
+                    SaveFlow.AfterGameWithoutCloud(install, args, rom);
+            }
 
-            // Sem o Drive (ou sem sessão de saves), o que o jogo salvou fica só aqui: a página do jogo mostra isso.
-            if (install != null && rom != null)
-                SaveFlow.AfterGameWithoutCloud(install, args, rom);
-
+            // RB-033: o que o emulador gravou fora das pastas que vão para a nuvem (uma versão nova pode mudar isso).
+            emulator?.AfterGame();
             return code;
         }
 

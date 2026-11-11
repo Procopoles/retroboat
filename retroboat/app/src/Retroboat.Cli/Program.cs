@@ -75,6 +75,8 @@ Configurações deste PC (o menu NUVEM do ES usa estes comandos; RB-021):
   retroboat-cli settings set AudioOutput <id do Windows> --retrobat <pasta do RetroBat>   (troca a saída de som padrão e lembra dela)
   retroboat-cli settings request-setup --retrobat <pasta do RetroBat>   (o setup abre quando o ES fechar)
 
+" + EmulatorCommands.Usage + @"
+
 Opções gerais:
   --cloud <pasta>   usa esta pasta como a pasta do Retroboat na nuvem, em vez de detectar o Google Drive";
 
@@ -117,6 +119,9 @@ Opções gerais:
                     case "settings get": return SettingsGet(options);
                     case "settings set": return SettingsSet(options);
                     case "settings request-setup": return SettingsRequestSetup(options);
+                    case "emulators status": return EmulatorCommands.Status(new RetroBatInstall(options.Required("--retrobat")), options.Value("--emulator"), options.Value("--core"), Cancellation.Token);
+                    case "emulators install": return EmulatorCommands.Install(new RetroBatInstall(options.Required("--retrobat")), options.Required("--emulator"), options.Value("--core"), Cancellation.Token);
+                    case "emulators check": return EmulatorCommands.Check(new RetroBatInstall(options.Required("--retrobat")), options.Required("--emulator"), options.Value("--core"));
                     case "saves lock": return SavesLock(options, locked: true);
                     case "saves unlock": return SavesLock(options, locked: false);
                     default:
@@ -812,7 +817,7 @@ Opções gerais:
 
         sealed class Options
         {
-            static readonly HashSet<string> ValueOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "--cloud", "--to", "--retrobat", "--roms", "--samples", "--pc", "--keep", "--game" };
+            static readonly HashSet<string> ValueOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "--cloud", "--to", "--retrobat", "--roms", "--samples", "--pc", "--keep", "--game", "--emulator", "--core" };
 
             readonly List<string> _positional = new List<string>();
             readonly Dictionary<string, string> _values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
