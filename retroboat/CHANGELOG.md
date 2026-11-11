@@ -128,6 +128,8 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-028: a fila de downloads inteira pode ser pausada, como na Steam: PAUSAR DOWNLOADS e RETOMAR DOWNLOADS no menu do jogo
   do nosso ES (e no ES oficial, ao apertar de novo num jogo da fila). O jogo para onde está e continua dali; com a fila
   pausada, o A pergunta se retoma, a lista mostra o ícone de pausa e o cabeçalho mostra PAUSADO.
+- RB-029: MONITOR PRINCIPAL em AJUSTES DE SISTEMA, com mais de um monitor ligado. Escolher leva o ES na hora para o
+  monitor; os jogos abrem nele e o RetroBat abre o ES nele da próxima vez (`MonitorIndex` no `retrobat.ini`).
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

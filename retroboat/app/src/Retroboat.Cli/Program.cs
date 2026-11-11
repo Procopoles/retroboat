@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -68,6 +69,7 @@ Status do Retroboat nos temas (Carbon e PlayStation-X; volta depois de reinstala
 Configurações deste PC (o menu NUVEM do ES usa estes comandos; RB-021):
   retroboat-cli settings get --retrobat <pasta do RetroBat>
   retroboat-cli settings set Videos|Manuals|Automatic|AutoOpen 0|1 --retrobat <pasta do RetroBat>
+  retroboat-cli settings set MonitorIndex <0-15> --retrobat <pasta do RetroBat>   (monitor do ES no retrobat.ini; 0 = o principal do Windows)
   retroboat-cli settings request-setup --retrobat <pasta do RetroBat>   (o setup abre quando o ES fechar)
 
 Opções gerais:
@@ -630,6 +632,17 @@ Opções gerais:
             var value = options.Positional(3);
             if (key == null || value == null)
                 throw new UsageException("Uso: retroboat-cli settings set <chave> <0|1> --retrobat <pasta do RetroBat>");
+
+            // RB-029: o monitor é do RetroBat (retrobat.ini), não do retroboat.ini.
+            if (string.Equals(key, RetroBatIni.MonitorIndexKey, StringComparison.OrdinalIgnoreCase))
+            {
+                if (!int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var monitor) || monitor > RetroBatIni.MaxMonitorIndex)
+                    throw new UsageException("O valor de MonitorIndex é o número do monitor no ES, de 0 (o principal do Windows) a " + RetroBatIni.MaxMonitorIndex + ".");
+
+                RetroBatIni.SetMonitorIndex(RetroBatIni.PathFor(install), monitor);
+                Console.WriteLine(RetroBatIni.MonitorIndexKey + "=" + monitor);
+                return ExitOk;
+            }
 
             var path = RetroboatSettings.GetPath(install);
             var settings = RetroboatSettings.Load(path);

@@ -1006,3 +1006,43 @@ o histórico.
   Falta ver com o Google Drive de verdade e um download grande em andamento.
 - **Encontrado no teste:** a ligação do fork falhou por um `GameNameFormatter.obj` vazio, de 08/11, na pasta `build` do fork
   (sobra da compilação interrompida daquele dia); apagado, a compilação seguinte passou.
+
+## RB-029 — Monitor principal escolhido no menu do ES
+
+- **Onde:** no app, `Settings\RetroBatIni` e `retroboat-cli settings set MonitorIndex`. No fork do ES,
+  `es-app/src/retroboat/RetroboatDisplay.*` (novo), uma linha no `GuiMenu::openSystemSettings`, `runCli` e
+  `retrobatArgument` públicos em `RetroboatSettingsGui.*` e `Renderer::forgetWindowPosition` (`es-core`).
+- **Pedido (10/11/2026):** uma opção para escolher o monitor principal; ao escolher, o app muda na hora para ele.
+- **Como funciona:**
+  - AJUSTES DE SISTEMA ganha MONITOR PRINCIPAL, logo abaixo de MODO DE INTERFACE DO USUÁRIO, só com mais de um monitor
+    ligado. Cada monitor aparece com o número do ES, o nome e a resolução ("2 · DELL U2720Q · 2560x1440"). O nome vem do
+    Windows (DisplayConfig), porque o SDL 2.0.20 só dá "Generic PnP Monitor"; a tela de notebook sem nome vira "Tela
+    integrada";
+  - escolher leva o ES na hora para o monitor: tela cheia sem borda (o padrão do RetroBat) e janela mudam de lugar; tela
+    cheia exclusiva sai, muda e volta. Com a mesma resolução, o menu continua aberto. Com outra, o ES recarrega como ao
+    redimensionar a janela, grava o que foi mudado nos menus abertos e reabre AJUSTES DE SISTEMA no monitor novo, com o
+    cursor na opção;
+  - os jogos vão junto: o ES já passa `-monitor N` ao emulatorLauncher, e o padrão das opções MONITOR INDEX dos emuladores é
+    seguir o EmulationStation. No monitor 1 (o principal do Windows) nada é passado, como na abertura;
+  - a escolha vale nas próximas aberturas: fica em `[EmulationStation] MonitorIndex` do `retrobat.ini` (o número do ES menos
+    1), que o `retrobat.exe` lê para passar `--monitor N` ao ES quando N > 0 (lido no IL do RetroBat.exe 8.3). O ES chama
+    `retroboat-cli settings set MonitorIndex N` em segundo plano, só a última escolha e uma de cada vez; o C# troca só aquela
+    linha (BOM, fim de linha, comentários e as outras seções ficam) e nunca cria o `retrobat.ini`;
+  - o monitor é de cada PC: o `retrobat.ini` não vai para a nuvem, e o `MonitorID` já ficava fora da sincronização das
+    opções do ES (RB-005).
+- **Classificação:** C0 no app; C1 no fork do ES (arquivos `retroboat/` e uma linha no `GuiMenu.cpp`), mais uma função de
+  três linhas em `es-core/src/renderers/Renderer.*`: uma janela recriada (HideWindow) vai para o monitor novo, não para a
+  posição guardada na abertura.
+- **Risco semântico:** baixo. Depende de o RetroBat continuar lendo `MonitorIndex` e de o ES continuar passando `-monitor`
+  (código do upstream). O vídeo de abertura do RetroBat usa `Screen.AllScreens[N]`, cuja ordem pode não ser a do SDL num PC
+  em que o principal do Windows não é o primeiro adaptador; o ES e os jogos não dependem disso.
+- **Testado em 10/11/2026:** 3 testes automáticos novos (323 no total): só a linha do `[EmulationStation]` muda (a mesma chave
+  em outra seção fica; BOM e CRLF ficam; a mesma escolha não regrava), chave ou seção que falta é criada sem mexer no resto,
+  e nunca cria o arquivo nem grava monitor impossível. Com o nosso ES numa cópia isolada (tema Carbon, janela 1280×720 fora
+  da tela), numa compilação de teste que mostrava a opção com um monitor só (o PC estava só com a tela do notebook):
+  - a opção apareceu como "1 · Tela integrada · 1920x1080";
+  - escolher gravou `MonitorIndex=0` no `retrobat.ini` da cópia (antes 3), que ficou idêntico byte a byte ao do build;
+  - forçando um "monitor" de outra resolução, o ES recarregou sem erro e reabriu AJUSTES DE SISTEMA com o cursor em MONITOR
+    PRINCIPAL; fechando o menu, a tela de sistemas estava certa no tamanho novo.
+  Falta testar com dois monitores de verdade (posição, tela cheia sem borda, resolução e escala diferentes) e um jogo
+  abrindo no segundo monitor.

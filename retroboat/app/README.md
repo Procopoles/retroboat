@@ -58,6 +58,7 @@ retroboat-cli themes status --retrobat <pasta>            temas suportados com o
 retroboat-cli themes apply --retrobat <pasta>             põe o status de volta nos temas (Carbon, PlayStation-X)
 retroboat-cli settings get --retrobat <pasta>             estado da biblioteca e opções principais, em linhas Chave=valor
 retroboat-cli settings set <chave> 0|1 --retrobat <pasta> Videos, Manuals, Automatic ou AutoOpen (o menu NUVEM usa)
+retroboat-cli settings set MonitorIndex N --retrobat <pasta>   monitor do ES no retrobat.ini (0 = o principal do Windows; RB-029)
 retroboat-cli settings request-setup --retrobat <pasta>   o setup abre quando o ES fechar
 ```
 
