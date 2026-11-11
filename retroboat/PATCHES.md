@@ -1018,10 +1018,16 @@ o histórico.
     ligado. Cada monitor aparece com o número do ES, o nome e a resolução ("2 · DELL U2720Q · 2560x1440"). O nome vem do
     Windows (DisplayConfig), porque o SDL 2.0.20 só dá "Generic PnP Monitor"; a tela de notebook sem nome vira "Tela
     integrada";
-  - escolher leva o ES na hora para o monitor: tela cheia sem borda (o padrão do RetroBat) e janela mudam de lugar; tela
-    cheia exclusiva sai, muda e volta. Com a mesma resolução, o menu continua aberto. Com outra, o ES recarrega como ao
-    redimensionar a janela, grava o que foi mudado nos menus abertos e reabre AJUSTES DE SISTEMA no monitor novo, com o
-    cursor na opção;
+  - escolher leva o ES na hora para o monitor, no modo de tela em que ele está: tela cheia sem borda (o padrão do RetroBat)
+    ocupa o monitor novo inteiro; tela cheia exclusiva sai, troca e volta com o modo de vídeo do monitor novo; janela
+    continua janela, do mesmo tamanho, no centro do monitor novo. Com a mesma resolução, o menu continua aberto. Com outra,
+    o ES recarrega como ao redimensionar a janela, grava o que foi mudado nos menus abertos, termina a animação da câmera
+    (com o menu por cima ela não anda e o fundo ficava deslocado) e reabre AJUSTES DE SISTEMA no monitor novo, com o cursor
+    na opção;
+  - o RetroBat roda o ES com o SDL 2.32.8 (`SDL2.dll` do build), não o 2.0.20 dos cabeçalhos do fork. Esse SDL trava o
+    tamanho de uma janela que não é redimensionável no que ele mesmo pediu (`WM_GETMINMAXINFO`) e, ao chegar num monitor de
+    outra escala do Windows, refaz o tamanho (`WM_DPICHANGED`). Por isso a posição vai pelo Windows e o tamanho pelo
+    `SDL_SetWindowSize`, depois da mudança de monitor;
   - os jogos vão junto: o ES já passa `-monitor N` ao emulatorLauncher, e o padrão das opções MONITOR INDEX dos emuladores é
     seguir o EmulationStation. No monitor 1 (o principal do Windows) nada é passado, como na abertura;
   - a escolha vale nas próximas aberturas: fica em `[EmulationStation] MonitorIndex` do `retrobat.ini` (o número do ES menos
@@ -1044,5 +1050,9 @@ o histórico.
   - escolher gravou `MonitorIndex=0` no `retrobat.ini` da cópia (antes 3), que ficou idêntico byte a byte ao do build;
   - forçando um "monitor" de outra resolução, o ES recarregou sem erro e reabriu AJUSTES DE SISTEMA com o cursor em MONITOR
     PRINCIPAL; fechando o menu, a tela de sistemas estava certa no tamanho novo.
-  Falta testar com dois monitores de verdade (posição, tela cheia sem borda, resolução e escala diferentes) e um jogo
-  abrindo no segundo monitor.
+- **Encontrado no build, 10/11/2026:** com um monitor 4K (Samsung, 3840×2160, escala 225%) ao lado do notebook (1920×1080,
+  125%), a primeira versão levava o ES ao 4K como uma janela de 1920×1080: a posição mudava, mas o SDL 2.32 mantinha o
+  tamanho antigo. Reproduzido com o ES daquela versão numa cópia isolada (mesma `SDL2.dll`) e corrigido. Nos dois monitores
+  de verdade, ida e volta, medido com `GetWindowRect`/`GetClientRect` por monitor: tela cheia sem borda e exclusiva em
+  3840×2160 no 4K e 1920×1080 no notebook, sem moldura; janela de 1280×720 continua janela, centrada em cada monitor; o fundo
+  atrás do menu reaberto fica no lugar. Falta ver um jogo abrindo no segundo monitor.
