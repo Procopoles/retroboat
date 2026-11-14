@@ -1379,7 +1379,8 @@ o histórico.
     (`retroboat\credenciais.ini`), `CredentialExtractor`, `CredentialRepository`, `IntegrationChecks`, `CredentialRefresh`,
     `IntegrationMonitor`, `IntegrationStatusFile` (`retroboat\estado\integracoes.xml`); `retroboat-cli integrations
     status|check` (`Retroboat.Cli/IntegrationCommands.cs`); `Retroboat.Launcher/IntegrationWatch.cs`.
-  - Fork do ES: `es-app/src/retroboat/RetroboatCredentials.*` e `RetroboatIntegrationsGui.*` (novos); uma linha por uso de
+  - Fork do ES (commit `7c0f3372e` na branch `rb037-integracoes`, em cima do `master` `1774786d2`):
+    `es-app/src/retroboat/RetroboatCredentials.*` e `RetroboatIntegrationsGui.*` (novos); uma linha por uso de
     chave em `scrapers/ScreenScraper.h|.cpp`, `scrapers/GamesDBJSONScraperResources.cpp`, `scrapers/HfsDBScraper.cpp` e
     `RetroAchievements.cpp`; "Retroboat" na lista de fontes do `<scrap>` em `MetaData.cpp`; a seção na tela NUVEM
     (`RetroboatSettingsGui.cpp`).
@@ -1420,3 +1421,15 @@ o histórico.
   faz aquele uso voltar à chave compilada, em silêncio. Procurar `RETROBOAT RB-037` e os nomes das credenciais depois
   de cada merge.
 - **Upstreamável:** não (chaves e repositório são do Retroboat).
+- **Testado em 14/11/2026:**
+  - 21 testes novos (401 no total), sem internet (APIs e repositório falsos);
+  - `integrations check` de verdade numa pasta isolada: a primeira busca achou as 4 chaves (a de 32 hex do nosso exe antigo
+    foi testada e recusada pelo TheGamesDB; a de 64 hex do exe oficial, aceita); com as chaves do TheGamesDB e do HfsDB
+    estragadas e sem o exe oficial, baixou o ES do repositório do RetroBat (`42.2026.1112.1244`), achou e gravou as
+    novas; a segunda rodada usou o cache, sem baixar;
+  - no ES de teste (Carbon): a linha no fim da NUVEM, a tela com os grupos e as cores, VERIFICAR AGORA reabrindo com o
+    estado novo; uma chave inválida do TheGamesDB só no `credenciais.ini` tirou o TheGamesDB do PROCURAR POR MÍDIAS DESTE
+    JOGO, e a certa, gravada com o ES aberto, o trouxe de volta sem reabrir; aceitar a fonte RETROBOAT gravou
+    `<scrap name="Retroboat" .../>`.
+- **Não testado:** o build do usuário com o Drive real (dois PCs, uma busca num e a chegada no outro); o aviso no ES
+  quando a troca acontece com o `Retroboat.exe` em segundo plano.
