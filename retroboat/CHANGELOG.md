@@ -146,6 +146,11 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   - se uma versão nova mudar algo de que o Retroboat depende (executável, pasta de saves, configuração), o app avisa o
     problema e registra os detalhes em `logs\emuladores.log`;
   - o menu EMULADORES do ES passa a ver se o programa está instalado, não só a pasta.
+- RB-034: mapeamento dos controles no nosso ES:
+  - CANCELAR no meio do MAPEAMENTO DO CONTROLE devolve o mapeamento de antes. Antes, o ES seguia com o mapeamento pela
+    metade até ser reaberto, e parecia salvo;
+  - RESTAURAR MAPEAMENTO PADRÃO em AJUSTES DE CONTROLE: escolhe um controle ligado (ou o teclado) e ele volta ao padrão
+    (o do RetroBat, senão o reconhecido automaticamente), na hora e nos outros PCs pela nuvem.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

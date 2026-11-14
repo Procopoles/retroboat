@@ -1213,3 +1213,50 @@ o histórico.
     - `EXECUTAVEL_MUDOU` com o `flycast.exe` renomeado.
   - **Telas** desenhadas fora da tela: a pergunta, o andamento e o aviso.
   - **Falta ver:** um jogo aberto pelo ES com o emulador faltando, e o download junto com um jogo da nuvem no build.
+
+## RB-034 — Mapeamento dos controles: CANCELAR de verdade e RESTAURAR MAPEAMENTO PADRÃO
+
+- **Onde:** só no fork do ES (commit `132bc07cd`):
+  - `es-app/src/retroboat/RetroboatControllers.*` (novo): a opção e a lista;
+  - uma linha no `GuiControllersSettings.cpp` (logo abaixo de MAPEAMENTO DO CONTROLE);
+  - `InputManager::getJoystickConfigs` e `InputManager::restoreDefaultConfig` (novos, no fim do `InputManager.cpp`);
+  - `InputConfig::getMappings`/`setMappings` e o destrutor do `GuiInputConfig`.
+- **Pedido (13/11/2026):** depois de mudar o mapeamento do controle, não havia como voltar ao padrão. E, no meio do
+  mapeamento, o CANCELAR "salvou" mesmo assim.
+- **Causa do CANCELAR:** o `GuiInputConfig` apaga o mapeamento do controle ao começar e muda o controle em uso a cada
+  botão apertado. O CANCELAR só fechava a tela. O `es_input.cfg` não mudava (o log do ES de 13/11 22:27 mostra duas
+  tentativas no Xbox One S, e o arquivo ficou com a data de 08/11), mas o ES seguia com o mapeamento pela metade até ser
+  reaberto. Na primeira tentativa, o Xbox ficou só com o Y confirmando.
+- **Como funciona:**
+  - a tela de mapeamento guarda o mapeamento de antes e o devolve sempre que fecha sem OK. Um controle desligado com a
+    tela aberta já foi recriado pelo `InputManager` a partir do arquivo, e aí não há o que devolver;
+  - RESTAURAR MAPEAMENTO PADRÃO lista os controles ligados (inclusive um com o mapeamento apagado, que o
+    `getInputConfigs` esconde) e o TECLADO. Escolher pede confirmação e grava o padrão como o OK do mapeamento: vale na
+    hora e sobe para a nuvem com os outros controles (RB-005, por entrada);
+  - o padrão é, pela ordem:
+    - a entrada do controle no `es_input.cfg` que o RetroBat instala (`system\templates\emulationstation`: teclado,
+      DualSense, PS4, Switch Pro e N64);
+    - o mapeamento do SDL (`gamecontrollerdb`), o mesmo que o ES grava quando um controle novo é ligado (é o caso do
+      Xbox One S);
+    - para o teclado sem modelo, o padrão embutido do ES (setas, Enter, Esc).
+
+    Sem nenhum deles, a opção avisa que não há padrão conhecido e manda configurar em MAPEAMENTO DO CONTROLE.
+- **Classificação:** C1 no fork do ES. O arquivo é `retroboat/`, e no upstream entram:
+  - 1 linha no `GuiControllersSettings.cpp` (calor média);
+  - 2 métodos no fim do `InputManager.cpp` (calor média);
+  - acessores no `InputConfig.h`;
+  - o destrutor no `GuiInputConfig`.
+- **Upstreamável:** o CANCELAR sim (é um defeito do upstream). A opção de restaurar também, menos o caminho do modelo do
+  RetroBat.
+- **Risco semântico:** baixo. Um controle restaurado vai para o fim do `es_input.cfg`, como em qualquer gravação do ES; a
+  ordem não importa para o ES nem para a sincronização.
+- **Testado em 13/11/2026**, com o nosso ES numa cópia isolada (fora da tela, com teclado de verdade por mensagens do
+  Windows e a API):
+  - **CANCELAR:** o teclado ficou pela metade (SUL = Q, o resto apagado), com o obrigatório mapeado, o resto pulado e o
+    CANCELAR apertado pelo teclado:
+    - com o ES novo, NORTE, OESTE e START voltaram a responder e o `es_input.cfg` não mudou;
+    - com o ES anterior (`74410489f`), os mesmos ficaram sem tecla: o defeito relatado.
+  - **RESTAURAR, Xbox One S** (ligado ao PC): com A no direcional, B no gatilho e sem direcionais na cópia, voltou
+    idêntico à entrada original (mapeamento do SDL), com o aviso "Mapeamento padrão restaurado".
+  - **RESTAURAR, TECLADO:** com SELECT e NORTE trocados, voltou idêntico ao modelo do RetroBat.
+  - **Falta ver:** o usuário restaurar e cancelar com o controle de verdade no build.
