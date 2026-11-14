@@ -12,6 +12,8 @@
   <ItemGroup>
     <!-- JavaScriptSerializer, para as respostas JSON do Wikidata e da Wikipédia (WikidataInfo). -->
     <Reference Include="System.Web.Extensions" />
+    <!-- ZipArchive, para ler o pacote do ES do repositório do RetroBat na busca de chaves (RB-037). Vem com o .NET 4.8. -->
+    <Reference Include="System.IO.Compression" />
   </ItemGroup>
 
   <ItemGroup>

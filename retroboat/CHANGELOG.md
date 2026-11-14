@@ -157,6 +157,20 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-036: PROCURAR MÍDIAS no nosso ES usa a busca da importação do Retroboat: capas, telas e títulos do libretro, e
   descrição, gênero, data e estúdios do libretro, do Wikidata e da Wikipédia, sem conta nem chave. Antes voltava sempre
   vazio: o IGDB salvo pede uma conta, e o ScreenScraper precisa das nossas chaves (RB-011).
+- RB-037: a nuvem é a fonte da verdade das mídias, e as chaves das integrações se cuidam sozinhas.
+  - Capas e informações das fontes públicas são buscadas uma vez só por jogo, por qualquer PC, achando ou não
+    (`retroboatmidiaimportacao` no Drive). Antes, cada PC buscava tudo de novo, todo mês, e um jogo sem resultado era
+    buscado a cada abertura. Sem o Drive, a busca espera: o que vem precisa ir para a nuvem.
+  - Buscar de novo é só pelo PROCURAR MÍDIAS do ES. O que a pessoa escolheu lá nunca é trocado pela importação
+    automática, vai para a nuvem quando o ES fecha e chega aos outros PCs (antes, só preenchia o que estava vazio, e um PC
+    desatualizado regravava a capa velha por cima da nova).
+  - Tudo o que um scraper traz vai para a nuvem: também nome para ordenar, gêneros, tags, ids do RetroAchievements e a
+    marca de qual fonte foi usada e quando.
+  - Tela INTEGRAÇÕES no fim do menu NUVEM: o estado de cada integração (ScreenScraper, TheGamesDB, HfsDB,
+    RetroAchievements, libretro, Wikidata e Wikipédia, ArcadeDB, IGDB) e VERIFICAR AGORA.
+  - Uma chave que para de funcionar é trocada sozinha: o Retroboat procura a nova no ES do repositório do RetroBat,
+    testa na própria API e grava em `retroboatcredenciais.ini`, que o nosso ES lê na hora. Só avisa no ES quando troca
+    uma chave ou quando uma integração para sem chave nova.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

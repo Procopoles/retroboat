@@ -30,22 +30,24 @@ namespace Retroboat.Media
     /// ordem, pela fonte que mais acertou nele; o que nenhuma fonte tem continua como estava. Depois, o
     /// <see cref="CloudMediaSync"/> envia para o Drive, e os outros PCs nem precisam buscar. A escolha de cada campo é a do
     /// <see cref="MediaRule"/>, a mesma do PROCURAR MÍDIAS do ES.
+    ///
+    /// Cada jogo é consultado uma vez só, por qualquer PC, achado ou não (<see cref="MediaImportLog"/>); um jogo que a pessoa
+    /// procurou no ES não é mais tocado. Consultar de novo é pelo PROCURAR MÍDIAS do ES.
     /// </summary>
     public sealed class AutoInfo
     {
-        /// <summary>Um jogo consultado, achado ou não, só volta às fontes depois disso (elas mudam pouco).</summary>
-        static readonly TimeSpan RecheckAfter = TimeSpan.FromDays(30);
-
         readonly RetroBatInstall _install;
         readonly IReadOnlyList<IGameInfoSource> _sources;
-        readonly string _checkedFile;
+        readonly MediaImportLog _log;
 
         /// <param name="sources">Em ordem de preferência para cada campo (a descrição em português vem antes de qualquer outra).</param>
-        public AutoInfo(RetroBatInstall install, IReadOnlyList<IGameInfoSource> sources)
+        /// <param name="log">O que já foi consultado, de todos os PCs (<see cref="MediaImportLog.InCloud"/>). Sem ele, só o deste PC.</param>
+        public AutoInfo(RetroBatInstall install, IReadOnlyList<IGameInfoSource> sources, MediaImportLog log = null)
         {
             _install = install;
             _sources = sources;
-            _checkedFile = Path.Combine(install.RetroboatDataPath, "cache", "informacoes", "consultados.txt");
+            _log = log ?? MediaImportLog.Local(install);
+            _log.ImportLegacy(MediaImportLog.LegacyInfoFile(install));
         }
 
         public static IReadOnlyList<IGameInfoSource> DefaultSources(RetroBatInstall install) => new IGameInfoSource[]
@@ -59,15 +61,13 @@ namespace Retroboat.Media
             var result = new AutoInfoResult();
             var index = CloudIndex.Load(CloudLibrarySync.IndexPath(_install));
             var systemNames = GameMedia.SystemNamesByFolder(_install);
-            var checkedAt = LoadChecked();
-            bool checkedChanged = false;
 
             foreach (var group in index.Entries.GroupBy(e => e.System, StringComparer.OrdinalIgnoreCase))
             {
                 var systemName = systemNames.TryGetValue(group.Key, out var name) ? name : group.Key;
                 try
                 {
-                    checkedChanged |= FillSystem(systemName, group.Select(e => e.LocalName).ToList(), checkedAt, result);
+                    FillSystem(systemName, group.Select(e => e.LocalName).ToList(), result);
                 }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is XmlException)
                 {
@@ -75,24 +75,21 @@ namespace Retroboat.Media
                 }
             }
 
-            if (checkedChanged)
-                SaveChecked(checkedAt);
-
+            _log.Save();
             return result;
         }
 
-        /// <returns>true se marcou jogos como consultados.</returns>
-        bool FillSystem(string systemName, List<string> games, Dictionary<string, DateTime> checkedAt, AutoInfoResult result)
+        void FillSystem(string systemName, List<string> games, AutoInfoResult result)
         {
             var gamelistPath = Path.Combine(_install.GamelistsPath, systemName, "gamelist.xml");
             var gamelist = File.Exists(gamelistPath) ? XDocument.Load(gamelistPath) : new XDocument(new XElement("gameList"));
 
             var pending = games
                 .Select(file => new { File = file, Stem = Path.GetFileNameWithoutExtension(file), Element = CloudLibrarySync.FindGame(gamelist, file) })
-                .Where(g => !(checkedAt.TryGetValue(Key(systemName, g.File), out var when) && DateTime.UtcNow - when < RecheckAfter))
+                .Where(g => !GameMedia.WasSearchedByHand(g.Element) && !_log.WasSearched(MediaImportKind.Info, systemName, g.File))
                 .ToList();
             if (pending.Count == 0)
-                return false;
+                return;
 
             var stems = pending.Select(g => g.Stem).ToList();
             var answers = new List<IDictionary<string, GameInfo>>();
@@ -128,7 +125,7 @@ namespace Retroboat.Media
 
                 // Sem internet ou com uma fonte fora do ar, tenta de novo na próxima abertura.
                 if (allAnswered)
-                    checkedAt[Key(systemName, game.File)] = DateTime.UtcNow;
+                    _log.Record(MediaImportKind.Info, systemName, game.File, found: infos.Count > 0);
             }
 
             if (changed)
@@ -136,8 +133,6 @@ namespace Retroboat.Media
                 Directory.CreateDirectory(Path.GetDirectoryName(gamelistPath));
                 gamelist.Save(gamelistPath);
             }
-
-            return allAnswered;
         }
 
         /// <summary>Põe no jogo o que as fontes têm, campo a campo. Retorna true se mudou algo.</summary>
@@ -175,33 +170,6 @@ namespace Retroboat.Media
 
             game.SetElementValue(field, value);
             return true;
-        }
-
-        static string Key(string system, string file) => system + "/" + file;
-
-        /// <summary>Quando cada jogo foi consultado ("ps2/Jogo (USA).iso", tab, data UTC).</summary>
-        Dictionary<string, DateTime> LoadChecked()
-        {
-            var map = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
-            if (!File.Exists(_checkedFile))
-                return map;
-
-            foreach (var line in File.ReadAllLines(_checkedFile, Encoding.UTF8))
-            {
-                var parts = line.Split('\t');
-                if (parts.Length == 2 && DateTime.TryParse(parts[1], CultureInfo.InvariantCulture, DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var when))
-                    map[parts[0]] = when;
-            }
-
-            return map;
-        }
-
-        void SaveChecked(Dictionary<string, DateTime> checkedAt)
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(_checkedFile));
-            File.WriteAllLines(_checkedFile,
-                checkedAt.OrderBy(c => c.Key, StringComparer.OrdinalIgnoreCase).Select(c => c.Key + "\t" + c.Value.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)),
-                new UTF8Encoding(false));
         }
     }
 }

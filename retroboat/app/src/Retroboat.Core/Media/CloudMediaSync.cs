@@ -38,11 +38,18 @@ namespace Retroboat.Media
     ///
     /// Na nuvem, por sistema: midia\&lt;pasta&gt;\metadados\&lt;PC&gt;.xml (o que cada PC sabe de cada jogo; cada PC
     /// só grava o seu) e midia\&lt;pasta&gt;\imagens|videos|manuais (arquivos com o nome que o scraper do ES dá).
-    /// Na leitura, cada campo vale o da entrada mais recente que o tem. No PC, a nuvem só preenche o que está vazio:
-    /// nada que o usuário ou o scraper local escreveu é trocado.
+    /// Na leitura, cada campo vale o da entrada mais recente que o tem.
+    ///
+    /// A nuvem é a fonte da verdade da mídia: o que uma fonte pública ou o PROCURAR MÍDIAS trouxe em qualquer PC vai para lá e
+    /// chega aos outros. No PC, cada campo acompanha a nuvem, a não ser que tenha mudado neste PC desde a última sincronização
+    /// (midia-sync): aí é a mudança deste PC que vai para a nuvem. Num arquivo de mídia com o mesmo nome dos dois lados, vale o
+    /// mais novo, então um PC desatualizado não regrava a capa velha por cima da nova.
     /// </summary>
     public sealed class CloudMediaSync
     {
+        /// <summary>Fonte do PROCURAR MÍDIAS e quando foi usada, como campo: "scrap:ScreenScraper" = "20261114T154500".</summary>
+        const string ScrapPrefix = "scrap:";
+
         readonly RetroBatInstall _install;
         readonly string _romsRoot;
         readonly string _cloudRoot;
@@ -89,30 +96,54 @@ namespace Retroboat.Media
             var cloudSystem = Path.Combine(_cloudRoot, "midia", folder);
             var metadataDir = Path.Combine(cloudSystem, "metadados");
             var ownPath = Path.Combine(metadataDir, SafeFileName(_pcName) + ".xml");
+            var lastSyncPath = LastSyncPath(_install, folder);
             var romFolder = Path.Combine(_romsRoot, folder);
+            var mediaRoot = GameMedia.LocalMediaRoot(_install, systemName);
 
             var own = ReadEntries(ownPath);
             var ownBefore = Serialize(own).ToString();
+            var lastSync = ReadEntries(lastSyncPath);
+            var lastSyncBefore = Serialize(lastSync).ToString();
             var winners = ReadWinners(metadataDir);
+            var synced = new Dictionary<string, MediaEntry>(StringComparer.OrdinalIgnoreCase);
 
-            // 1. Envia o que este PC sabe e a nuvem ainda não tem.
             foreach (var game in games)
             {
+                winners.TryGetValue(game.LocalName, out var winner);
                 var element = CloudLibrarySync.FindGame(gamelist, game.LocalName);
                 if (element == null)
-                    continue;
+                {
+                    if (winner == null)
+                        continue;
 
-                var shared = Share(element, romFolder, cloudSystem, result);
-                if (shared.Count == 0)
-                    continue;
+                    element = new XElement("game", new XElement("path", "./" + game.LocalName));
+                    gamelist.Root.Add(element);
+                }
 
-                winners.TryGetValue(game.LocalName, out var winner);
-                if (winner != null && SameFields(winner.Fields, shared))
+                // O que este PC tinha na última sincronização. Antes desta versão não havia esse registro: o que ele enviou da
+                // última vez serve (era o que ele tinha).
+                if (!lastSync.TryGetValue(game.LocalName, out var baseline))
+                    own.TryGetValue(game.LocalName, out baseline);
+
+                // 1. Recebe o que mudou na nuvem e não mudou aqui: um PROCURAR MÍDIAS em outro PC chega a este.
+                if (winner != null && Receive(element, winner, baseline, cloudSystem, mediaRoot, romFolder, result))
+                    result.GamesFilled++;
+
+                // 2. Envia o que este PC tem e a nuvem não: a mídia nova vai junto.
+                var fields = Share(element, romFolder, cloudSystem, result);
+                lastSync.TryGetValue(game.LocalName, out var previousSync);
+                synced[game.LocalName] = previousSync != null && SameFields(previousSync.Fields, fields)
+                    ? previousSync
+                    : new MediaEntry { Key = game.LocalName, Updated = DateTime.UtcNow, Fields = fields };
+
+                if (fields.Count == 0 || (winner != null && SameFields(winner.Fields, fields)))
                     continue; // A nuvem já tem isso (talvez veio dela mesma).
 
                 own.TryGetValue(game.LocalName, out var previous);
-                var updated = previous != null && SameFields(previous.Fields, shared) ? previous.Updated : DateTime.UtcNow;
-                own[game.LocalName] = new MediaEntry { Key = game.LocalName, Updated = updated, Fields = shared };
+                if (previous != null && SameFields(previous.Fields, fields))
+                    continue; // Já enviado; a data continua a do envio, para não passar na frente do que veio depois.
+
+                own[game.LocalName] = new MediaEntry { Key = game.LocalName, Updated = DateTime.UtcNow, Fields = fields };
                 result.GamesShared++;
             }
 
@@ -120,25 +151,6 @@ namespace Retroboat.Media
             {
                 Directory.CreateDirectory(metadataDir);
                 Save(ownPath, own);
-                winners = ReadWinners(metadataDir);
-            }
-
-            // 2. Preenche o gamelist local com o que veio de outros PCs.
-            var mediaRoot = GameMedia.LocalMediaRoot(_install, systemName);
-            foreach (var game in games)
-            {
-                if (!winners.TryGetValue(game.LocalName, out var winner))
-                    continue;
-
-                var element = CloudLibrarySync.FindGame(gamelist, game.LocalName);
-                if (element == null)
-                {
-                    element = new XElement("game", new XElement("path", "./" + game.LocalName));
-                    gamelist.Root.Add(element);
-                }
-
-                if (Fill(element, winner, cloudSystem, mediaRoot, romFolder, result))
-                    result.GamesFilled++;
             }
 
             if (gamelist.ToString() != gamelistBefore)
@@ -146,43 +158,204 @@ namespace Retroboat.Media
                 Directory.CreateDirectory(Path.GetDirectoryName(gamelistPath));
                 gamelist.Save(gamelistPath);
             }
+
+            // Por último: se algo acima falhar, a próxima vez compara com o estado antigo e refaz.
+            if (Serialize(synced).ToString() != lastSyncBefore)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(lastSyncPath));
+                Save(lastSyncPath, synced);
+            }
         }
 
-        /// <summary>Campos do jogo neste PC, no formato da nuvem; a mídia vai junto para a nuvem.</summary>
+        /// <summary>
+        /// O que este PC tinha de cada jogo de um sistema na última sincronização, no formato da nuvem:
+        /// &lt;RetroBat&gt;\retroboat\midia-sync\&lt;pasta&gt;.xml. É o que separa "mudou na nuvem" de "mudou aqui".
+        /// </summary>
+        public static string LastSyncPath(RetroBatInstall install, string folder) =>
+            Path.Combine(install.RetroboatDataPath, "midia-sync", SafeFileName(folder) + ".xml");
+
+        /// <summary>
+        /// Traz da nuvem cada campo que lá mudou e aqui não, desde a última sincronização. Um campo vazio aqui sempre vem. Sem
+        /// a última sincronização (um PC que nunca sincronizou o jogo), só o que está vazio: nada que a pessoa ou o scraper
+        /// deste PC escreveu é trocado. Retorna true se mudou algo.
+        /// </summary>
+        bool Receive(XElement game, MediaEntry winner, MediaEntry baseline, string cloudSystem, string mediaRoot, string romFolder, CloudMediaSyncResult result)
+        {
+            var local = LocalFields(game, romFolder, out var files);
+            bool changed = false;
+            foreach (var field in winner.Fields)
+            {
+                local.TryGetValue(field.Key, out var mine);
+                if (mine == field.Value)
+                {
+                    // O mesmo arquivo dos dois lados: o PROCURAR MÍDIAS regrava com o mesmo nome, então o conteúdo mais novo vale.
+                    if (GameMedia.MediaFields.TryGetValue(field.Key, out var kind) && _options.Allows(kind))
+                        changed |= Download(Path.Combine(cloudSystem, field.Value.Replace('/', '\\')), files[field.Key], result);
+
+                    continue;
+                }
+
+                bool unchangedHere = mine == null ||
+                                     (baseline != null && baseline.Fields.TryGetValue(field.Key, out var before) && before == mine);
+                if (unchangedHere)
+                    changed |= Take(game, field.Key, field.Value, cloudSystem, mediaRoot, result);
+            }
+
+            return changed;
+        }
+
+        /// <summary>Põe no jogo o valor da nuvem; a mídia é baixada para a pasta de mídia do ES. Retorna true se mudou algo.</summary>
+        bool Take(XElement game, string field, string value, string cloudSystem, string mediaRoot, CloudMediaSyncResult result)
+        {
+            if (field.StartsWith("@", StringComparison.Ordinal))
+            {
+                var attribute = field.Substring(1);
+                if ((string)game.Attribute(attribute) == value)
+                    return false;
+
+                game.SetAttributeValue(attribute, value);
+                return true;
+            }
+
+            if (field.StartsWith(ScrapPrefix, StringComparison.Ordinal))
+                return SetScrap(game, field.Substring(ScrapPrefix.Length), value);
+
+            if (GameMedia.MediaFields.TryGetValue(field, out var kind))
+            {
+                if (!_options.Allows(kind))
+                    return false;
+
+                var fileName = Path.GetFileName(value.Replace('/', '\\'));
+                var target = Path.Combine(mediaRoot, GameMedia.LocalFolder(kind), fileName);
+                Download(Path.Combine(cloudSystem, GameMedia.CloudFolder(kind), fileName), target, result);
+                if (!File.Exists(target))
+                    return false;
+
+                var relative = GameMedia.ToHomeRelative(target, _install);
+                if ((string)game.Element(field) == relative)
+                    return true; // O arquivo foi trocado, o caminho é o mesmo.
+
+                game.SetElementValue(field, relative);
+                return true;
+            }
+
+            if (field == "desc")
+            {
+                var current = (string)game.Element("desc");
+                var updated = GameDescription.ReplaceBody(current, value);
+                if (current == updated)
+                    return false;
+
+                game.SetElementValue("desc", updated);
+                return true;
+            }
+
+            if ((string)game.Element(field) == value)
+                return false;
+
+            game.SetElementValue(field, value);
+            return true;
+        }
+
+        /// <summary>
+        /// Baixa o arquivo da nuvem se este PC não tem, ou se o da nuvem é outro (outro tamanho) e mais novo. Retorna true se
+        /// baixou.
+        /// </summary>
+        static bool Download(string source, string target, CloudMediaSyncResult result)
+        {
+            if (!File.Exists(source))
+                return false;
+
+            if (File.Exists(target) && !Newer(source, than: target))
+                return false;
+
+            Directory.CreateDirectory(Path.GetDirectoryName(target));
+            File.Copy(source, target + ".retroboat-part", true);
+            if (File.Exists(target))
+                File.Delete(target);
+            File.Move(target + ".retroboat-part", target);
+            result.FilesDownloaded++;
+            return true;
+        }
+
+        /// <summary>
+        /// Os dois arquivos têm conteúdo diferente e <paramref name="file"/> é o mais novo. O tamanho decide se são o mesmo (ler
+        /// o conteúdo baixaria cada imagem do Drive), a data decide qual vale.
+        /// </summary>
+        static bool Newer(string file, string than)
+        {
+            var a = new FileInfo(file);
+            var b = new FileInfo(than);
+            return a.Length != b.Length && a.LastWriteTimeUtc > b.LastWriteTimeUtc;
+        }
+
+        /// <summary>Campos do jogo neste PC, no formato da nuvem; a mídia que a nuvem não tem, ou tem mais velha, vai junto.</summary>
         Dictionary<string, string> Share(XElement game, string romFolder, string cloudSystem, CloudMediaSyncResult result)
         {
+            var fields = LocalFields(game, romFolder, out var files);
+            foreach (var file in files)
+            {
+                var cloudFile = Path.Combine(cloudSystem, fields[file.Key].Replace('/', '\\'));
+                if (File.Exists(cloudFile) && !Newer(file.Value, than: cloudFile))
+                    continue;
+
+                Directory.CreateDirectory(Path.GetDirectoryName(cloudFile));
+                File.Copy(file.Value, cloudFile, true);
+                result.FilesUploaded++;
+            }
+
+            return fields;
+        }
+
+        /// <summary>
+        /// Tudo o que descreve o jogo neste PC, no formato da nuvem: os textos (a descrição sem a linha de status), a mídia
+        /// que existe no disco ("imagens/Jogo-thumb.png"; em <paramref name="files"/>, o arquivo), as fontes que a pessoa usou
+        /// no PROCURAR MÍDIAS ("scrap:ScreenScraper") e o id da fonte. O nome do arquivo como nome do jogo não conta.
+        /// </summary>
+        Dictionary<string, string> LocalFields(XElement game, string romFolder, out Dictionary<string, string> files)
+        {
             var fields = new Dictionary<string, string>(StringComparer.Ordinal);
+            files = new Dictionary<string, string>(StringComparer.Ordinal);
+            var defaultName = Path.GetFileNameWithoutExtension(StripDotSlash((string)game.Element("path")) ?? "");
+
             foreach (var name in GameMedia.TextFields)
             {
                 var value = (string)game.Element(name);
                 if (name == "desc")
                     value = GameDescription.WithoutStatus(value);
 
-                if (!string.IsNullOrWhiteSpace(value))
-                    fields[name] = value;
-            }
+                if (string.IsNullOrWhiteSpace(value) || (name == "name" && value == defaultName))
+                    continue;
 
-            // Sem nada além do nome do arquivo, não há o que compartilhar.
-            if (fields.Count == 1 && fields.ContainsKey("name") && fields["name"] == Path.GetFileNameWithoutExtension(StripDotSlash((string)game.Element("path"))))
-                fields.Clear();
+                fields[name] = value;
+            }
 
             foreach (var element in game.Elements().Where(e => GameMedia.MediaFields.ContainsKey(e.Name.LocalName)))
             {
-                var local = GameMedia.Resolve(element.Value, romFolder, _install);
+                string local;
+                try
+                {
+                    local = GameMedia.Resolve(element.Value, romFolder, _install);
+                }
+                catch (Exception ex) when (ex is ArgumentException || ex is NotSupportedException || ex is PathTooLongException)
+                {
+                    continue; // Caminho inválido no gamelist: conta como sem mídia.
+                }
+
                 if (local == null || !File.Exists(local))
                     continue;
 
                 var kind = GameMedia.MediaFields[element.Name.LocalName];
-                var cloudRelative = GameMedia.CloudFolder(kind) + "/" + Path.GetFileName(local);
-                var cloudFile = Path.Combine(cloudSystem, GameMedia.CloudFolder(kind), Path.GetFileName(local));
-                if (!File.Exists(cloudFile) || new FileInfo(cloudFile).Length != new FileInfo(local).Length)
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(cloudFile));
-                    File.Copy(local, cloudFile, true);
-                    result.FilesUploaded++;
-                }
+                fields[element.Name.LocalName] = GameMedia.CloudFolder(kind) + "/" + Path.GetFileName(local);
+                files[element.Name.LocalName] = local;
+            }
 
-                fields[element.Name.LocalName] = cloudRelative;
+            foreach (var scrap in game.Elements("scrap"))
+            {
+                var scraper = (string)scrap.Attribute("name");
+                var date = (string)scrap.Attribute("date");
+                if (!string.IsNullOrEmpty(scraper) && !string.IsNullOrEmpty(date))
+                    fields[ScrapPrefix + scraper] = date;
             }
 
             foreach (var attribute in new[] { "id", "source" })
@@ -195,76 +368,18 @@ namespace Retroboat.Media
             return fields;
         }
 
-        /// <summary>Preenche só o que está vazio no PC. Retorna true se mudou algo.</summary>
-        bool Fill(XElement game, MediaEntry winner, string cloudSystem, string mediaRoot, string romFolder, CloudMediaSyncResult result)
+        /// <summary>Uma fonte do PROCURAR MÍDIAS no formato do ES: &lt;scrap name="ScreenScraper" date="20261114T154500"/&gt;.</summary>
+        static bool SetScrap(XElement game, string scraper, string date)
         {
-            bool changed = false;
-            foreach (var field in winner.Fields)
-            {
-                if (field.Key.StartsWith("@", StringComparison.Ordinal))
-                {
-                    var attribute = field.Key.Substring(1);
-                    if (string.IsNullOrEmpty((string)game.Attribute(attribute)))
-                    {
-                        game.SetAttributeValue(attribute, field.Value);
-                        changed = true;
-                    }
+            var element = game.Elements("scrap").FirstOrDefault(e => (string)e.Attribute("name") == scraper);
+            if (element != null && (string)element.Attribute("date") == date)
+                return false;
 
-                    continue;
-                }
+            if (element == null)
+                game.Add(element = new XElement("scrap", new XAttribute("name", scraper)));
 
-                if (GameMedia.MediaFields.TryGetValue(field.Key, out var kind))
-                {
-                    var current = GameMedia.Resolve((string)game.Element(field.Key), romFolder, _install);
-                    if (current != null && File.Exists(current))
-                        continue;
-
-                    if (!_options.Allows(kind))
-                        continue;
-
-                    var fileName = Path.GetFileName(field.Value.Replace('/', '\\'));
-                    var source = Path.Combine(cloudSystem, GameMedia.CloudFolder(kind), fileName);
-                    var target = Path.Combine(mediaRoot, GameMedia.LocalFolder(kind), fileName);
-                    if (!File.Exists(target))
-                    {
-                        if (!File.Exists(source))
-                            continue;
-
-                        Directory.CreateDirectory(Path.GetDirectoryName(target));
-                        File.Copy(source, target + ".retroboat-part", true);
-                        File.Move(target + ".retroboat-part", target);
-                        result.FilesDownloaded++;
-                    }
-
-                    game.SetElementValue(field.Key, GameMedia.ToHomeRelative(target, _install));
-                    changed = true;
-                    continue;
-                }
-
-                if (field.Key == "desc")
-                {
-                    var current = (string)game.Element("desc");
-                    if (GameDescription.WithoutStatus(current).Length > 0)
-                        continue;
-
-                    game.SetElementValue("desc", GameDescription.ReplaceBody(current, field.Value));
-                    changed = true;
-                    continue;
-                }
-
-                var existing = (string)game.Element(field.Key);
-                bool isDefaultName = field.Key == "name" && existing == Path.GetFileNameWithoutExtension(StripDotSlash((string)game.Element("path")));
-                if (string.IsNullOrWhiteSpace(existing) || isDefaultName)
-                {
-                    if (existing != field.Value)
-                    {
-                        game.SetElementValue(field.Key, field.Value);
-                        changed = true;
-                    }
-                }
-            }
-
-            return changed;
+            element.SetAttributeValue("date", date);
+            return true;
         }
 
         /// <summary>
@@ -399,7 +514,7 @@ namespace Retroboat.Media
                 };
 
                 foreach (var field in game.Elements())
-                    entry.Fields[field.Name.LocalName == "attribute" ? "@" + (string)field.Attribute("name") : field.Name.LocalName] = field.Value;
+                    entry.Fields[FieldKey(field)] = field.Value;
 
                 if (!string.IsNullOrEmpty(entry.Key))
                     entries[entry.Key] = entry;
@@ -424,9 +539,29 @@ namespace Retroboat.Media
                 entries.Values.OrderBy(e => e.Key, StringComparer.OrdinalIgnoreCase).Select(e => new XElement("game",
                     new XAttribute("key", e.Key),
                     new XAttribute("updated", e.Updated.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)),
-                    e.Fields.OrderBy(f => f.Key, StringComparer.Ordinal).Select(f => f.Key.StartsWith("@", StringComparison.Ordinal)
-                        ? new XElement("attribute", new XAttribute("name", f.Key.Substring(1)), f.Value)
-                        : new XElement(f.Key, f.Value)))));
+                    e.Fields.OrderBy(f => f.Key, StringComparer.Ordinal).Select(f => FieldElement(f.Key, f.Value)))));
+        }
+
+        /// <summary>Um campo no XML da nuvem: os atributos do jogo e as fontes do PROCURAR MÍDIAS têm elemento próprio.</summary>
+        static XElement FieldElement(string key, string value)
+        {
+            if (key.StartsWith("@", StringComparison.Ordinal))
+                return new XElement("attribute", new XAttribute("name", key.Substring(1)), value);
+
+            if (key.StartsWith(ScrapPrefix, StringComparison.Ordinal))
+                return new XElement("scrap", new XAttribute("name", key.Substring(ScrapPrefix.Length)), value);
+
+            return new XElement(key, value);
+        }
+
+        static string FieldKey(XElement field)
+        {
+            switch (field.Name.LocalName)
+            {
+                case "attribute": return "@" + (string)field.Attribute("name");
+                case "scrap": return ScrapPrefix + (string)field.Attribute("name");
+                default: return field.Name.LocalName;
+            }
         }
 
         static bool SameFields(Dictionary<string, string> a, Dictionary<string, string> b)

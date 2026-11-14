@@ -197,7 +197,7 @@ namespace Retroboat.Tests
         }
 
         [Fact]
-        public void An_unknown_game_is_not_asked_again_for_a_month()
+        public void An_unknown_game_is_not_asked_again_automatically()
         {
             using (var cloud = new TempDir())
             using (var pc = new TempDir())

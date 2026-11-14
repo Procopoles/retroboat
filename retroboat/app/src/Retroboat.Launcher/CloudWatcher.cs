@@ -98,6 +98,9 @@ namespace Retroboat.Launcher
                     if (!EsApi.IsIdle())
                         continue;
 
+                    // RB-037: com o ES aberto por horas, as chaves das integrações são verificadas de novo.
+                    IntegrationWatch.Tick(install);
+
                     if (mediaPending)
                     {
                         mediaPending = false;

@@ -64,12 +64,15 @@ namespace Retroboat.Media
         readonly RetroBatInstall _install;
         readonly string _romsRoot;
         readonly IThumbnailSource _source;
+        readonly MediaImportLog _log;
 
-        public AutoMedia(RetroBatInstall install, string romsRoot, IThumbnailSource source)
+        /// <param name="log">O que já foi buscado, de todos os PCs (<see cref="MediaImportLog.InCloud"/>). Sem ele, só o deste PC.</param>
+        public AutoMedia(RetroBatInstall install, string romsRoot, IThumbnailSource source, MediaImportLog log = null)
         {
             _install = install;
             _romsRoot = romsRoot;
             _source = source;
+            _log = log ?? MediaImportLog.Local(install);
         }
 
         public AutoMediaResult Apply()
@@ -94,6 +97,7 @@ namespace Retroboat.Media
                 }
             }
 
+            _log.Save();
             return result;
         }
 
@@ -104,11 +108,13 @@ namespace Retroboat.Media
             var romFolder = Path.Combine(_romsRoot, folder);
             var imagesDir = Path.Combine(GameMedia.LocalMediaRoot(_install, systemName), GameMedia.LocalFolder(MediaKind.Image));
 
-            // Só jogos sem nenhuma imagem: quem já tem mídia do scraper do ES não ganha imagens misturadas.
+            // Só jogos sem nenhuma imagem: quem já tem mídia do scraper do ES não ganha imagens misturadas. Uma busca só por
+            // jogo, de qualquer PC, achando ou não: o que veio já está na nuvem, e buscar de novo é pelo PROCURAR MÍDIAS do ES.
             // E só vai à fonte (e baixa as listas de nomes) se houver algum.
             var missing = games
                 .Select(game => new { Name = game, Element = CloudLibrarySync.FindGame(gamelist, game) })
                 .Where(g => !HasFile(g.Element, "thumbnail", romFolder) && !HasFile(g.Element, "image", romFolder))
+                .Where(g => !GameMedia.WasSearchedByHand(g.Element) && !_log.WasSearched(MediaImportKind.Images, systemName, g.Name))
                 .ToList();
             if (missing.Count == 0)
                 return;
@@ -150,6 +156,7 @@ namespace Retroboat.Media
             if (names.Count == 0)
             {
                 result.NotFound.Add(systemName + "/" + gameName);
+                _log.Record(MediaImportKind.Images, systemName, gameName, found: false);
                 return false;
             }
 
@@ -182,6 +189,9 @@ namespace Retroboat.Media
 
                 files[target.Kind] = GameMedia.ToHomeRelative(file, _install);
             }
+
+            // Uma imagem que não baixou (sem conexão) lança antes daqui: o jogo é buscado de novo na próxima abertura.
+            _log.Record(MediaImportKind.Images, systemName, gameName, found: true);
 
             // Só os campos vazios: o que veio do scraper do ES ou de outro PC continua valendo.
             bool filled = false;

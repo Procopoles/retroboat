@@ -79,6 +79,8 @@ Configurações deste PC (o menu NUVEM do ES usa estes comandos; RB-021):
 
 " + MediaCommands.Usage + @"
 
+" + IntegrationCommands.Usage + @"
+
 Opções gerais:
   --cloud <pasta>   usa esta pasta como a pasta do Retroboat na nuvem, em vez de detectar o Google Drive";
 
@@ -126,6 +128,8 @@ Opções gerais:
                     case "emulators check": return EmulatorCommands.Check(new RetroBatInstall(options.Required("--retrobat")), options.Required("--emulator"), options.Value("--core"));
                     case "media systems": return MediaCommands.Systems();
                     case "media search": return MediaCommands.Search(new RetroBatInstall(options.Required("--retrobat")), options.Required("--system"), options.Required("--game"));
+                    case "integrations status": return IntegrationCommands.Status(new RetroBatInstall(options.Required("--retrobat")));
+                    case "integrations check": return IntegrationCommands.Check(new RetroBatInstall(options.Required("--retrobat")), options.Flag("--force"));
                     case "saves lock": return SavesLock(options, locked: true);
                     case "saves unlock": return SavesLock(options, locked: false);
                     default:

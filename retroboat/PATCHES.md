@@ -1362,3 +1362,61 @@ o histórico.
       caixa, tela e título;
     - PROCURAR MÍDIAS DE JOGO abriu com "OBTER MÍDIAS DE: RETROBOAT" (o IGDB salvo foi trocado) e baixou as quatro
       imagens de dois jogos.
+
+## RB-037 — Mídias com a nuvem como verdade e chaves das integrações que se cuidam sozinhas
+
+- **Onde:**
+  - App, mídia:
+    - `Retroboat.Core/Media/MediaImportLog.cs` (novo): o que a importação automática já buscou, de todos os PCs
+      (`retroboat\midia\importacao\<PC>.txt` no Drive);
+    - `AutoMedia` e `AutoInfo` usam o registro; o `consultados.txt` local do `AutoInfo` (30 dias) é migrado e apagado;
+    - `CloudMediaSync`: recebe o que mudou na nuvem e não mudou aqui, com o estado da última sincronização em
+      `retroboat\midia-sync\<pasta>.xml`; arquivo com o mesmo nome dos dois lados: vale o mais novo;
+    - `GameMedia.TextFields` ganha `sortname`, `genres`, `tags`, `cheevosHash`, `cheevosId`; as marcas `<scrap>` vão
+      junto;
+    - `StartupSync.SyncMediaAfterEs` (novo), chamado pelo `Retroboat.exe` quando o ES fecha.
+  - App, integrações (`Retroboat.Core/Integrations/`, novo): `IntegrationCatalog`, `CredentialStore`
+    (`retroboat\credenciais.ini`), `CredentialExtractor`, `CredentialRepository`, `IntegrationChecks`, `CredentialRefresh`,
+    `IntegrationMonitor`, `IntegrationStatusFile` (`retroboat\estado\integracoes.xml`); `retroboat-cli integrations
+    status|check` (`Retroboat.Cli/IntegrationCommands.cs`); `Retroboat.Launcher/IntegrationWatch.cs`.
+  - Fork do ES: `es-app/src/retroboat/RetroboatCredentials.*` e `RetroboatIntegrationsGui.*` (novos); uma linha por uso de
+    chave em `scrapers/ScreenScraper.h|.cpp`, `scrapers/GamesDBJSONScraperResources.cpp`, `scrapers/HfsDBScraper.cpp` e
+    `RetroAchievements.cpp`; "Retroboat" na lista de fontes do `<scrap>` em `MetaData.cpp`; a seção na tela NUVEM
+    (`RetroboatSettingsGui.cpp`).
+- **Pedido (14/11/2026):** toda mídia e informação que as fontes públicas trazem deve ficar na nossa nuvem e ser
+  consumida de novo só quando a pessoa pede (PROCURAR MÍDIAS). O menu deve mostrar, de forma discreta, o estado das
+  integrações; e uma chave que para de funcionar deve ser trocada sozinha, procurando no repositório do RetroBat.
+- **O que estava errado:**
+  - o "já consultado" do `AutoInfo` ficava só no PC e valia 30 dias: cada PC novo, e o mesmo PC todo mês, consultava
+    as fontes de novo e trocava o que veio da nuvem; o `AutoMedia` buscava a cada abertura os jogos sem resultado;
+  - a nuvem só preenchia o que estava vazio. Um PROCURAR MÍDIAS num PC não chegava aos outros, e um PC com a imagem
+    velha (outro tamanho) a enviava por cima da nova;
+  - o que o ES buscava só ia para a nuvem na próxima abertura do Retroboat;
+  - `sortname`, `genres`, `tags`, ids do RetroAchievements e as marcas `<scrap>` não iam para a nuvem;
+  - o `GAMESDB_APIKEY` padrão do fork (`254487…`, 32 hex) é recusado pelo TheGamesDB: é outra constante do ES. A chave
+    de verdade tem 64 hex (corrigida também no CMakeLists pela outra sessão, `1774786d2`).
+- **Como funciona:**
+  - mídia: a importação automática roda só com o Drive, uma vez por jogo de qualquer PC (achando ou não), e nunca num
+    jogo com `<scrap>` (a pessoa já procurou). Na sincronização, cada campo segue a nuvem, a não ser que tenha mudado
+    neste PC desde a última vez: aí a mudança deste PC vai para a nuvem. Sem o registro da última sincronização (antes
+    desta versão), vale o que o PC enviou da última vez;
+  - integrações: o `IntegrationMonitor` testa cada chave na própria API (uma consulta leve) e separa "chave recusada"
+    de "sem resposta" (respostas vistas ao vivo: ScreenScraper 403 "identifiants développeur", TheGamesDB 403 "Invalid
+    API key", RetroAchievements 401 "Unauthenticated", HfsDB 403 "Invalid username/password"). Recusada ou no limite,
+    o `CredentialRefresh` procura candidatas: primeiro nos exes do ES deste PC (o nosso, depois o oficial), depois no
+    `EmulationStation-Win64-no-deps.zip` do release `continuous-master` do `RetroBat-Official/emulationstation`
+    (baixado só quando o `version.info` muda; as candidatas de cada versão ficam no cache). Cada credencial tem o seu
+    formato (`devid=…&devpassword=…`, 64/32 hex, `z=…&y=…`, `usuário:senha` com cara de senha); quem decide é a API. A
+    primeira aceita vai para o `credenciais.ini`, que o ES relê quando muda (a cada 2 s, no máximo);
+  - roda em segundo plano na abertura do `Retroboat.exe` (no máximo uma vez por hora), a cada 6 h com o ES aberto e no
+    VERIFICAR AGORA. O ES só ganha aviso quando uma chave é trocada, ou quando uma integração para sem chave nova;
+  - tela: uma linha "ESTADO DAS INTEGRAÇÕES · Todas funcionando" no fim do menu NUVEM abre a tela INTEGRAÇÕES (CHAVES DO
+    RETROBAT, FONTES PÚBLICAS, SUA CONTA), com uma palavra colorida por linha: verde funcionando, vermelho chave
+    recusada, amarelo limite ou sem resposta, cinza sem conta. A troca automática aparece na linha por 7 dias.
+- **Fica no PC:** o `credenciais.ini`. Cada PC acha as suas chaves sozinho; nada de chave vai para o Drive.
+- **Classificação:** C0 no app. C1 no fork: uma linha por uso de chave (5 arquivos do upstream, calor baixa a média) e
+  uma entrada no mapa de fontes do `MetaData.cpp`.
+- **Risco semântico:** um merge do upstream que mude como as chaves são usadas (outro `std::string(SCREENSCRAPER_…)`)
+  faz aquele uso voltar à chave compilada, em silêncio. Procurar `RETROBOAT RB-037` e os nomes das credenciais depois
+  de cada merge.
+- **Upstreamável:** não (chaves e repositório são do Retroboat).

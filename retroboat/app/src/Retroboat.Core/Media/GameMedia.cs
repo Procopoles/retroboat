@@ -39,14 +39,21 @@ namespace Retroboat.Media
         };
 
         /// <summary>
-        /// Metadados que descrevem o jogo e valem para qualquer PC. Ficam de fora os dados de uso (partidas,
-        /// tempo jogado, favorito, oculto), que são do perfil de cada pessoa (M4).
+        /// Metadados que descrevem o jogo e valem para qualquer PC: tudo o que um scraper do ES ou uma fonte pública traz.
+        /// Ficam de fora os dados de uso (partidas, tempo jogado, favorito, oculto), que são do perfil de cada pessoa (M4),
+        /// e o emulador e o core escolhidos, que são configuração (RB-005).
         /// </summary>
         public static readonly IReadOnlyList<string> TextFields = new[]
         {
-            "name", "desc", "rating", "releasedate", "developer", "publisher", "genre", "family",
-            "players", "lang", "region", "arcadesystemname", "crc32", "md5"
+            "name", "sortname", "desc", "rating", "releasedate", "developer", "publisher", "genre", "genres", "tags", "family",
+            "players", "lang", "region", "arcadesystemname", "crc32", "md5", "cheevosHash", "cheevosId"
         };
+
+        /// <summary>
+        /// A pessoa procurou mídias para o jogo no ES (PROCURAR MÍDIAS, ou o scraper em lote): o ES deixa um
+        /// &lt;scrap name="..." date="..."/&gt; por fonte. O que ela escolheu vale; a importação automática não mexe mais nele.
+        /// </summary>
+        public static bool WasSearchedByHand(XElement game) => game != null && game.Elements("scrap").Any();
 
         public static string LocalFolder(MediaKind kind) => kind == MediaKind.Video ? "videos" : kind == MediaKind.Manual ? "manuals" : "images";
 

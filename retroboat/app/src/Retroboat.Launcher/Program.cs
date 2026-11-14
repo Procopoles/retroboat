@@ -100,6 +100,9 @@ namespace Retroboat.Launcher
                 return 0;
             }
 
+            // RB-037: as chaves das integrações, em segundo plano; a que parou é trocada sozinha.
+            IntegrationWatch.StartInBackground(install);
+
             ApplyAudioOutput(settings);
             ClearNativeEsFlag(install);
             int exitCode = StartRetroBat(install, passThrough);
@@ -167,12 +170,21 @@ namespace Retroboat.Launcher
                     return;
                 }
 
-                Log.Info("ES fechado: sincronizando as configurações, os favoritos e o tempo jogado.");
+                Log.Info("ES fechado: sincronizando as configurações, os favoritos, o tempo jogado e as mídias.");
                 Retroboat.Config.CloudConfigs.SyncAll(install, cloud.RetroboatPath);
 
-                // O ES acabou de gravar as partidas da sessão no gamelist. Com a vez da sincronização, porque a abertura
-                // seguinte do Retroboat também mexe nos gamelists.
-                WithSyncLock(() => LogStats(StartupSync.SyncStats(install, cloud.RetroboatPath, settings.RomsPath)));
+                // O ES acabou de gravar as partidas da sessão e o que a pessoa buscou no PROCURAR MÍDIAS no gamelist. Com a vez
+                // da sincronização, porque a abertura seguinte do Retroboat também mexe nos gamelists.
+                WithSyncLock(() =>
+                {
+                    LogStats(StartupSync.SyncStats(install, cloud.RetroboatPath, settings.RomsPath));
+
+                    var options = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
+                    var media = StartupSync.SyncMediaAfterEs(install, cloud.RetroboatPath, settings.RomsPath, options);
+                    Log.Info(string.Format("Mídias depois do ES: {0} jogo(s) enviados ({1} arquivo(s)), {2} recebidos ({3} arquivo(s))",
+                        media.GamesShared, media.FilesUploaded, media.GamesFilled, media.FilesDownloaded));
+                    foreach (var problem in media.Errors) Log.Warn("Mídias depois do ES: " + problem);
+                });
             }
             catch (Exception ex)
             {

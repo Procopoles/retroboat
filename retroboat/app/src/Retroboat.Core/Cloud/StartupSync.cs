@@ -182,30 +182,30 @@ namespace Retroboat.Cloud
                     report.Stats = SyncStats(install, report.Cloud.RetroboatPath, romsPath, report);
             }
 
-            // Capas e informações automáticas para o que nem este PC nem a nuvem têm. O que vier vai para o Drive na hora.
-            if (mediaOptions != null && mediaOptions.Automatic && !string.IsNullOrEmpty(romsPath))
+            // Capas e informações automáticas para o que nem este PC nem a nuvem têm, uma vez por jogo, de qualquer PC
+            // (MediaImportLog). Só com o Drive: o que vem das fontes públicas vai para a nuvem na hora, e nenhum outro PC precisa
+            // buscar de novo. Buscar de novo é pelo PROCURAR MÍDIAS do ES.
+            if (mediaOptions != null && mediaOptions.Automatic && !string.IsNullOrEmpty(romsPath) && report.Cloud != null && report.Cloud.Exists)
             {
+                var log = MediaImportLog.InCloud(report.Cloud.RetroboatPath);
                 var source = thumbnails ?? new LibretroThumbnails(LibretroThumbnails.CacheDir(install));
-                report.AutoMedia = new AutoMedia(install, romsPath, source).Apply();
+                report.AutoMedia = new AutoMedia(install, romsPath, source, log).Apply();
                 if (report.AutoMedia.GamesFilled > 0)
                     report.Messages.Add("Capas automáticas: " + report.AutoMedia.GamesFilled + " jogo(s)");
 
-                report.AutoInfo = new AutoInfo(install, infoSources ?? AutoInfo.DefaultSources(install)).Apply();
+                report.AutoInfo = new AutoInfo(install, infoSources ?? AutoInfo.DefaultSources(install), log).Apply();
                 if (report.AutoInfo.GamesFilled > 0)
                     report.Messages.Add("Informações automáticas: " + report.AutoInfo.GamesFilled + " jogo(s)");
 
                 if (report.AutoMedia.GamesFilled + report.AutoInfo.GamesFilled > 0)
                 {
-                    if (report.Cloud != null && report.Cloud.Exists)
+                    var shared = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();
+                    report.Media = report.Media ?? shared;
+                    if (report.Media != shared)
                     {
-                        var shared = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();
-                        report.Media = report.Media ?? shared;
-                        if (report.Media != shared)
-                        {
-                            report.Media.GamesShared += shared.GamesShared;
-                            report.Media.FilesUploaded += shared.FilesUploaded;
-                            report.Media.Errors.AddRange(shared.Errors);
-                        }
+                        report.Media.GamesShared += shared.GamesShared;
+                        report.Media.FilesUploaded += shared.FilesUploaded;
+                        report.Media.Errors.AddRange(shared.Errors);
                     }
                 }
             }
@@ -245,6 +245,31 @@ namespace Retroboat.Cloud
             }
 
             return report;
+        }
+
+        /// <summary>
+        /// Com o ES fechado, o que a pessoa buscou no PROCURAR MÍDIAS (o ES grava o gamelist ao sair) vai para a nuvem na
+        /// hora, sem esperar a próxima abertura: a mídia que o scraper do ES deixou na pasta de jogos sai de lá e sobe com os
+        /// textos, e o que outro PC mudou enquanto este jogava chega. Falha aqui fica nela.
+        /// </summary>
+        public static CloudMediaSyncResult SyncMediaAfterEs(RetroBatInstall install, string cloudRetroboatPath, string romsPath, CloudMediaOptions options)
+        {
+            if (string.IsNullOrEmpty(romsPath))
+                return new CloudMediaSyncResult();
+
+            try
+            {
+                var relocation = new MediaRelocator(install).Apply(romsPath);
+                var result = new CloudMediaSync(install, romsPath, cloudRetroboatPath, options: options).Apply();
+                result.Errors.InsertRange(0, relocation.Errors);
+                return result;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
+            {
+                var result = new CloudMediaSyncResult();
+                result.Errors.Add(ex.Message);
+                return result;
+            }
         }
 
         /// <summary>
