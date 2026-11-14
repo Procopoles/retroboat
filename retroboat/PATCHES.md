@@ -1260,3 +1260,55 @@ o histórico.
     idêntico à entrada original (mapeamento do SDL), com o aviso "Mapeamento padrão restaurado".
   - **RESTAURAR, TECLADO:** com SELECT e NORTE trocados, voltou idêntico ao modelo do RetroBat.
   - **Falta ver:** o usuário restaurar e cancelar com o controle de verdade no build.
+
+## RB-035 — MODO DE VÍDEO dos jogos de cada monitor
+
+- **Onde:**
+  - fork do ES (commit `3e08be457`):
+    - `es-app/src/retroboat/RetroboatMonitors.*` (novo): quem é cada monitor para o Windows. Saiu do
+      `RetroboatDisplay`, que passa a usá-lo;
+    - `RetroboatVideoMode.*` (novo): o modo de vídeo de cada monitor;
+    - `RetroboatCloud.cpp`: no primeiro quadro;
+    - `RetroboatDisplay.cpp`: ao escolher MONITOR PRINCIPAL.
+  - App: as duas chaves novas em `EsSettingsRules.PcKeys`.
+- **Relato (13/11/2026):** o usuário tem o notebook (Full HD, principal do Windows) e o Samsung 4K como MONITOR
+  PRINCIPAL do ES. Ao abrir um jogo, a tela do ES e a do emulador aumentavam, e a imagem do jogo ficava cortada. Ficou
+  evidente depois de pôr o PS2 para acompanhar o monitor do ES (`ps2.MonitorIndex=es`).
+- **Causa:**
+  - o `es_settings.cfg` tinha `global.videomode=1920x1080x32x60` desde 08/11. O valor foi escolhido em AJUSTES DOS
+    JOGOS > MODO DE VÍDEO quando só havia o notebook, e lá não mudava nada;
+  - o emulatorLauncher aplica esse modo no monitor do ES antes de abrir o jogo. Desde 10/11, a cada jogo de PS2, o log
+    dele mostra `[ScreenResolution] Setting \\.\DISPLAY2 to 1920x1080x32 60Hz` e, ao sair,
+    `Restoring \\.\DISPLAY2 to 3840x2160`;
+  - com o 4K em 1080p, a janela do ES (3840x2160) e a do PCSX2 ficavam maiores que a tela. A do PCSX2 é posta no 4K
+    pelo SCREENMOVER do emulatorLauncher. Antes de `ps2.MonitorIndex=es`, o PCSX2 abria no notebook, e só o ES aparecia
+    ampliado.
+- **O defeito no código original:** o MODO DE VÍDEO do ES é um valor só. A lista de modos é a do monitor do ES
+  (`resolveWindowsDisplayDevice` usa o `MonitorID`), e o emulatorLauncher aplica o modo nesse monitor. Desde a RB-029 o
+  ES troca de monitor, e o valor escolhido num monitor ia junto para o outro.
+- **Como funciona:**
+  - cada monitor guarda o seu modo, e o `global.videomode` é sempre o do monitor do ES;
+  - no `es_settings.cfg`, o dono do modo atual fica em `RetroboatVideoModeMonitor`, e os modos dos outros monitores em
+    `RetroboatVideoModes` (`id=modo|id=modo`). As duas chaves ficam fora da nuvem, porque são de monitores deste PC;
+  - o id é o caminho do monitor no Windows (`\\?\DISPLAY#SAM7129#...`: fabricante, modelo e porta) e continua o mesmo
+    depois de religar;
+  - na abertura do ES e ao escolher MONITOR PRINCIPAL, o modo de agora fica guardado para o monitor anterior e entra o
+    do novo, AUTO se nunca foi escolhido nele. A abertura é tratada no primeiro quadro, porque a janela só existe depois
+    do `ViewController::init`;
+  - um modo gravado antes desta versão não tem dono e fica para o monitor principal do Windows, onde o ES ficava até a
+    RB-029;
+  - o log do ES registra cada troca, por exemplo: "Retroboat: modo de vídeo dos jogos no monitor 2 · SAMSUNG ·
+    3840x2160: auto (1920x1080x32x60 ficou guardado para o monitor anterior)".
+- **Classificação:** C1 no fork do ES, sem linha nova no upstream (usa os ganchos da RB-010 e da RB-029). C0 no app.
+- **Fica como estava:**
+  - o modo de vídeo por sistema ou por jogo (`ps2.videomode`) continua um valor só. O usuário não usa;
+  - escolher de propósito um modo menor para o 4K continua trocando a resolução dele. Quem encaixa a janela do emulador
+    nesse caso é o emulatorLauncher (RetroBat), e isso não foi testado.
+- **Testado em 13/11/2026**, numa cópia isolada com o ES novo e o `es_settings` com `global.videomode=1920x1080x32x60`:
+  - aberto no 4K (`--monitor 1`): o `global.videomode` saiu (AUTO), e o 1920x1080 ficou guardado para o notebook
+    (`LEN9052`);
+  - aberto no notebook: o 1920x1080 voltou. De novo no 4K: AUTO.
+  - **Falta ver:**
+    - um jogo de verdade no build abrindo no 4K sem trocar a resolução;
+    - a troca pelo MONITOR PRINCIPAL (a mesma função, chamada de outro ponto).
+

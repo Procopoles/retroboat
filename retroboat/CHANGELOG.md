@@ -151,6 +151,9 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
     metade até ser reaberto, e parecia salvo;
   - RESTAURAR MAPEAMENTO PADRÃO em AJUSTES DE CONTROLE: escolhe um controle ligado (ou o teclado) e ele volta ao padrão
     (o do RetroBat, senão o reconhecido automaticamente), na hora e nos outros PCs pela nuvem.
+- RB-035: com dois monitores, o MODO DE VÍDEO dos jogos (AJUSTES DOS JOGOS) passa a ser de cada monitor. Um modo
+  escolhido no notebook não troca mais a resolução do 4K ao abrir um jogo (o ES e o emulador ficavam ampliados e com a
+  imagem cortada). Cada monitor lembra o seu, e AUTO é o padrão.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

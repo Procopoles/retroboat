@@ -24,6 +24,8 @@ namespace Retroboat.Config
             // Tela e janela.
             "MonitorID", "FullscreenBorderless", "Windowed", "WindowWidth", "WindowHeight", "ScreenWidth", "ScreenHeight",
             "ScreenOffsetX", "ScreenOffsetY", "ScreenRotate", "VSync", "Overscan", "MaxVRAM", "HideWindow", "HideWindowFullReinit",
+            // O modo de vídeo de cada monitor deste PC (RB-035, nosso ES): ids de monitores daqui.
+            "RetroboatVideoModeMonitor", "RetroboatVideoModes",
             // Áudio e volume do PC.
             "AudioDevice", "AudioCard", "OMXAudioDev", "audio.device", "audio.volume", "SystemVolume",
             // Sessão: último sistema aberto.
