@@ -1312,3 +1312,53 @@ o histórico.
     - um jogo de verdade no build abrindo no 4K sem trocar a resolução;
     - a troca pelo MONITOR PRINCIPAL (a mesma função, chamada de outro ponto).
 
+## RB-036 — PROCURAR MÍDIAS com a busca da importação
+
+- **Onde:**
+  - App:
+    - `Retroboat.Core/Media/MediaRule.cs` (novo): a regra;
+    - `MediaSearch.cs` (novo): a busca de um jogo;
+    - `AutoMedia` e `AutoInfo` passam a usar o `MediaRule`;
+    - `IThumbnailSource.UrlOf` e `LibretroThumbnails.CacheDir` (novos);
+    - `retroboat-cli media search|systems` (`Retroboat.Cli/MediaCommands.cs`).
+  - Fork do ES (commit `9fb99e0c3`): `es-app/src/retroboat/RetroboatScraper.*` (novo) e 2 linhas no
+    `scrapers/Scraper.cpp`.
+- **Relato (13/11/2026):** PROCURAR MÍDIAS de um jogo voltava sempre 0 resultados. Era para usar a mesma regra de busca
+  da importação.
+- **Causa:**
+  - o nosso ES não tem as chaves do ScreenScraper, do TheGamesDB e do HfsDB (RB-011). Sobram o IGDB e o ArcadeDB;
+  - o `es_settings` do usuário tinha `Scraper=IGDB`, que pede uma conta da Twitch (`IGDBClientID`, `IGDBSecret`) que
+    não existe;
+  - o ArcadeDB só serve para arcade;
+  - a busca da importação (capas do libretro, informações do libretro e do Wikidata/Wikipédia) só existia no
+    `Retroboat.exe`.
+- **Como funciona:**
+  - a regra mora no `MediaRule`: como achar o jogo pelo nome No-Intro/Redump, qual imagem vai em qual campo e de qual
+    fonte vem cada informação. A importação automática e a busca do ES usam a mesma peça;
+  - `retroboat-cli media search --system ps2 --game "God of War (USA)"` devolve XML com os campos do gamelist e os
+    endereços das imagens (`thumbnail`, `boxart`, `image`, `titleshot`). O ES mostra, baixa e grava como faz com os
+    outros scrapers;
+  - o ES ganha a fonte "Retroboat", a primeira da lista:
+    - PROCURAR POR MÍDIAS DESTE JOGO consulta todas as fontes da lista, então a nova entra sozinha;
+    - PROCURAR MÍDIAS DE JOGO usa a fonte salva. Na abertura do ES, uma fonte salva que não funciona neste build (fora
+      da lista, ou IGDB sem conta) vira "Retroboat";
+    - a fonte só aparece nos sistemas que as fontes conhecem (`retroboat-cli media systems`);
+  - o ES procura pelo nome do arquivo e, sem resultado, pelo nome do jogo. Um nome digitado também serve: "God of War"
+    acha a versão dos EUA, como na importação;
+  - a primeira busca de um sistema baixa as listas do libretro e leva cerca de 12 s. As seguintes levam cerca de 1 s,
+    com o cache de uma semana da importação;
+  - sem internet, a busca avisa "AS FONTES DE MÍDIA NÃO RESPONDERAM".
+- **Onde a mídia vai:** como em qualquer scraper do ES, para a pasta de jogos (`images\`). O `Retroboat.exe` move para
+  `.emulationstation\media` na próxima abertura (RB-015).
+- **Classificação:** C0 no app. C1 no fork: 2 linhas no `Scraper.cpp` (o include e a entrada na lista), calor baixa.
+- **Testado em 13/11/2026:**
+  - 6 testes novos (380 no total). Os do `AutoMedia` e do `AutoInfo` continuam passando com a regra no `MediaRule`;
+  - `media search` de verdade (libretro e Wikidata) numa pasta isolada:
+    - God of War (USA) veio com descrição em português, gênero, data, estúdios e as quatro imagens;
+    - "Shadow of the Colossus" digitado achou o jogo;
+    - um jogo que não existe voltou sem resultado e sem erro;
+  - no ES de teste:
+    - PROCURAR POR MÍDIAS DESTE JOGO mostrou "RETROBOAT · God of War" com a capa e os campos, e aceitar baixou capa,
+      caixa, tela e título;
+    - PROCURAR MÍDIAS DE JOGO abriu com "OBTER MÍDIAS DE: RETROBOAT" (o IGDB salvo foi trocado) e baixou as quatro
+      imagens de dois jogos.

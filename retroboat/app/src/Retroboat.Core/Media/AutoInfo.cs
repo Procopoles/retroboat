@@ -28,21 +28,13 @@ namespace Retroboat.Media
     /// O scraper do ES vem por último: numa comparação de 50 jogos de PS2 ele errou gênero e inverteu
     /// desenvolvedora e editora em vários (Shadow of the Colossus como "Briga de rua"). Cada campo tem a sua
     /// ordem, pela fonte que mais acertou nele; o que nenhuma fonte tem continua como estava. Depois, o
-    /// <see cref="CloudMediaSync"/> envia para o Drive, e os outros PCs nem precisam buscar.
+    /// <see cref="CloudMediaSync"/> envia para o Drive, e os outros PCs nem precisam buscar. A escolha de cada campo é a do
+    /// <see cref="MediaRule"/>, a mesma do PROCURAR MÍDIAS do ES.
     /// </summary>
     public sealed class AutoInfo
     {
-        /// <summary>Gênero, estúdio e nome: o Wikidata é mais específico; o libretro tem "Action" para quase tudo.</summary>
-        static readonly GameInfoOrigin[] WikidataFirst = { GameInfoOrigin.Wikidata, GameInfoOrigin.Libretro };
-
-        /// <summary>Editora, data e jogadores: o libretro é o da edição do arquivo; o Wikidata mistura regiões e relançamentos.</summary>
-        static readonly GameInfoOrigin[] LibretroFirst = { GameInfoOrigin.Libretro, GameInfoOrigin.Wikidata };
-
         /// <summary>Um jogo consultado, achado ou não, só volta às fontes depois disso (elas mudam pouco).</summary>
         static readonly TimeSpan RecheckAfter = TimeSpan.FromDays(30);
-
-        /// <summary>Resumo em português menor que isso é um esboço; a descrição do libretro, mesmo em inglês, diz mais.</summary>
-        const int MinPortugueseLength = 120;
 
         readonly RetroBatInstall _install;
         readonly IReadOnlyList<IGameInfoSource> _sources;
@@ -58,7 +50,7 @@ namespace Retroboat.Media
 
         public static IReadOnlyList<IGameInfoSource> DefaultSources(RetroBatInstall install) => new IGameInfoSource[]
         {
-            new LibretroMetadata(Path.Combine(install.RetroboatDataPath, "cache", "libretro")),
+            new LibretroMetadata(LibretroThumbnails.CacheDir(install)),
             new WikidataInfo()
         };
 
@@ -157,31 +149,22 @@ namespace Retroboat.Media
                 gamelist.Root.Add(game);
             }
 
-            bool filled = false;
+            var info = MediaRule.Merge(infos);
+            bool filled = Set(game, "name", info.Title);
 
-            filled |= Set(game, "name", Pick(infos, WikidataFirst, i => i.Title));
-
-            // Descrição: a da Wikipédia em português, a não ser que seja só uma frase; depois a do libretro, em inglês.
             var desc = (string)game.Element("desc");
-            var text = infos.FirstOrDefault(i => i.DescriptionInPortuguese && (i.Description?.Length ?? 0) >= MinPortugueseLength)?.Description
-                       ?? Pick(infos, LibretroFirst, i => i.Description);
-            if (text != null && GameDescription.WithoutStatus(desc).Trim() != text)
+            if (info.Description != null && GameDescription.WithoutStatus(desc).Trim() != info.Description)
             {
-                game.SetElementValue("desc", GameDescription.ReplaceBody(desc, text));
+                game.SetElementValue("desc", GameDescription.ReplaceBody(desc, info.Description));
                 filled = true;
             }
 
-            filled |= Set(game, "genre", Pick(infos, WikidataFirst, i => i.Genre));
-            filled |= Set(game, "developer", Pick(infos, WikidataFirst, i => i.Developer));
-            filled |= Set(game, "publisher", Pick(infos, LibretroFirst, i => i.Publisher));
-            filled |= Set(game, "releasedate", Pick(infos, LibretroFirst, i => i.ReleaseDate));
-            filled |= Set(game, "players", Pick(infos, LibretroFirst, i => i.Players));
+            filled |= Set(game, "genre", info.Genre);
+            filled |= Set(game, "developer", info.Developer);
+            filled |= Set(game, "publisher", info.Publisher);
+            filled |= Set(game, "releasedate", info.ReleaseDate);
+            filled |= Set(game, "players", info.Players);
             return filled;
-        }
-
-        static string Pick(List<GameInfo> infos, GameInfoOrigin[] order, Func<GameInfo, string> field)
-        {
-            return order.SelectMany(o => infos.Where(i => i.Origin == o)).Select(field).FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
         }
 
         /// <summary>Troca o valor se a fonte tem um; o que nenhuma fonte tem continua como estava (scraper ou usuário).</summary>

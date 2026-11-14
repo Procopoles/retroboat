@@ -45,6 +45,8 @@ namespace Retroboat.Tests
 
                 return _names[kind].Contains(name) ? new byte[] { (byte)kind, 1, 2, 3 } : null;
             }
+
+            public string UrlOf(string playlist, ThumbnailKind kind, string name) => "https://libretro.test/" + playlist + "/" + kind + "/" + name + ".png";
         }
 
         static RetroBatInstall Install(TempDir dir) => new RetroBatInstall(dir.Combine("RetroBat"));

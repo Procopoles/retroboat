@@ -59,6 +59,8 @@ retroboat-cli themes status --retrobat <pasta>            temas suportados com o
 retroboat-cli emulators status --retrobat <pasta> [--emulator X [--core Y]]   emuladores dos consoles com jogos: instalado, atualização, tamanho
 retroboat-cli emulators install --retrobat <pasta> --emulator X [--core Y]   instala ou atualiza (última versão), com a conferência
 retroboat-cli emulators check --retrobat <pasta> --emulator X [--core Y]   só a verificação de compatibilidade
+retroboat-cli media search --retrobat <pasta> --system ps2 --game NOME   busca um jogo pela regra da importação (XML; o PROCURAR MÍDIAS do ES usa; RB-036)
+retroboat-cli media systems                        sistemas do ES que as fontes de mídia conhecem
 retroboat-cli themes apply --retrobat <pasta>             põe o status de volta nos temas (Carbon, PlayStation-X)
 retroboat-cli settings get --retrobat <pasta>             estado da biblioteca e opções principais, em linhas Chave=valor
 retroboat-cli settings set <chave> 0|1 --retrobat <pasta> Videos, Manuals, Automatic ou AutoOpen (o menu NUVEM usa)

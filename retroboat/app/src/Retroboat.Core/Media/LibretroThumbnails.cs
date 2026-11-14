@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using Retroboat.Library;
 
 namespace Retroboat.Media
 {
@@ -29,6 +30,9 @@ namespace Retroboat.Media
 
         /// <summary>Conteúdo da imagem, ou null se ela não existir.</summary>
         byte[] Download(string playlist, ThumbnailKind kind, string name);
+
+        /// <summary>Endereço da imagem, para quem baixa por conta própria (o PROCURAR MÍDIAS do ES, RB-036).</summary>
+        string UrlOf(string playlist, ThumbnailKind kind, string name);
     }
 
     /// <summary>
@@ -49,7 +53,12 @@ namespace Retroboat.Media
             _cacheDir = cacheDir;
         }
 
+        /// <summary>Cache das listas e da base do libretro neste PC: &lt;RetroBat&gt;\retroboat\cache\libretro.</summary>
+        public static string CacheDir(RetroBatInstall install) => Path.Combine(install.RetroboatDataPath, "cache", "libretro");
+
         public static string Folder(ThumbnailKind kind) => kind == ThumbnailKind.Boxart ? "Named_Boxarts" : kind == ThumbnailKind.Snap ? "Named_Snaps" : "Named_Titles";
+
+        public string UrlOf(string playlist, ThumbnailKind kind, string name) => Url(playlist, kind, name);
 
         public IReadOnlyCollection<string> List(string playlist, ThumbnailKind kind)
         {

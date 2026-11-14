@@ -24,7 +24,8 @@ namespace Retroboat.Media
     /// Capas automáticas, como no Steam: todo jogo da biblioteca que não tem imagem ganha capa, tela do jogo
     /// e tela de título dos thumbnails do libretro, sem conta e sem o usuário pedir. Só preenche o que está
     /// vazio; o que veio do scraper do ES ou de outro PC pela nuvem continua valendo. Depois, o
-    /// <see cref="CloudMediaSync"/> envia as imagens para o Drive, e os outros PCs nem precisam buscar.
+    /// <see cref="CloudMediaSync"/> envia as imagens para o Drive, e os outros PCs nem precisam buscar. A busca segue o
+    /// <see cref="MediaRule"/>, a mesma do PROCURAR MÍDIAS do ES.
     /// </summary>
     public sealed class AutoMedia
     {
@@ -58,14 +59,6 @@ namespace Retroboat.Media
             ["atari2600"] = "Atari - 2600",
             ["xbox"] = "Microsoft - Xbox",
             ["ngpc"] = "SNK - Neo Geo Pocket Color"
-        };
-
-        /// <summary>O que cada tipo de imagem preenche no gamelist, e o sufixo do arquivo (como o scraper do ES faz).</summary>
-        static readonly (ThumbnailKind Kind, string Suffix, string[] Fields)[] Targets =
-        {
-            (ThumbnailKind.Boxart, "thumb", new[] { "thumbnail", "boxart" }),
-            (ThumbnailKind.Snap, "image", new[] { "image" }),
-            (ThumbnailKind.Title, "titleshot", new[] { "titleshot" })
         };
 
         readonly RetroBatInstall _install;
@@ -121,7 +114,7 @@ namespace Retroboat.Media
                 return;
 
             // As listas de nomes vêm antes: sem conexão, o erro aparece uma vez por sistema, não por jogo.
-            var indexes = Targets.ToDictionary(t => t.Kind, t => new ThumbnailIndex(_source.List(playlist, t.Kind)));
+            var indexes = MediaRule.Indexes(_source, playlist);
 
             bool changed = false;
             foreach (var game in missing)
@@ -148,13 +141,13 @@ namespace Retroboat.Media
             }
         }
 
-        /// <summary>Busca e grava as imagens de um jogo. Retorna true se preencheu algum campo.</summary>
+        /// <summary>Busca e grava as imagens de um jogo, pela regra de busca do Retroboat. Retorna true se preencheu algum campo.</summary>
         bool FillGame(string gameName, XElement element, XDocument gamelist, string playlist, Dictionary<ThumbnailKind, ThumbnailIndex> indexes,
                       string romFolder, string imagesDir, string systemName, AutoMediaResult result)
         {
             var stem = Path.GetFileNameWithoutExtension(gameName);
-            var match = indexes[ThumbnailKind.Boxart].Find(stem) ?? indexes[ThumbnailKind.Snap].Find(stem);
-            if (match == null)
+            var names = MediaRule.MatchThumbnails(stem, indexes);
+            if (names.Count == 0)
             {
                 result.NotFound.Add(systemName + "/" + gameName);
                 return false;
@@ -166,15 +159,10 @@ namespace Retroboat.Media
                 gamelist.Root.Add(element);
             }
 
-            bool filled = false;
-            foreach (var target in Targets)
+            var files = new Dictionary<ThumbnailKind, string>();
+            foreach (var target in MediaRule.ImageTargets)
             {
-                if (HasFile(element, target.Fields[0], romFolder))
-                    continue;
-
-                // O mesmo jogo pode ter nome um pouco diferente em cada tipo de imagem.
-                var name = indexes[target.Kind].Find(match) ?? indexes[target.Kind].Find(stem);
-                if (name == null)
+                if (!names.TryGetValue(target.Kind, out var name) || HasFile(element, target.Fields[0], romFolder))
                     continue;
 
                 var file = Path.Combine(imagesDir, stem + "-" + target.Suffix + ".png");
@@ -192,16 +180,17 @@ namespace Retroboat.Media
                     result.FilesDownloaded++;
                 }
 
-                foreach (var field in target.Fields.Where(f => !HasFile(element, f, romFolder)))
-                    element.SetElementValue(field, GameMedia.ToHomeRelative(file, _install));
-
-                filled = true;
+                files[target.Kind] = GameMedia.ToHomeRelative(file, _install);
             }
 
-            // Sem tela do jogo, a capa também serve de imagem na visão detalhada.
-            if (!HasFile(element, "image", romFolder) && HasFile(element, "thumbnail", romFolder))
+            // Só os campos vazios: o que veio do scraper do ES ou de outro PC continua valendo.
+            bool filled = false;
+            foreach (var field in MediaRule.ImageFields(files))
             {
-                element.SetElementValue("image", (string)element.Element("thumbnail"));
+                if (HasFile(element, field.Key, romFolder))
+                    continue;
+
+                element.SetElementValue(field.Key, field.Value);
                 filled = true;
             }
 

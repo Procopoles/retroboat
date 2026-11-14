@@ -77,6 +77,8 @@ Configurações deste PC (o menu NUVEM do ES usa estes comandos; RB-021):
 
 " + EmulatorCommands.Usage + @"
 
+" + MediaCommands.Usage + @"
+
 Opções gerais:
   --cloud <pasta>   usa esta pasta como a pasta do Retroboat na nuvem, em vez de detectar o Google Drive";
 
@@ -122,6 +124,8 @@ Opções gerais:
                     case "emulators status": return EmulatorCommands.Status(new RetroBatInstall(options.Required("--retrobat")), options.Value("--emulator"), options.Value("--core"), Cancellation.Token);
                     case "emulators install": return EmulatorCommands.Install(new RetroBatInstall(options.Required("--retrobat")), options.Required("--emulator"), options.Value("--core"), Cancellation.Token);
                     case "emulators check": return EmulatorCommands.Check(new RetroBatInstall(options.Required("--retrobat")), options.Required("--emulator"), options.Value("--core"));
+                    case "media systems": return MediaCommands.Systems();
+                    case "media search": return MediaCommands.Search(new RetroBatInstall(options.Required("--retrobat")), options.Required("--system"), options.Required("--game"));
                     case "saves lock": return SavesLock(options, locked: true);
                     case "saves unlock": return SavesLock(options, locked: false);
                     default:
@@ -817,7 +821,7 @@ Opções gerais:
 
         sealed class Options
         {
-            static readonly HashSet<string> ValueOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "--cloud", "--to", "--retrobat", "--roms", "--samples", "--pc", "--keep", "--game", "--emulator", "--core" };
+            static readonly HashSet<string> ValueOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "--cloud", "--to", "--retrobat", "--roms", "--samples", "--pc", "--keep", "--game", "--emulator", "--core", "--system" };
 
             readonly List<string> _positional = new List<string>();
             readonly Dictionary<string, string> _values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

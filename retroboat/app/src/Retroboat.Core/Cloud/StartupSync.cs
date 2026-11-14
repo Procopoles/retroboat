@@ -185,7 +185,7 @@ namespace Retroboat.Cloud
             // Capas e informações automáticas para o que nem este PC nem a nuvem têm. O que vier vai para o Drive na hora.
             if (mediaOptions != null && mediaOptions.Automatic && !string.IsNullOrEmpty(romsPath))
             {
-                var source = thumbnails ?? new LibretroThumbnails(Path.Combine(install.RetroboatDataPath, "cache", "libretro"));
+                var source = thumbnails ?? new LibretroThumbnails(LibretroThumbnails.CacheDir(install));
                 report.AutoMedia = new AutoMedia(install, romsPath, source).Apply();
                 if (report.AutoMedia.GamesFilled > 0)
                     report.Messages.Add("Capas automáticas: " + report.AutoMedia.GamesFilled + " jogo(s)");

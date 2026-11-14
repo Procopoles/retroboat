@@ -154,6 +154,9 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
 - RB-035: com dois monitores, o MODO DE VÍDEO dos jogos (AJUSTES DOS JOGOS) passa a ser de cada monitor. Um modo
   escolhido no notebook não troca mais a resolução do 4K ao abrir um jogo (o ES e o emulador ficavam ampliados e com a
   imagem cortada). Cada monitor lembra o seu, e AUTO é o padrão.
+- RB-036: PROCURAR MÍDIAS no nosso ES usa a busca da importação do Retroboat: capas, telas e títulos do libretro, e
+  descrição, gênero, data e estúdios do libretro, do Wikidata e da Wikipédia, sem conta nem chave. Antes voltava sempre
+  vazio: o IGDB salvo pede uma conta, e o ScreenScraper precisa das nossas chaves (RB-011).
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

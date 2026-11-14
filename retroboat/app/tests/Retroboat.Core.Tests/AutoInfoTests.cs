@@ -259,6 +259,7 @@ namespace Retroboat.Tests
         {
             public IReadOnlyCollection<string> List(string playlist, ThumbnailKind kind) => new string[0];
             public byte[] Download(string playlist, ThumbnailKind kind, string name) => null;
+            public string UrlOf(string playlist, ThumbnailKind kind, string name) => null;
         }
 
         [Fact]
