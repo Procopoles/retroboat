@@ -752,4 +752,6 @@ Arquivo só nosso: o theme.xml do upstream só ganha uma linha de include.
       <visible>false</visible>
     </text>
   </customView>
+  <!-- RB-038: mais segundos no ATRASO DO VÍDEO NA LISTA DE JOGOS (arquivo ao lado, copiado junto pelo lançador). -->
+  <include>./atraso-do-video.xml</include>
 </theme>

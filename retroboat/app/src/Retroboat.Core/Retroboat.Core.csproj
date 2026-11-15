@@ -21,11 +21,17 @@
          Bundled_overlays_match_the_theme_clones avisa se ficarem diferentes. -->
     <EmbeddedResource Include="Themes\Overlays\es-theme-carbon\status.xml" LogicalName="Retroboat.Themes.es-theme-carbon.status.xml" />
     <EmbeddedResource Include="Themes\Overlays\es-theme-PlayStation-X\status.xml" LogicalName="Retroboat.Themes.es-theme-PlayStation-X.status.xml" />
+    <EmbeddedResource Include="Themes\Overlays\es-theme-PlayStation-X\atraso-do-video.xml" LogicalName="Retroboat.Themes.es-theme-PlayStation-X.atraso-do-video.xml" />
   </ItemGroup>
 
   <ItemGroup>
     <!-- Emulador do ES → pacote do repositório do RetroBat (EmulatorCatalog, RB-033). -->
     <EmbeddedResource Include="Emulators\EmulatorCatalog.xml" LogicalName="Retroboat.Emulators.EmulatorCatalog.xml" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Sistema do ES → plataforma em cada fonte do PERSONALIZADO (MediaSystems, RB-038). -->
+    <EmbeddedResource Include="Media\Sources\MediaSystems.xml" LogicalName="Retroboat.Media.Sources.MediaSystems.xml" />
   </ItemGroup>
 
 </Project>

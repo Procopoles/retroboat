@@ -41,9 +41,10 @@ namespace Retroboat.Tests
 
                 var result = ThemeOverlays.Apply(new RetroBatInstall(retrobat.Path));
 
-                Assert.Equal(new[] { "PlayStation-X: status.xml copiado, include no theme.xml" }, result.Applied);
+                Assert.Equal(new[] { "PlayStation-X: status.xml copiado, atraso-do-video.xml copiado, include no theme.xml" }, result.Applied);
                 Assert.Empty(result.Warnings);
                 Assert.Equal(Psx.ReadOverlay(), File.ReadAllBytes(Path.Combine(dir, "retroboat", "status.xml")));
+                Assert.Equal(Psx.ReadOverlay("atraso-do-video.xml"), File.ReadAllBytes(Path.Combine(dir, "retroboat", "atraso-do-video.xml")));
 
                 var themeXml = File.ReadAllText(Path.Combine(dir, "theme.xml"));
                 Assert.EndsWith(
@@ -140,7 +141,7 @@ namespace Retroboat.Tests
 
                 var result = ThemeOverlays.Apply(new RetroBatInstall(retrobat.Path));
 
-                Assert.Equal(new[] { "PlayStation-X (es-theme-PlayStation-X-master): status.xml copiado, include no theme.xml" }, result.Applied);
+                Assert.Equal(new[] { "PlayStation-X (es-theme-PlayStation-X-master): status.xml copiado, atraso-do-video.xml copiado, include no theme.xml" }, result.Applied);
             }
         }
 
@@ -219,7 +220,8 @@ namespace Retroboat.Tests
         public void Bundled_overlays_are_valid_xml()
         {
             foreach (var overlay in ThemeOverlays.All)
-                XDocument.Parse(Encoding.UTF8.GetString(overlay.ReadOverlay()).TrimStart('﻿'));
+                foreach (var file in overlay.Files)
+                    XDocument.Parse(Encoding.UTF8.GetString(overlay.ReadOverlay(file)).TrimStart('﻿'));
         }
 
         /// <summary>
@@ -238,13 +240,16 @@ namespace Retroboat.Tests
             var clones = Path.Combine(app.FullName, "..", "..", "..");
             foreach (var overlay in ThemeOverlays.All)
             {
-                var clone = Path.Combine(clones, overlay.Folder, "retroboat", "status.xml");
-                if (!File.Exists(clone))
-                    continue;
+                foreach (var file in overlay.Files)
+                {
+                    var clone = Path.Combine(clones, overlay.Folder, "retroboat", file);
+                    if (!File.Exists(clone))
+                        continue;
 
-                Assert.True(
-                    File.ReadAllText(clone).Replace("\r", "") == Encoding.UTF8.GetString(overlay.ReadOverlay()).Replace("\r", ""),
-                    overlay.Folder + ": o status.xml do app é diferente do clone (" + Path.GetFullPath(clone) + "). Copie o do clone para src\\Retroboat.Core\\Themes\\Overlays.");
+                    Assert.True(
+                        File.ReadAllText(clone).Replace("\r", "") == Encoding.UTF8.GetString(overlay.ReadOverlay(file)).Replace("\r", ""),
+                        overlay.Folder + ": o " + file + " do app é diferente do clone (" + Path.GetFullPath(clone) + "). Copie o do clone para src\\Retroboat.Core\\Themes\\Overlays.");
+                }
             }
         }
     }

@@ -7,6 +7,7 @@ using Retroboat.Bios;
 using Retroboat.Config;
 using Retroboat.Library;
 using Retroboat.Media;
+using Retroboat.Media.Sources;
 using Retroboat.Profile;
 using Retroboat.Saves;
 
@@ -21,8 +22,7 @@ namespace Retroboat.Cloud
         public MediaRelocationResult Relocation { get; set; }
         public PartialDownloadsCleanup PartialDownloads { get; set; }
         public CloudMediaSyncResult Media { get; set; }
-        public AutoMediaResult AutoMedia { get; set; }
-        public AutoInfoResult AutoInfo { get; set; }
+        public AutoImportResult AutoImport { get; set; }
         public AccountSyncResult Accounts { get; set; }
         public List<ConfigSyncResult> Configs { get; set; } = new List<ConfigSyncResult>();
         public SaveSyncResult Saves { get; set; }
@@ -43,9 +43,16 @@ namespace Retroboat.Cloud
     /// </summary>
     public static class StartupSync
     {
+        /// <param name="mediaSearch">A busca PERSONALIZADO dos jogos novos; nulo = a deste PC (<see cref="CustomMediaSearch.ForInstall"/>).</param>
+        /// <param name="mediaHttp">Quem baixa as mídias dos jogos novos (os testes trocam).</param>
+        /// <param name="progress">Andamento (0 a 100) e a etapa, para a barra do "Atualizar listas de jogos" do ES (RB-038).</param>
         public static StartupSyncReport Run(RetroBatInstall install, string configuredCloudPath, string romsPath, CloudMediaOptions mediaOptions = null,
-                                            IThumbnailSource thumbnails = null, IReadOnlyList<IGameInfoSource> infoSources = null, string libraryId = null)
+                                            CustomMediaSearch mediaSearch = null, IMediaHttp mediaHttp = null, string libraryId = null,
+                                            Action<int, string> progress = null)
         {
+            void Step(int percent, string text) => progress?.Invoke(percent, text);
+
+            Step(2, "Procurando o Google Drive");
             var report = new StartupSyncReport { Cloud = CloudLocator.Locate(configuredCloudPath, libraryId) };
             var localBios = Path.Combine(install.Root, "bios");
 
@@ -64,6 +71,7 @@ namespace Retroboat.Cloud
             CloudStatusFile.Write(install, report.Cloud != null && report.Cloud.Exists);
 
             // Mídia que o scraper do ES gravou dentro da pasta de jogos vai para .emulationstation\media (item 1c).
+            Step(5, "Organizando as mídias");
             if (!string.IsNullOrEmpty(romsPath))
                 report.Relocation = new MediaRelocator(install).Apply(romsPath);
 
@@ -101,6 +109,7 @@ namespace Retroboat.Cloud
             }
             else
             {
+                Step(8, "Sincronizando as BIOS");
                 report.Bios = new BiosSync(report.Cloud.RetroboatPath, localBios, BiosCatalog.ForSync(install.Root)).Sync();
                 report.Messages.Add(DescribeSync(report.Bios));
 
@@ -112,6 +121,7 @@ namespace Retroboat.Cloud
 
                 // Logins do ES (ScreenScraper, IGDB, RetroAchievements): quem não tem login recebe o da nuvem.
                 // Com o ES aberto, não: ele regrava o es_settings.cfg ao sair e desfaria a troca.
+                Step(14, "Sincronizando as contas");
                 if (System.Diagnostics.Process.GetProcessesByName("emulationstation").Length == 0)
                 {
                     try
@@ -131,6 +141,7 @@ namespace Retroboat.Cloud
 
                 // Opções do ES (globais, por sistema e por jogo), controles e configurações dos emuladores. Com o ES ou o
                 // emulador aberto, aquela parte só envia: o que veio da nuvem espera ele fechar.
+                Step(18, "Sincronizando as configurações");
                 report.Configs = CloudConfigs.SyncAll(install, report.Cloud.RetroboatPath);
                 report.Messages.AddRange(CloudConfigs.Describe(report.Configs));
                 if (CloudConfigs.HasErrors(report.Configs))
@@ -138,11 +149,13 @@ namespace Retroboat.Cloud
 
                 // Memory cards: envia o que ficou de uma partida offline e baixa o que chegou. Conflitos ficam para
                 // a abertura do jogo, onde dá para perguntar. Com um jogo aberto neste PC, não mexe nos cartões.
+                Step(26, "Sincronizando os saves");
                 if (System.Diagnostics.Process.GetProcessesByName("retroboat-launch").Length == 0)
                     report.Saves = SyncSaves(install, report.Cloud.RetroboatPath, romsPath, report);
 
                 if (!string.IsNullOrEmpty(romsPath) && Directory.Exists(report.Cloud.GamesPath))
                 {
+                    Step(34, "Atualizando a biblioteca de jogos");
                     report.Library = new CloudLibrarySync(install, romsPath, new CloudLibrary(report.Cloud.GamesPath)).Apply();
                     var library = report.Library;
                     if (library.InCloud + library.Installed + library.Corrupt > 0)
@@ -158,6 +171,7 @@ namespace Retroboat.Cloud
                     report.PartialDownloads.FilesDeleted += partial.FilesDeleted;
                     report.PartialDownloads.Errors.AddRange(partial.Errors);
 
+                    Step(48, "Sincronizando capas e descrições");
                     report.Media = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();
                     var media = report.Media;
                     if (media.GamesFilled > 0 || media.GamesShared > 0)
@@ -178,27 +192,25 @@ namespace Retroboat.Cloud
                 // Favoritos e tempo jogado, depois dos marcadores (um jogo da nuvem já tem a linha no gamelist). Só com o ES
                 // fechado: ele guarda as partidas na memória e regrava o gamelist ao sair. Com ele aberto, ficam para
                 // quando ele fechar.
+                Step(58, "Sincronizando favoritos e tempo jogado");
                 if (!CloudConfigs.IsEsRunning())
                     report.Stats = SyncStats(install, report.Cloud.RetroboatPath, romsPath, report);
             }
 
-            // Capas e informações automáticas para o que nem este PC nem a nuvem têm, uma vez por jogo, de qualquer PC
-            // (MediaImportLog). Só com o Drive: o que vem das fontes públicas vai para a nuvem na hora, e nenhum outro PC precisa
-            // buscar de novo. Buscar de novo é pelo PROCURAR MÍDIAS do ES.
+            // Mídias e informações dos jogos novos pelo PERSONALIZADO (RB-038), para o que nem este PC nem a nuvem têm, uma
+            // vez por jogo, de qualquer PC (MediaImportLog). Só com o Drive: o que vem das fontes vai para a nuvem na hora, e
+            // nenhum outro PC precisa buscar de novo. Buscar de novo é pelo PROCURAR MÍDIAS do ES.
             if (mediaOptions != null && mediaOptions.Automatic && !string.IsNullOrEmpty(romsPath) && report.Cloud != null && report.Cloud.Exists)
             {
+                Step(64, "Procurando mídias dos jogos novos");
                 var log = MediaImportLog.InCloud(report.Cloud.RetroboatPath);
-                var source = thumbnails ?? new LibretroThumbnails(LibretroThumbnails.CacheDir(install));
-                report.AutoMedia = new AutoMedia(install, romsPath, source, log).Apply();
-                if (report.AutoMedia.GamesFilled > 0)
-                    report.Messages.Add("Capas automáticas: " + report.AutoMedia.GamesFilled + " jogo(s)");
-
-                report.AutoInfo = new AutoInfo(install, infoSources ?? AutoInfo.DefaultSources(install), log).Apply();
-                if (report.AutoInfo.GamesFilled > 0)
-                    report.Messages.Add("Informações automáticas: " + report.AutoInfo.GamesFilled + " jogo(s)");
-
-                if (report.AutoMedia.GamesFilled + report.AutoInfo.GamesFilled > 0)
+                var search = mediaSearch ?? CustomMediaSearch.ForInstall(install);
+                report.AutoImport = new AutoImport(install, romsPath, search, log, mediaHttp).Apply((done, total, game) =>
+                    Step(64 + 28 * (done - 1) / Math.Max(1, total), "Buscando mídias (" + done + " de " + total + "): " + game));
+                if (report.AutoImport.GamesFilled > 0)
                 {
+                    report.Messages.Add("Mídias automáticas: " + report.AutoImport.GamesFilled + " jogo(s)");
+                    Step(93, "Enviando as mídias novas para a nuvem");
                     var shared = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();
                     report.Media = report.Media ?? shared;
                     if (report.Media != shared)
@@ -211,6 +223,7 @@ namespace Retroboat.Cloud
             }
 
             // Só avisa sobre BIOS de sistemas que têm jogos, na nuvem ou neste PC.
+            Step(97, "Conferindo as BIOS");
             var systems = ActiveSystems.Folders(romsPath, report.Cloud);
             report.BiosStatus = BiosStatus.Check(localBios, BiosCatalog.All.Where(s => systems.Contains(s.System)));
             var corrupt = report.Bios?.SkippedCorrupt.ToList() ?? new List<CorruptFile>();
@@ -244,6 +257,7 @@ namespace Retroboat.Cloud
                 report.HasWarnings = true;
             }
 
+            Step(100, "Sincronização concluída");
             return report;
         }
 

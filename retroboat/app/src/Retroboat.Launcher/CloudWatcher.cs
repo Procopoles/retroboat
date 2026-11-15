@@ -164,7 +164,7 @@ namespace Retroboat.Launcher
             var report = Program.SyncWithCloud(install, settings);
             Program.LogReport(report);
 
-            int filled = (report.Media?.GamesFilled ?? 0) + (report.AutoMedia?.GamesFilled ?? 0) + (report.AutoInfo?.GamesFilled ?? 0);
+            int filled = (report.Media?.GamesFilled ?? 0) + (report.AutoImport?.GamesFilled ?? 0);
             if (filled == 0)
                 return;
 

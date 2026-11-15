@@ -171,6 +171,14 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   - Uma chave que para de funcionar é trocada sozinha: o Retroboat procura a nova no ES do repositório do RetroBat,
     testa na própria API e grava em `retroboatcredenciais.ini`, que o nosso ES lê na hora. Só avisa no ES quando troca
     uma chave ou quando uma integração para sem chave nova.
+- RB-038: PERSONALIZADO, a fonte de cada campo.
+  - Em OBTER MÍDIAS DE (e no PROCURAR POR MÍDIAS DESTE JOGO, no lugar do RETROBOAT), o PERSONALIZADO busca cada campo na
+    fonte escolhida em PRIORIDADE DAS FONTES: capa, telas, logo, fan art, vídeo, nome, descrição, gênero, estúdio, editora,
+    data e jogadores, entre ScreenScraper, HfsDB, TheGamesDB, libretro e Wikipédia. Vem com a melhor de cada um (capa e
+    vídeo do HfsDB, descrição do ScreenScraper, em português quando houver) e é o padrão.
+  - Os jogos novos da biblioteca chegam com tudo isso sozinhos, inclusive o vídeo, pelas mesmas prioridades.
+  - ATUALIZAR LISTAS DE JOGOS mostra a etapa, a porcentagem e uma barra animada enquanto sincroniza.
+  - PlayStation-X: o atraso do vídeo na lista de jogos ganhou 1.5s, 2.5s, 4s, 5s, 6s, 8s e 10s.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

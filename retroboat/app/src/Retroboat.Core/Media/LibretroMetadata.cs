@@ -31,7 +31,7 @@ namespace Retroboat.Media
         public IDictionary<string, GameInfo> Find(string system, IReadOnlyCollection<string> stems)
         {
             var found = new Dictionary<string, GameInfo>(StringComparer.OrdinalIgnoreCase);
-            if (!AutoMedia.Playlists.TryGetValue(system, out var playlist))
+            if (!LibretroThumbnails.Playlists.TryGetValue(system, out var playlist))
                 return found;
 
             var records = new Dictionary<string, Dictionary<string, string>>(StringComparer.Ordinal);

@@ -33,7 +33,7 @@ namespace Retroboat.Media
         /// <summary>Jogadores no formato do gamelist ("1", "1-4").</summary>
         public string Players { get; set; }
 
-        /// <summary>De qual fonte veio: cada campo tem a sua ordem de preferência (<see cref="AutoInfo"/>).</summary>
+        /// <summary>De qual fonte veio.</summary>
         public GameInfoOrigin Origin { get; set; }
     }
 

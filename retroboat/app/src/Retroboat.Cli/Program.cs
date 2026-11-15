@@ -126,8 +126,10 @@ Opções gerais:
                     case "emulators status": return EmulatorCommands.Status(new RetroBatInstall(options.Required("--retrobat")), options.Value("--emulator"), options.Value("--core"), Cancellation.Token);
                     case "emulators install": return EmulatorCommands.Install(new RetroBatInstall(options.Required("--retrobat")), options.Required("--emulator"), options.Value("--core"), Cancellation.Token);
                     case "emulators check": return EmulatorCommands.Check(new RetroBatInstall(options.Required("--retrobat")), options.Required("--emulator"), options.Value("--core"));
-                    case "media systems": return MediaCommands.Systems();
-                    case "media search": return MediaCommands.Search(new RetroBatInstall(options.Required("--retrobat")), options.Required("--system"), options.Required("--game"));
+                    case "media systems": return MediaCommands.Systems(options.Value("--retrobat") != null ? new RetroBatInstall(options.Value("--retrobat")) : null);
+                    case "media fields": return MediaCommands.Fields();
+                    case "media search": return MediaCommands.Search(new RetroBatInstall(options.Required("--retrobat")), options.Required("--system"),
+                        options.Value("--file") ?? options.Value("--game"), options.Value("--name"), options.Value("--profile"));
                     case "integrations status": return IntegrationCommands.Status(new RetroBatInstall(options.Required("--retrobat")));
                     case "integrations check": return IntegrationCommands.Check(new RetroBatInstall(options.Required("--retrobat")), options.Flag("--force"));
                     case "saves lock": return SavesLock(options, locked: true);
@@ -825,7 +827,7 @@ Opções gerais:
 
         sealed class Options
         {
-            static readonly HashSet<string> ValueOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "--cloud", "--to", "--retrobat", "--roms", "--samples", "--pc", "--keep", "--game", "--emulator", "--core", "--system" };
+            static readonly HashSet<string> ValueOptions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "--cloud", "--to", "--retrobat", "--roms", "--samples", "--pc", "--keep", "--game", "--emulator", "--core", "--system", "--file", "--name", "--profile" };
 
             readonly List<string> _positional = new List<string>();
             readonly Dictionary<string, string> _values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

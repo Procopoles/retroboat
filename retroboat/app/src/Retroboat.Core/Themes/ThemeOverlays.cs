@@ -17,7 +17,7 @@ namespace Retroboat.Themes
     public sealed class ThemeOverlay
     {
         public ThemeOverlay(string folder, string displayName, string signatureFile, string patch,
-                            string versionFile = null, string versionPattern = null, string madeForVersion = null)
+                            string versionFile = null, string versionPattern = null, string madeForVersion = null, params string[] extraFiles)
         {
             Folder = folder;
             DisplayName = displayName;
@@ -26,7 +26,17 @@ namespace Retroboat.Themes
             VersionFile = versionFile;
             VersionPattern = versionPattern;
             MadeForVersion = madeForVersion;
+            ExtraFiles = extraFiles ?? new string[0];
         }
+
+        /// <summary>
+        /// Outros arquivos da pasta retroboat do tema, que o status.xml inclui (ex.: RB-038, atraso-do-video.xml no
+        /// PlayStation-X). Vão junto com ele.
+        /// </summary>
+        public IReadOnlyList<string> ExtraFiles { get; }
+
+        /// <summary>Todos os arquivos da pasta retroboat do tema: o status.xml primeiro.</summary>
+        public IEnumerable<string> Files => new[] { ThemeOverlays.OverlayFile }.Concat(ExtraFiles);
 
         /// <summary>Pasta que o instalador de temas do ES cria: o nome do repositório do tema.</summary>
         public string Folder { get; }
@@ -43,15 +53,15 @@ namespace Retroboat.Themes
         public string VersionPattern { get; }
         public string MadeForVersion { get; }
 
-        internal string ResourceName => "Retroboat.Themes." + Folder + ".status.xml";
+        internal string ResourceName(string file) => "Retroboat.Themes." + Folder + "." + file;
 
-        /// <summary>O status.xml que vai junto com o app (recurso do Retroboat.Core.dll).</summary>
-        public byte[] ReadOverlay()
+        /// <summary>O status.xml (ou outro dos <see cref="Files"/>) que vai junto com o app (recurso do Retroboat.Core.dll).</summary>
+        public byte[] ReadOverlay(string file = ThemeOverlays.OverlayFile)
         {
-            using (var stream = typeof(ThemeOverlay).Assembly.GetManifestResourceStream(ResourceName))
+            using (var stream = typeof(ThemeOverlay).Assembly.GetManifestResourceStream(ResourceName(file)))
             {
                 if (stream == null)
-                    throw new InvalidOperationException("Recurso " + ResourceName + " não encontrado no Retroboat.Core.dll.");
+                    throw new InvalidOperationException("Recurso " + ResourceName(file) + " não encontrado no Retroboat.Core.dll.");
 
                 using (var memory = new MemoryStream())
                 {
@@ -105,7 +115,8 @@ namespace Retroboat.Themes
         {
             new ThemeOverlay("es-theme-carbon", "Carbon", @"views\detailed.xml", "RB-014"),
             new ThemeOverlay("es-theme-PlayStation-X", "PlayStation-X", @"_theme_views\ps4-style.xml", "RB-017",
-                             @"_theme_views\top-info.xml", @"<text>\s*v\.(\d+(?:\.\d+)*)\s*</text>", "43")
+                             @"_theme_views\top-info.xml", @"<text>\s*v\.(\d+(?:\.\d+)*)\s*</text>", "43",
+                             "atraso-do-video.xml") // RB-038: mais segundos no ATRASO DO VÍDEO NA LISTA DE JOGOS
         };
 
         public static ThemeOverlayResult Apply(RetroBatInstall install, string cliDirectory = null, bool dryRun = false)
@@ -159,14 +170,18 @@ namespace Retroboat.Themes
 
             var changes = new List<string>();
 
-            var overlayPath = Path.Combine(themeDir, OverlayFolder, OverlayFile);
-            var bundled = overlay.ReadOverlay();
-            var existed = File.Exists(overlayPath);
-            if (!existed || !SameText(File.ReadAllBytes(overlayPath), bundled))
+            // Os arquivos incluídos pelo status.xml vão antes dele: o tema nunca lê um include que ainda não chegou.
+            foreach (var file in overlay.Files.Reverse())
             {
-                if (!dryRun)
-                    SaveSync.WriteAtomically(overlayPath, bundled);
-                changes.Add(existed ? "status.xml atualizado" : "status.xml copiado");
+                var overlayPath = Path.Combine(themeDir, OverlayFolder, file);
+                var bundled = overlay.ReadOverlay(file);
+                var existed = File.Exists(overlayPath);
+                if (!existed || !SameText(File.ReadAllBytes(overlayPath), bundled))
+                {
+                    if (!dryRun)
+                        SaveSync.WriteAtomically(overlayPath, bundled);
+                    changes.Insert(0, file + (existed ? " atualizado" : " copiado"));
+                }
             }
 
             var original = File.ReadAllBytes(themeXml);

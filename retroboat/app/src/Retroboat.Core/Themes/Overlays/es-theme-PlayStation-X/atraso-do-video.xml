@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+Retroboat (RB-038): mais segundos na opção ATRASO DO VÍDEO NA LISTA DE JOGOS (subset video-gamelist-delay), além dos
+0s, 0.5s, 1s, 2s e 3s do tema. Incluído pelo status.xml; o lançador do Retroboat põe de volta se o tema for reinstalado.
+
+O tema usa a opção de dois jeitos: o valor na hora de ler os arquivos (${subset.video-gamelist-delay}, no atraso do vídeo
+do jogo em foco) e uma linha por valor no atraso do vídeo dentro do quadro da grade (showVideoAtDelay). Este arquivo é lido
+depois dos do tema, quando o valor já foi usado; por isso cada valor novo tem aqui as suas linhas, com ifSubset. O que vale
+para a detailed e a grid vale também para as visões montadas a partir delas (ps4Style, ps5Style, carousel, full-grid,
+single). As imagens não somem antes do vídeo (o tema só faz isso para 0s a 3s): o vídeo aparece por cima delas.
+-->
+<theme>
+  <formatVersion>7</formatVersion>
+
+  <!-- O primeiro é o padrão do tema (1s), repetido para continuar sendo o padrão. -->
+  <subset name="video-gamelist-delay" displayName="${theme.videoGamelistDelay}" appliesTo="detailed, grid, ps4Style, ps5Style, carousel, full-grid, single" ifSubset="game-video:window|background|inside|oversize|default">
+    <include name="1" displayName="1s" />
+    <include name="1.5" displayName="1.5s" />
+    <include name="2.5" displayName="2.5s" />
+    <include name="4" displayName="4s" />
+    <include name="5" displayName="5s" />
+    <include name="6" displayName="6s" />
+    <include name="8" displayName="8s" />
+    <include name="10" displayName="10s" />
+  </subset>
+
+  <!-- O vídeo do jogo em foco. -->
+  <view name="detailed, grid">
+    <video name="game-video" extra="true">
+      <delay ifSubset="video-gamelist-delay:1.5">1.5</delay>
+      <delay ifSubset="video-gamelist-delay:2.5">2.5</delay>
+      <delay ifSubset="video-gamelist-delay:4">4</delay>
+      <delay ifSubset="video-gamelist-delay:5">5</delay>
+      <delay ifSubset="video-gamelist-delay:6">6</delay>
+      <delay ifSubset="video-gamelist-delay:8">8</delay>
+      <delay ifSubset="video-gamelist-delay:10">10</delay>
+    </video>
+  </view>
+
+  <!-- O vídeo dentro do quadro do jogo, nas mesmas condições do tema (grid e ps4Style; a ps5Style também com janela). -->
+  <view name="grid">
+    <imagegrid name="gamegrid" ifSubset="game-video:inside|default">
+      <showVideoAtDelay ifSubset="video-gamelist-delay:1.5">1500</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:2.5">2500</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:4">4000</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:5">5000</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:6">6000</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:8">8000</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:10">10000</showVideoAtDelay>
+    </imagegrid>
+  </view>
+
+  <customView name="ps5Style" ifSubset="game-video:inside|default|window">
+    <imagegrid name="gamegrid">
+      <showVideoAtDelay ifSubset="video-gamelist-delay:1.5">1500</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:2.5">2500</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:4">4000</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:5">5000</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:6">6000</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:8">8000</showVideoAtDelay>
+      <showVideoAtDelay ifSubset="video-gamelist-delay:10">10000</showVideoAtDelay>
+    </imagegrid>
+  </customView>
+
+  <!-- A grid acima passa para as visões montadas a partir dela; nestas o tema nunca mostra vídeo no quadro, e continua assim. -->
+  <customView name="carousel, full-grid">
+    <imagegrid name="gamegrid" ifSubset="game-video:default">
+      <showVideoAtDelay>30000000</showVideoAtDelay>
+    </imagegrid>
+  </customView>
+
+  <customView name="single">
+    <imagegrid name="gamegrid">
+      <showVideoAtDelay>30000000</showVideoAtDelay>
+    </imagegrid>
+  </customView>
+</theme>

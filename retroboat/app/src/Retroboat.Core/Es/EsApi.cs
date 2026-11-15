@@ -180,6 +180,28 @@ namespace Retroboat.Es
             }
         }
 
+        /// <summary>
+        /// RB-038: o andamento do "Atualizar listas de jogos" (POST /retroboat/refresh) para a barra do ES. Prazo curto e sem
+        /// exceção. Falso também no ES oficial, que não tem a rota (404).
+        /// </summary>
+        public static bool PostRefreshProgress(string json)
+        {
+            try
+            {
+                using (var client = CreateClient(1500))
+                {
+                    client.Headers[HttpRequestHeader.ContentType] = "application/json; charset=utf-8";
+                    client.UploadString(BaseUrl + "/retroboat/refresh", "POST", json);
+                }
+
+                return true;
+            }
+            catch (WebException)
+            {
+                return false;
+            }
+        }
+
         static WebClient CreateClient(int timeoutMs = 0) => new TimedWebClient(timeoutMs) { Encoding = Encoding.UTF8 };
 
         /// <summary>O WebClient espera até 100 s; as chamadas feitas pelo serviço de downloads não podem.</summary>

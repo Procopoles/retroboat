@@ -344,14 +344,17 @@ namespace Retroboat.Launcher
                 return 0;
             }
 
+            // RB-038: o ES mostra a barra com o andamento enquanto espera este processo.
+            var progress = new EsRefreshProgress();
             try
             {
                 Log.Info("Atualizar listas de jogos no ES: sincronizando com a nuvem.");
+                progress.Report(1, "Preparando a biblioteca");
 
                 // Um sistema novo na nuvem precisa do retroboat-launch antes de o ES reler os sistemas.
                 ApplyLibrary(install, settings.RomsPath, CreateCommandWrapper(install, settings));
 
-                var report = SyncWithCloud(install, settings);
+                var report = SyncWithCloud(install, settings, progress: progress.Report);
                 LogReport(report);
 
                 // O ES está parado esperando o script: a notificação aparece quando ele terminar de reler as listas.
@@ -361,6 +364,10 @@ namespace Retroboat.Launcher
             catch (Exception ex)
             {
                 Log.Error("Falha ao sincronizar pelo Atualizar listas de jogos do ES", ex);
+            }
+            finally
+            {
+                progress.Finish("Recarregando a lista de jogos");
             }
 
             return 0;
@@ -373,15 +380,17 @@ namespace Retroboat.Launcher
         const string SyncMutexName = @"Local\RetroboatSync";
         static readonly TimeSpan SyncWait = TimeSpan.FromMinutes(2);
 
-        internal static StartupSyncReport SyncWithCloud(RetroBatInstall install, RetroboatSettings settings, string leadingMessage = null)
+        /// <param name="progress">Andamento (0 a 100) e etapa, para a barra do "Atualizar listas de jogos" do ES (RB-038).</param>
+        internal static StartupSyncReport SyncWithCloud(RetroBatInstall install, RetroboatSettings settings, string leadingMessage = null, Action<int, string> progress = null)
         {
             StartupSyncReport report = null;
+            progress?.Invoke(2, "Esperando a vez de sincronizar");
             WithSyncLock(() =>
             {
                 // Com o Drive conectando com o ES aberto (CloudWatcher), a biblioteca pode ser adotada só agora.
                 ChooseLibrary(install, settings, out var adopted);
                 var media = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
-                report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media, libraryId: settings.CloudLibrary);
+                report = StartupSync.Run(install, settings.CloudPath, settings.RomsPath, media, libraryId: settings.CloudLibrary, progress: progress);
                 foreach (var message in new[] { adopted, leadingMessage }.Where(m => m != null))
                     report.Messages.Insert(0, message);
             });
@@ -493,18 +502,11 @@ namespace Retroboat.Launcher
                 foreach (var problem in report.PartialDownloads.Errors) Log.Warn("Downloads pela metade: " + problem);
             }
 
-            if (report.AutoMedia != null)
+            if (report.AutoImport != null)
             {
-                Log.Info(string.Format("Capas automáticas (libretro): {0} jogo(s), {1} imagem(ns) baixada(s)", report.AutoMedia.GamesFilled, report.AutoMedia.FilesDownloaded));
-                foreach (var game in report.AutoMedia.NotFound) Log.Info("Capa automática não encontrada: " + game);
-                foreach (var problem in report.AutoMedia.Errors) Log.Warn("Capas automáticas: " + problem);
-            }
-
-            if (report.AutoInfo != null)
-            {
-                Log.Info(string.Format("Informações automáticas (libretro, Wikidata, Wikipédia): {0} jogo(s)", report.AutoInfo.GamesFilled));
-                foreach (var game in report.AutoInfo.NotFound) Log.Info("Informações automáticas não encontradas: " + game);
-                foreach (var problem in report.AutoInfo.Errors) Log.Warn("Informações automáticas: " + problem);
+                Log.Info(string.Format("Mídias automáticas (PERSONALIZADO): {0} jogo(s), {1} arquivo(s) baixado(s)", report.AutoImport.GamesFilled, report.AutoImport.FilesDownloaded));
+                foreach (var game in report.AutoImport.NotFound) Log.Info("Mídias automáticas não encontradas: " + game);
+                foreach (var problem in report.AutoImport.Errors) Log.Warn("Mídias automáticas: " + problem);
             }
 
             if (report.Media != null)

@@ -6,6 +6,7 @@ using System.Xml.Linq;
 using Retroboat.Cloud;
 using Retroboat.Library;
 using Retroboat.Media;
+using Retroboat.Media.Sources;
 using Xunit;
 
 namespace Retroboat.Tests
@@ -20,36 +21,9 @@ namespace Retroboat.Tests
         const string Stem = "God Hand (USA)";
         const string Image = "~/.emulationstation/media/ps2/images/God Hand (USA)-image.png";
 
-        sealed class CountingThumbnails : IThumbnailSource
-        {
-            readonly string[] _names;
-            public int ListCalls;
-
-            public CountingThumbnails(params string[] names) { _names = names; }
-
-            public IReadOnlyCollection<string> List(string playlist, ThumbnailKind kind)
-            {
-                ListCalls++;
-                return kind == ThumbnailKind.Boxart ? _names : new string[0];
-            }
-
-            public byte[] Download(string playlist, ThumbnailKind kind, string name) => new byte[] { 1, 2, 3, 4 };
-            public string UrlOf(string playlist, ThumbnailKind kind, string name) => null;
-        }
-
-        sealed class CountingInfo : IGameInfoSource
-        {
-            readonly Dictionary<string, GameInfo> _games = new Dictionary<string, GameInfo>();
-            public int Calls;
-
-            public CountingInfo Add(string stem, GameInfo info) { _games[stem] = info; return this; }
-
-            public IDictionary<string, GameInfo> Find(string system, IReadOnlyCollection<string> stems)
-            {
-                Calls++;
-                return stems.Where(_games.ContainsKey).ToDictionary(s => s, s => _games[s]);
-            }
-        }
+        /// <summary>A importação automática deste PC (PERSONALIZADO) com o registro da nuvem.</summary>
+        static AutoImportResult Import(RetroBatInstall install, TempDir cloud, string pc, FakeMediaSource source) =>
+            new AutoImport(install, install.DefaultRomsPath, MediaTest.Search(source), MediaImportLog.InCloud(cloud.Path, pc), new FakeMediaHttp()).Apply();
 
         static RetroBatInstall Pc(TempDir pcs, string name, TempDir cloud)
         {
@@ -256,22 +230,16 @@ namespace Retroboat.Tests
                 cloud.WriteFile(@"jogos\ps2\Jogo Caseiro.iso", TempDir.RandomBytes(1000));
                 var a = Pc(pcs, "A", cloud);
                 var b = Pc(pcs, "B", cloud);
-                var info = new CountingInfo().Add(Stem, new GameInfo { Description = "Briga.", Origin = GameInfoOrigin.Libretro });
-                var images = new CountingThumbnails(Stem);
+                var source = new FakeMediaSource(MediaSourceIds.Libretro).Text(Stem, MediaFields.Description, "Briga.").Media(Stem, MediaFields.Cover);
 
-                new AutoInfo(a, new[] { info }, MediaImportLog.InCloud(cloud.Path, "PC-A")).Apply();
-                new AutoMedia(a, a.DefaultRomsPath, images, MediaImportLog.InCloud(cloud.Path, "PC-A")).Apply();
-                Assert.Equal(1, info.Calls);
-                Assert.Equal(3, images.ListCalls);
+                Import(a, cloud, "PC-A", source);
+                Assert.Equal(2, source.Calls); // God Hand e o jogo caseiro
 
                 // B não tem nada ainda (nem sincronizou a mídia): mesmo assim, não vai às fontes.
-                var infoB = new AutoInfo(b, new[] { info }, MediaImportLog.InCloud(cloud.Path, "PC-B")).Apply();
-                var imagesB = new AutoMedia(b, b.DefaultRomsPath, images, MediaImportLog.InCloud(cloud.Path, "PC-B")).Apply();
+                var resultB = Import(b, cloud, "PC-B", source);
 
-                Assert.Equal(1, info.Calls);
-                Assert.Equal(3, images.ListCalls);
-                Assert.Empty(infoB.NotFound);
-                Assert.Empty(imagesB.NotFound);
+                Assert.Equal(2, source.Calls);
+                Assert.Empty(resultB.NotFound);
                 Assert.True(File.Exists(cloud.Combine(@"midia\importacao\PC-A.txt")));
             }
         }
@@ -284,14 +252,14 @@ namespace Retroboat.Tests
             {
                 cloud.WriteFile(@"jogos\ps2\Jogo Caseiro.iso", TempDir.RandomBytes(1000));
                 var a = Pc(pcs, "A", cloud);
-                var images = new CountingThumbnails(Stem);
+                var source = new FakeMediaSource(MediaSourceIds.Libretro).Media(Stem, MediaFields.Cover);
 
-                var first = new AutoMedia(a, a.DefaultRomsPath, images, MediaImportLog.InCloud(cloud.Path, "PC-A")).Apply();
-                var second = new AutoMedia(a, a.DefaultRomsPath, images, MediaImportLog.InCloud(cloud.Path, "PC-A")).Apply();
+                var first = Import(a, cloud, "PC-A", source);
+                var second = Import(a, cloud, "PC-A", source);
 
                 Assert.Equal(new[] { "ps2/Jogo Caseiro.iso" }, first.NotFound);
                 Assert.Empty(second.NotFound);
-                Assert.Equal(3, images.ListCalls);
+                Assert.Equal(1, source.Calls);
             }
         }
 
@@ -308,14 +276,11 @@ namespace Retroboat.Tests
                     g.SetElementValue("genre", "Escolhido pela pessoa");
                     g.Add(new XElement("scrap", new XAttribute("name", "Retroboat"), new XAttribute("date", "20261114T154500")));
                 });
-                var info = new CountingInfo().Add(Stem, new GameInfo { Genre = "Ação", Origin = GameInfoOrigin.Wikidata });
-                var images = new CountingThumbnails(Stem);
+                var source = new FakeMediaSource(MediaSourceIds.Wikipedia).Text(Stem, MediaFields.Genre, "Ação");
 
-                new AutoInfo(a, new[] { info }, MediaImportLog.InCloud(cloud.Path, "PC-A")).Apply();
-                new AutoMedia(a, a.DefaultRomsPath, images, MediaImportLog.InCloud(cloud.Path, "PC-A")).Apply();
+                Import(a, cloud, "PC-A", source);
 
-                Assert.Equal(0, info.Calls);
-                Assert.Equal(0, images.ListCalls);
+                Assert.Equal(0, source.Calls);
                 Assert.Equal("Escolhido pela pessoa", (string)Find(a).Element("genre"));
             }
         }
@@ -331,11 +296,12 @@ namespace Retroboat.Tests
                 var legacy = MediaImportLog.LegacyInfoFile(a);
                 Directory.CreateDirectory(Path.GetDirectoryName(legacy));
                 File.WriteAllText(legacy, "ps2/" + Game + "\t2026-11-01T10:00:00Z\n");
-                var info = new CountingInfo();
+                var source = new FakeMediaSource(MediaSourceIds.Libretro);
 
-                new AutoInfo(a, new[] { info }, MediaImportLog.InCloud(cloud.Path, "PC-A")).Apply();
+                Import(a, cloud, "PC-A", source);
 
-                Assert.Equal(0, info.Calls);
+                // As informações já tinham sido buscadas: só as mídias vão às fontes.
+                Assert.All(source.Wanted, wanted => Assert.All(wanted, field => Assert.True(MediaFields.Find(field).IsMedia)));
                 Assert.False(File.Exists(legacy));
                 Assert.Contains("informacoes\tps2/" + Game, File.ReadAllText(cloud.Combine(@"midia\importacao\PC-A.txt")));
             }
@@ -349,13 +315,12 @@ namespace Retroboat.Tests
             {
                 cloud.WriteFile(@"jogos\ps2\" + Game, TempDir.RandomBytes(1000));
                 var a = Pc(pcs, "A", cloud);
-                var images = new CountingThumbnails(Stem);
-                var info = new CountingInfo();
+                var source = new FakeMediaSource(MediaSourceIds.Libretro).Media(Stem, MediaFields.Cover);
 
-                var report = StartupSync.Run(a, pcs.Combine("drive-fechado"), a.DefaultRomsPath, new CloudMediaOptions { Automatic = true }, images, new[] { info });
+                var report = StartupSync.Run(a, pcs.Combine("drive-fechado"), a.DefaultRomsPath, new CloudMediaOptions { Automatic = true }, MediaTest.Search(source));
 
-                Assert.Null(report.AutoMedia);
-                Assert.Equal(0, images.ListCalls + info.Calls);
+                Assert.Null(report.AutoImport);
+                Assert.Equal(0, source.Calls);
             }
         }
 

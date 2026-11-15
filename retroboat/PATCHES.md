@@ -1433,3 +1433,84 @@ o histórico.
     `<scrap name="Retroboat" .../>`.
 - **Não testado:** o build do usuário com o Drive real (dois PCs, uma busca num e a chegada no outro); o aviso no ES
   quando a troca acontece com o `Retroboat.exe` em segundo plano.
+
+## RB-038 — PERSONALIZADO: a fonte de cada campo, também nos jogos novos; barra do ATUALIZAR LISTAS DE JOGOS; mais segundos no atraso do vídeo
+
+- **Onde:**
+  - App, mídia:
+    - `Retroboat.Core/Media/Custom/` (novo): `MediaFields` (os 13 campos e o que preenchem no gamelist), `MediaProfile`
+      (o padrão de cada campo e o perfil do `es_settings.cfg`, chave `RetroboatMediaProfile`), `CustomMediaSearch` (a
+      busca PERSONALIZADO);
+    - `Retroboat.Core/Media/Sources/` (novo): `ScreenScraperSource`, `HfsDbSource`, `TheGamesDbSource` (portados dos
+      scrapers do ES, com as chaves do `credenciais.ini`), `LibretroMediaSource` e `WikipediaMediaSource` (as fontes de
+      antes), `MediaSystems.xml` (sistema do ES → plataforma em cada fonte), `MediaHttp`, `MediaNames`;
+    - `Retroboat.Core/Media/AutoImport.cs` (novo) no lugar de `AutoMedia` e `AutoInfo` (apagados), e `MediaSearch`
+      (RB-036, apagado) no lugar do `CustomMediaSearch`; `MediaRule` fica só com a parte do libretro; a tabela de
+      sistemas do libretro foi para `LibretroThumbnails.Playlists`;
+    - `StartupSync.Run` usa o `AutoImport` e informa o andamento (0 a 100 e a etapa);
+    - `retroboat-cli media search` (`--file`/`--name`/`--profile`), `media systems [--retrobat]` e `media fields` (novo).
+  - App, andamento: `Retroboat.Core/Es/EsRefreshProgress.cs` (novo) e `EsApi.PostRefreshProgress`; o `Retroboat.exe
+    --refresh` manda o andamento ao ES.
+  - App, tema: `ThemeOverlay` copia também os arquivos que o `status.xml` inclui (`ExtraFiles`);
+    `Themes/Overlays/es-theme-PlayStation-X/atraso-do-video.xml` (novo).
+  - Fork do ES (commit `0867f524a` na branch `rb038-personalizado`, em cima do `master` `7c0f3372e`):
+    `retroboat/RetroboatScraper.*` (PERSONALIZADO), `RetroboatMediaProfileGui.*` e `RetroboatRefresh.*` (novos), a rota
+    `POST /retroboat/refresh` em `RetroboatHttp.h`; no upstream, `GuiMenu.cpp` (uma linha), `GuiScraperStart.cpp` (a linha
+    de prioridades, o recarregar ao entrar ou sair do PERSONALIZADO e o grupo vazio), `HttpServerThread.cpp` (`/isIdle`),
+    `MetaData.cpp` ("Personalizado" no `<scrap>`), `Scraper.cpp` (comentário).
+  - Clone do PlayStation-X (commit `e52aad5` no `master`): `retroboat/atraso-do-video.xml` e o include no
+    `retroboat/status.xml`.
+- **Pedido (15/11/2026):** em OBTER MÍDIAS DE, uma opção PERSONALIZADO, já com a melhor fonte de cada campo, em que a
+  pessoa define a prioridade de cada um (ex.: capa e vídeo do HfsDB, descrição do ScreenScraper); no PROCURAR MÍDIAS de
+  um jogo, o PERSONALIZADO no lugar da opção RETROBOAT; o PERSONALIZADO como padrão para os jogos novos. Barra animada com
+  porcentagem no ATUALIZAR LISTAS DE JOGOS. Mais opções de segundos no atraso do vídeo da lista de jogos.
+- **Como funciona:**
+  - cada campo tem uma lista de fontes (o padrão em `MediaProfile.Preset`): capa HfsDB → ScreenScraper → libretro →
+    TheGamesDB; tela do jogo e tela de título ScreenScraper → libretro → HfsDB → TheGamesDB; logo ScreenScraper → HfsDB →
+    TheGamesDB; fan art ScreenScraper → TheGamesDB → HfsDB; vídeo HfsDB → ScreenScraper; nome, gênero e estúdio
+    Wikipédia primeiro; editora, data e jogadores libretro primeiro; descrição ScreenScraper → Wikipédia → HfsDB →
+    TheGamesDB → libretro. A pessoa escolhe a primeira de cada campo (ou NÃO BUSCAR); o resto segue o padrão. Só o que
+    mudou vai para a chave (`thumbnail=screenscraper;video=none`), que viaja com as opções do ES entre os PCs;
+  - a descrição tem uma regra a mais: vale a primeira, na ordem, em português e com mais que uma frase; sem nenhuma, a
+    primeira que houver. Sem tela do jogo, a capa serve de imagem (como antes);
+  - as fontes são consultadas em rodadas paralelas e só enquanto ainda podem decidir algum campo: com o padrão, HfsDB,
+    ScreenScraper, libretro e Wikipédia na primeira; o TheGamesDB (limite por mês) só se faltar algo, e a segunda
+    consulta dele (telas, logo, fan art) só quando um desses campos é esperado dele. Uma fonte que falha não esconde as
+    outras;
+  - região: a capa, o nome e a data da edição do arquivo vêm antes ("(USA)" → US), e depois Brasil, mundo, EUA, Europa e
+    Japão;
+  - jogos novos (`AutoImport`): cada jogo ainda não buscado (o mesmo `MediaImportLog` da RB-037, uma vez por jogo de
+    qualquer PC) recebe pelo PERSONALIZADO os textos (se as informações não foram buscadas) e as mídias que faltam no
+    PC (se as imagens não foram), baixadas para `.emulationstation\media\<sistema>\images|videos` como
+    `<jogo>-thumb.jpg`, `-image`, `-titleshot`, `-marquee`, `-fanart`, `-video.mp4`. Jogos já buscados pela regra antiga,
+    ou que a pessoa procurou no ES, ficam como estão. Com uma fonte fora do ar, o jogo é buscado de novo na próxima vez;
+  - no ES, a busca "Retroboat" virou PERSONALIZADO: primeira da lista em OBTER MÍDIAS DE e no PROCURAR POR MÍDIAS DESTE
+    JOGO. Na abertura, vira o padrão uma vez (o ES tinha ScreenScraper como padrão mesmo sem escolha), e sempre no lugar
+    do "Retroboat" de antes ou de um scraper que não funciona; quem escolher outro depois fica com ele. Com ele escolhido,
+    a linha PRIORIDADE DAS FONTES aparece embaixo e na aba OPÇÕES (as fontes de imagem do ES somem: não valem para ele);
+  - ATUALIZAR LISTAS DE JOGOS: o evento roda fora da tela; uma janela (painel neutral-4, borda neutral-8) mostra a etapa
+    ("Buscando mídias (2 de 5): God Hand (USA)"), a porcentagem e uma barra no degradê do botão BAIXAR com um brilho que
+    passa. Antes do primeiro aviso, um trecho vai e volta. O `--refresh` manda no máximo um aviso a cada 150 ms (fora a
+    troca de etapa); a porcentagem nunca volta. No fim, 100% e as listas são relidas como antes;
+  - PlayStation-X: o `atraso-do-video.xml` acrescenta 1.5s, 2.5s, 4s, 5s, 6s, 8s e 10s à opção do tema. O primeiro item é o
+    1s do tema, repetido para continuar como padrão. O tema usa o valor ao ler os arquivos (`${subset...}`), antes deste;
+    por isso cada valor novo tem as suas linhas com `ifSubset`. A imagem fica até o vídeo entrar por cima (o tema só a
+    apaga antes para 0s a 3s).
+- **Classificação:** C0 no app. C1 no fork (5 arquivos do upstream, poucas linhas, todas marcadas `RETROBOAT RB-038`).
+  C0 no tema (arquivo nosso, incluído pelo nosso `status.xml`).
+- **Risco semântico:** o upstream mudar `GuiScraperStart::loadScrapPage` ou `GuiMenu::updateGameLists`; um tema
+  PlayStation-X novo que use o atraso em outra visão. As APIs do ScreenScraper, HfsDB e TheGamesDB mudarem o formato
+  (o scraper do ES quebraria junto).
+- **Upstreamável:** não.
+- **Testado em 15/11/2026:**
+  - 420 testes (os da `AutoMedia`/`AutoInfo` portados para o `AutoImport`, e novos para o perfil, a busca, as três
+    fontes com respostas falsas e o andamento);
+  - APIs de verdade (pasta isolada com uma cópia do `credenciais.ini`): Shadow of the Colossus, Super Mario World,
+    Crash Bandicoot (nome digitado) e Sonic, cada campo da fonte do padrão, em cerca de 9 s;
+  - ES isolado (PlayStation-X): migração de "Retroboat" para PERSONALIZADO; OBTER MÍDIAS DE e a tela PRIORIDADE DAS
+    FONTES, a troca gravando `thumbnail=screenscraper`; a linha some com outra fonte e volta; PROCURAR POR MÍDIAS DESTE
+    JOGO com PERSONALIZADO no topo, e aceitar baixou capa, telas, logo, fan art e o vídeo; ATUALIZAR LISTAS DE JOGOS com 3
+    e depois 1 jogo novo na nuvem falsa: a barra com a etapa e a porcentagem, e os jogos chegaram com tudo; a opção do
+    tema com os segundos novos, e com 5s o vídeo só entrou depois de 5 s.
+- **Não testado:** o build do usuário com o Drive real; muitos jogos novos de uma vez (cada um leva alguns segundos, e a
+  abertura espera a importação); o limite de consultas do ScreenScraper sem conta.

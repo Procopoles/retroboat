@@ -17,7 +17,7 @@ namespace Retroboat.Media
         /// <summary>Manuais e revistas em PDF também podem ser grandes.</summary>
         public bool Manuals { get; set; }
 
-        /// <summary>Buscar capas (<see cref="AutoMedia"/>) e informações (<see cref="AutoInfo"/>) automáticas para jogos sem elas.</summary>
+        /// <summary>Buscar mídias e informações automáticas para os jogos novos (<see cref="AutoImport"/>).</summary>
         public bool Automatic { get; set; }
 
         public bool Allows(MediaKind kind) => kind == MediaKind.Image || (kind == MediaKind.Video && Videos) || (kind == MediaKind.Manual && Manuals);

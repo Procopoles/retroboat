@@ -58,6 +58,38 @@ namespace Retroboat.Media
 
         public static string Folder(ThumbnailKind kind) => kind == ThumbnailKind.Boxart ? "Named_Boxarts" : kind == ThumbnailKind.Snap ? "Named_Snaps" : "Named_Titles";
 
+        /// <summary>Sistema do ES -> pasta do sistema no libretro (thumbnails e base de dados).</summary>
+        public static readonly IReadOnlyDictionary<string, string> Playlists = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["ps2"] = "Sony - PlayStation 2",
+            ["psx"] = "Sony - PlayStation",
+            ["psp"] = "Sony - PlayStation Portable",
+            ["ps3"] = "Sony - PlayStation 3",
+            ["snes"] = "Nintendo - Super Nintendo Entertainment System",
+            ["nes"] = "Nintendo - Nintendo Entertainment System",
+            ["n64"] = "Nintendo - Nintendo 64",
+            ["gb"] = "Nintendo - Game Boy",
+            ["gbc"] = "Nintendo - Game Boy Color",
+            ["gba"] = "Nintendo - Game Boy Advance",
+            ["nds"] = "Nintendo - Nintendo DS",
+            ["3ds"] = "Nintendo - Nintendo 3DS",
+            ["gamecube"] = "Nintendo - GameCube",
+            ["wii"] = "Nintendo - Wii",
+            ["virtualboy"] = "Nintendo - Virtual Boy",
+            ["megadrive"] = "Sega - Mega Drive - Genesis",
+            ["genesis"] = "Sega - Mega Drive - Genesis",
+            ["mastersystem"] = "Sega - Master System - Mark III",
+            ["gamegear"] = "Sega - Game Gear",
+            ["saturn"] = "Sega - Saturn",
+            ["dreamcast"] = "Sega - Dreamcast",
+            ["segacd"] = "Sega - Mega-CD - Sega CD",
+            ["sega32x"] = "Sega - 32X",
+            ["pcengine"] = "NEC - PC Engine - TurboGrafx 16",
+            ["atari2600"] = "Atari - 2600",
+            ["xbox"] = "Microsoft - Xbox",
+            ["ngpc"] = "SNK - Neo Geo Pocket Color"
+        };
+
         public string UrlOf(string playlist, ThumbnailKind kind, string name) => Url(playlist, kind, name);
 
         public IReadOnlyCollection<string> List(string playlist, ThumbnailKind kind)

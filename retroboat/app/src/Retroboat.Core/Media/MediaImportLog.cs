@@ -11,10 +11,10 @@ namespace Retroboat.Media
     /// <summary>O que a importação automática busca de um jogo nas fontes públicas.</summary>
     public enum MediaImportKind
     {
-        /// <summary>Capa, tela e título do libretro (<see cref="AutoMedia"/>).</summary>
+        /// <summary>Capa, telas, logo, fan art e vídeo (<see cref="AutoImport"/>).</summary>
         Images,
 
-        /// <summary>Nome, descrição, gênero, datas e estúdios (<see cref="AutoInfo"/>).</summary>
+        /// <summary>Nome, descrição, gênero, datas e estúdios (<see cref="AutoImport"/>).</summary>
         Info
     }
 

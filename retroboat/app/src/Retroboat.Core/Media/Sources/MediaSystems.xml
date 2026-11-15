@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  RB-038: sistema do ES → id da plataforma em cada fonte do PERSONALIZADO. Os ids são os mesmos que o scraper do nosso ES
+  usa (es-app/src/scrapers: ScreenScraper.cpp, HfsDBScraper.cpp, GamesDBJSONScraper.cpp). Vários ids, separados por vírgula,
+  quando a fonte divide o sistema (TheGamesDB: Genesis e Mega Drive). Sistema que falta aqui: a fonte não é consultada.
+-->
+<systems>
+  <system name="ps2" screenscraper="58" hfsdb="83494" thegamesdb="11" />
+  <system name="psx" screenscraper="57" hfsdb="82937" thegamesdb="10" />
+  <system name="psp" screenscraper="61" hfsdb="91845" thegamesdb="13" />
+  <system name="ps3" screenscraper="59" hfsdb="91841" thegamesdb="12" />
+  <system name="psvita" screenscraper="62" hfsdb="91844" thegamesdb="39" />
+  <system name="snes" screenscraper="4" hfsdb="82351" thegamesdb="6" />
+  <system name="nes" screenscraper="3" hfsdb="36012" thegamesdb="7" />
+  <system name="fds" screenscraper="106" thegamesdb="4936" />
+  <system name="n64" screenscraper="14" hfsdb="32765" thegamesdb="3" />
+  <system name="gb" screenscraper="9" hfsdb="36022" thegamesdb="4" />
+  <system name="gbc" screenscraper="10" hfsdb="89235" thegamesdb="41" />
+  <system name="gba" screenscraper="12" hfsdb="89234" thegamesdb="5" />
+  <system name="nds" screenscraper="15" hfsdb="98132" thegamesdb="8" />
+  <system name="3ds" screenscraper="17" hfsdb="148845" thegamesdb="4912" />
+  <system name="gamecube" screenscraper="13" hfsdb="82825" thegamesdb="2" />
+  <system name="wii" screenscraper="16" hfsdb="89530" thegamesdb="9" />
+  <system name="wiiu" screenscraper="18" hfsdb="88837" thegamesdb="38" />
+  <system name="switch" screenscraper="225" hfsdb="83485" thegamesdb="4971" />
+  <system name="virtualboy" screenscraper="11" hfsdb="36396" thegamesdb="4918" />
+  <system name="megadrive" screenscraper="1" hfsdb="33149" thegamesdb="18,36" />
+  <system name="genesis" screenscraper="1" hfsdb="33149" thegamesdb="18,36" />
+  <system name="mastersystem" screenscraper="2" hfsdb="82166" thegamesdb="35" />
+  <system name="gamegear" screenscraper="21" hfsdb="33807" thegamesdb="20" />
+  <system name="saturn" screenscraper="22" hfsdb="82924" thegamesdb="17" />
+  <system name="dreamcast" screenscraper="23" hfsdb="83702" thegamesdb="16" />
+  <system name="segacd" screenscraper="20" hfsdb="83493" thegamesdb="21" />
+  <system name="sega32x" screenscraper="19" hfsdb="33731" thegamesdb="33" />
+  <system name="sg1000" screenscraper="109" hfsdb="75225" thegamesdb="4949" />
+  <system name="pcengine" screenscraper="31" hfsdb="30273" thegamesdb="34" />
+  <system name="atari2600" screenscraper="26" hfsdb="84224" thegamesdb="22" />
+  <system name="xbox" screenscraper="32" hfsdb="144719" thegamesdb="14" />
+  <system name="xbox360" screenscraper="33" hfsdb="145692" thegamesdb="15" />
+  <system name="ngp" screenscraper="25" hfsdb="33980" thegamesdb="4922" />
+  <system name="ngpc" screenscraper="82" hfsdb="33980" thegamesdb="4923" />
+</systems>
