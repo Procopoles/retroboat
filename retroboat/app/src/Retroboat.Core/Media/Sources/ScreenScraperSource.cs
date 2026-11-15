@@ -23,11 +23,25 @@ namespace Retroboat.Media.Sources
         static readonly Dictionary<string, string[]> MediaTypes = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
             [MediaFields.Cover] = new[] { "box-2D" },
+            [MediaFields.BoxBack] = new[] { "box-2D-back" },
             [MediaFields.Screenshot] = new[] { "ss" },
             [MediaFields.TitleScreen] = new[] { "sstitle" },
             [MediaFields.Logo] = new[] { "wheel-hd", "wheel", "wheel-steel", "wheel-carbon", "screenmarqueesmall", "screenmarquee" },
             [MediaFields.FanArt] = new[] { "fanart" },
-            [MediaFields.Video] = new[] { "video-normalized", "video" }
+            [MediaFields.Cartridge] = new[] { "support-2D" },
+            [MediaFields.Video] = new[] { "video-normalized", "video" },
+            [MediaFields.Manual] = new[] { "manuel" },
+            [MediaFields.Map] = new[] { "maps" },
+            [MediaFields.Bezel] = new[] { "bezel-16-9" }
+        };
+
+        /// <summary>
+        /// Imagens que já vêm no tamanho da tela (como o scraper do ES pede). Fan art, mapa e moldura vêm inteiros: são fundo de
+        /// tela ou ocupam a tela toda; vídeo e manual não são imagem.
+        /// </summary>
+        static readonly HashSet<string> Resized = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            MediaFields.Cover, MediaFields.BoxBack, MediaFields.Screenshot, MediaFields.TitleScreen, MediaFields.Logo, MediaFields.Cartridge
         };
 
         readonly IMediaHttp _http;
@@ -126,6 +140,8 @@ namespace Retroboat.Media.Sources
             candidate.DescriptionInPortuguese = portuguese != null;
 
             candidate.SetText(MediaFields.Genre, Genre(game.Element("genres")));
+            candidate.SetText(MediaFields.Family, Family(game.Element("familles")));
+            candidate.SetText(MediaFields.Rating, Rating(game.Element("note")?.Value));
             candidate.SetText(MediaFields.ReleaseDate, MediaNames.Date(ByRegion(game.Element("dates")?.Elements("date") ?? new XElement[0])?.Value));
             candidate.SetText(MediaFields.Developer, Clean(game.Element("developpeur")?.Value));
             candidate.SetText(MediaFields.Publisher, Clean(game.Element("editeur")?.Value));
@@ -139,7 +155,7 @@ namespace Retroboat.Media.Sources
                     continue;
 
                 var url = media.Value.Trim().Replace(" ", "%20").Replace("#screenscraperserveur#", "https://www.screenscraper.fr/");
-                if (field.Key != MediaFields.Video)
+                if (Resized.Contains(field.Key))
                     url += "&maxwidth=1000&maxheight=1000"; // como o ES faz: imagem já no tamanho da tela, sem baixar o original
                 candidate.SetMedia(field.Key, url, (string)media.Attribute("format"));
             }
@@ -187,6 +203,25 @@ namespace Retroboat.Media.Sources
             }
 
             return null;
+        }
+
+        /// <summary>A série principal ("Super Mario"), em português se houver.</summary>
+        static string Family(XElement families)
+        {
+            var all = families?.Elements("famille").Where(f => f.Value.Trim().Length > 0).ToList() ?? new List<XElement>();
+            var main = all.Where(f => (string)f.Attribute("principale") == "1").ToList();
+            var pick = main.FirstOrDefault(f => (string)f.Attribute("langue") == "pt") ?? main.FirstOrDefault(f => (string)f.Attribute("langue") == "en") ??
+                       main.FirstOrDefault() ?? all.FirstOrDefault();
+            return pick?.Value.Trim();
+        }
+
+        /// <summary>A nota do ScreenScraper (0 a 20) no formato do gamelist (0 a 1, como o scraper do ES grava).</summary>
+        internal static string Rating(string note)
+        {
+            if (!double.TryParse((note ?? "").Trim(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value) || value <= 0)
+                return null;
+
+            return Math.Min(1.0, value / 20.0).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
         }
 
         static string Clean(string text) => string.IsNullOrWhiteSpace(text) ? null : text.Replace("&nbsp;", " ").Trim();

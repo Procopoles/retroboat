@@ -285,8 +285,8 @@ namespace Retroboat.Media
         /// <returns>O arquivo no PC, ou nulo se a fonte não tinha mais o arquivo.</returns>
         string Download(string systemName, string stem, MediaField field, MediaUrl media, AutoImportResult result)
         {
-            var kind = field.Kind == MediaFieldKind.Video ? MediaKind.Video : MediaKind.Image;
-            var extension = media.Extension ?? (kind == MediaKind.Video ? ".mp4" : ".png");
+            var kind = field.Kind == MediaFieldKind.Video ? MediaKind.Video : field.Kind == MediaFieldKind.Document ? MediaKind.Manual : MediaKind.Image;
+            var extension = media.Extension ?? (kind == MediaKind.Video ? ".mp4" : kind == MediaKind.Manual ? ".pdf" : ".png");
             var folder = Path.Combine(GameMedia.LocalMediaRoot(_install, systemName), GameMedia.LocalFolder(kind));
             var file = Path.Combine(folder, stem + "-" + field.Suffix + extension);
             if (File.Exists(file) && new FileInfo(file).Length > 0)

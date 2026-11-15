@@ -173,8 +173,9 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
     uma chave ou quando uma integração para sem chave nova.
 - RB-038: PERSONALIZADO, a fonte de cada campo.
   - Em OBTER MÍDIAS DE (e no PROCURAR POR MÍDIAS DESTE JOGO, no lugar do RETROBOAT), o PERSONALIZADO busca cada campo na
-    fonte escolhida em PRIORIDADE DAS FONTES: capa, telas, logo, fan art, vídeo, nome, descrição, gênero, estúdio, editora,
-    data e jogadores, entre ScreenScraper, HfsDB, TheGamesDB, libretro e Wikipédia. Vem com a melhor de cada um (capa e
+    fonte escolhida em PRIORIDADE DAS FONTES: capa, caixa traseira, telas, logo, fan art, disco ou cartucho, vídeo, manual,
+    mapa, moldura (desligada no padrão), nome, descrição, avaliação, gênero, série, estúdio, editora, data e jogadores, entre
+    ScreenScraper, HfsDB, TheGamesDB, libretro e Wikipédia. Vem com a melhor de cada um (capa e
     vídeo do HfsDB, descrição do ScreenScraper, em português quando houver) e é o padrão.
   - Os jogos novos da biblioteca chegam com tudo isso sozinhos, inclusive o vídeo, pelas mesmas prioridades.
   - ATUALIZAR LISTAS DE JOGOS mostra a etapa, a porcentagem e uma barra animada enquanto sincroniza.

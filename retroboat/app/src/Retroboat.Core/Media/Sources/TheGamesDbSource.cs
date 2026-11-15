@@ -66,6 +66,11 @@ namespace Retroboat.Media.Sources
             if (front != null)
                 candidate.SetMedia(MediaFields.Cover, BaseUrl(Object(boxart, "base_url")) + Text(front, "filename"));
 
+            // A caixa traseira vem na mesma resposta da capa: não gasta consulta.
+            var back = Items(Object(boxart, "data"), id).FirstOrDefault(i => Text(i, "side") == "back");
+            if (back != null)
+                candidate.SetMedia(MediaFields.BoxBack, BaseUrl(Object(boxart, "base_url")) + Text(back, "filename"));
+
             var images = ImageTypes.Where(t => wanted.Contains(t.Key, StringComparer.OrdinalIgnoreCase)).ToList();
             if (images.Count > 0 && id != null)
             {

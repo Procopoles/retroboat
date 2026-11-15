@@ -1438,7 +1438,7 @@ o histórico.
 
 - **Onde:**
   - App, mídia:
-    - `Retroboat.Core/Media/Custom/` (novo): `MediaFields` (os 13 campos e o que preenchem no gamelist), `MediaProfile`
+    - `Retroboat.Core/Media/Custom/` (novo): `MediaFields` (os 20 campos e o que preenchem no gamelist), `MediaProfile`
       (o padrão de cada campo e o perfil do `es_settings.cfg`, chave `RetroboatMediaProfile`), `CustomMediaSearch` (a
       busca PERSONALIZADO);
     - `Retroboat.Core/Media/Sources/` (novo): `ScreenScraperSource`, `HfsDbSource`, `TheGamesDbSource` (portados dos
@@ -1514,3 +1514,16 @@ o histórico.
     tema com os segundos novos, e com 5s o vídeo só entrou depois de 5 s.
 - **Não testado:** o build do usuário com o Drive real; muitos jogos novos de uma vez (cada um leva alguns segundos, e a
   abertura espera a importação); o limite de consultas do ScreenScraper sem conta.
+- **Depois, no mesmo dia (todos os campos):** o usuário não achou a AVALIAÇÃO na tela. Faltavam os campos do gamelist
+  que o ES aceita e alguma fonte tem: AVALIAÇÃO (`rating`, nota 0 a 20 do ScreenScraper em 0 a 1), SÉRIE (`family`,
+  ScreenScraper), CAIXA TRASEIRA (`boxback`: HfsDB, ScreenScraper, TheGamesDB, este na mesma consulta da capa), DISCO /
+  CARTUCHO (`cartridge`: ScreenScraper `support-2D`, HfsDB `hardware`), MANUAL (`manual`, PDF em `manuals`: ScreenScraper,
+  HfsDB), MAPA (`map`, ScreenScraper) e MOLDURA (16:9) (`bezel`: ScreenScraper, HfsDB só a de 16:9). A moldura vem em
+  NÃO BUSCAR (`MediaProfile.OffByDefault`), porque troca a moldura do emulador dentro do jogo; ligada, vai para a chave
+  (`bezel=screenscraper`). `media fields` ganhou a escolha padrão de cada campo. A fan art do ScreenScraper vem inteira
+  (era reduzida a 1000 px, mas é fundo de tela; o scraper do ES também não reduz). No ES, o "faltando alguma mídia" do
+  lote só conta capa, telas, logo, fan art e vídeo. Ficam de fora o que nenhuma fonte tem ou o ES não grava por scraper:
+  revista, roda (`wheel`), caixa 3D (o ES não tem campo próprio) e imagem composta (`mix`). Testado: 421 testes; APIs de
+  verdade (Shadow of the Colossus: avaliação 0.9, disco e manual do ScreenScraper, caixa traseira do HfsDB); ES isolado:
+  a tela com os 20 campos e PROCURAR POR MÍDIAS DESTE JOGO do God Hand com a CLASSIFICAÇÃO em estrelas e o ícone de
+  manual, e aceitar baixou caixa traseira, disco e o manual em PDF.

@@ -27,6 +27,8 @@ namespace Retroboat.Tests
             Assert.Equal(MediaSourceIds.Libretro, profile.First(MediaFields.Publisher));
             Assert.Equal("", profile.ToString());
             Assert.All(MediaFields.All, f => Assert.NotEmpty(MediaProfile.Preset[f.Id]));
+            Assert.Equal(MediaSourceIds.ScreenScraper, profile.First(MediaFields.Rating));
+            Assert.True(profile.IsOff(MediaFields.Bezel)); // a moldura troca a do emulador: só se a pessoa pedir
         }
 
         [Fact]
@@ -50,6 +52,20 @@ namespace Retroboat.Tests
 
             profile.Set(MediaFields.Cover, MediaSourceIds.HfsDb);
             Assert.Equal("", profile.ToString());
+        }
+
+        [Fact]
+        public void A_field_off_by_default_is_saved_only_when_turned_on()
+        {
+            var on = MediaProfile.Parse("bezel=hfsdb");
+            Assert.Equal(new[] { "hfsdb", "screenscraper" }, on.Order(MediaFields.Bezel));
+            Assert.Equal("bezel=hfsdb", on.ToString());
+
+            on.Set(MediaFields.Bezel, MediaProfile.Off);
+            Assert.Equal("", on.ToString());
+            Assert.Equal("bezel=screenscraper", MediaProfile.Parse("bezel=screenscraper").ToString());
+            Assert.Equal(MediaProfile.Off, MediaProfile.DefaultFirst(MediaFields.Bezel));
+            Assert.Equal(MediaSourceIds.HfsDb, MediaProfile.DefaultFirst(MediaFields.Cover));
         }
 
         [Fact]
@@ -109,11 +125,15 @@ namespace Retroboat.Tests
     <genre id=""2"" principale=""0"" langue=""pt"">Ação / Aventura</genre>
   </genres>
   <dates><date region=""jp"">2005-12-08</date><date region=""us"">2005-10-18</date></dates>
-  <developpeur>Team&amp;nbsp;Ico</developpeur><editeur>Sony</editeur><joueurs>1</joueurs>
+  <developpeur>Team&amp;nbsp;Ico</developpeur><editeur>Sony</editeur><joueurs>1</joueurs><note>17</note>
+  <familles><famille principale=""1"" langue=""en"">Ico</famille></familles>
   <medias>
     <media type=""box-2D"" region=""eu"" format=""png"">https://ss.test/box-eu?x=1</media>
     <media type=""box-2D"" region=""us"" format=""png"">https://ss.test/box-us?x=1</media>
+    <media type=""box-2D-back"" region=""us"" format=""png"">https://ss.test/back?x=1</media>
     <media type=""ss"" region=""wor"" format=""jpg"">#screenscraperserveur#ss?x=1</media>
+    <media type=""fanart"" format=""jpg"">https://ss.test/fanart?x=1</media>
+    <media type=""manuel"" region=""us"" format=""pdf"">https://ss.test/manual?x=1</media>
     <media type=""wheel"" region=""wor"" format=""png"">https://ss.test/wheel?x=1</media>
     <media type=""video-normalized"" format=""mp4"">https://ss.test/video?x=1</media>
   </medias>
@@ -140,6 +160,12 @@ namespace Retroboat.Tests
             Assert.Equal("https://www.screenscraper.fr/ss?x=1&maxwidth=1000&maxheight=1000", game.Media[MediaFields.Screenshot].Url);
             Assert.Equal("https://ss.test/video?x=1", game.Media[MediaFields.Video].Url);
             Assert.Equal(".mp4", game.Media[MediaFields.Video].Extension);
+            Assert.Equal("0.85", game.Texts[MediaFields.Rating]);
+            Assert.Equal("Ico", game.Texts[MediaFields.Family]);
+            Assert.Equal("https://ss.test/back?x=1&maxwidth=1000&maxheight=1000", game.Media[MediaFields.BoxBack].Url);
+            Assert.Equal("https://ss.test/fanart?x=1", game.Media[MediaFields.FanArt].Url); // fundo de tela: inteira
+            Assert.Equal("https://ss.test/manual?x=1", game.Media[MediaFields.Manual].Url);
+            Assert.Equal(".pdf", game.Media[MediaFields.Manual].Extension);
         }
 
         [Fact]
@@ -171,7 +197,10 @@ namespace Retroboat.Tests
      {""type"": ""cover2d"", ""region"": ""PAL"", ""file"": ""https://hfs.test/pal-front.jpg"", ""metadata"": [{""name"": ""cover2dtype"", ""value"": ""front""}]},
      {""type"": ""cover2d"", ""region"": ""US"", ""file"": ""https://hfs.test/us-front.jpg"", ""metadata"": [{""name"": ""cover2dtype"", ""value"": ""front""}]},
      {""type"": ""video"", ""region"": ""PAL"", ""file"": ""https://hfs.test/pal.mp4"", ""metadata"": []},
-     {""type"": ""logo"", ""region"": ""WORLD"", ""file"": ""https://hfs.test/logo.png"", ""metadata"": []}
+     {""type"": ""logo"", ""region"": ""WORLD"", ""file"": ""https://hfs.test/logo.png"", ""metadata"": []},
+     {""type"": ""hardware"", ""region"": ""US"", ""file"": ""https://hfs.test/disc.png"", ""metadata"": [{""name"": ""hardwaretype"", ""value"": ""cd""}]},
+     {""type"": ""manual"", ""region"": ""US"", ""file"": ""https://hfs.test/manual.pdf"", ""metadata"": []},
+     {""type"": ""bezel"", ""region"": ""WORLD"", ""file"": ""https://hfs.test/bezel43.png"", ""metadata"": [{""name"": ""bezeltype"", ""value"": ""4/3""}]}
    ]}
 ]}";
 
@@ -195,6 +224,10 @@ namespace Retroboat.Tests
             Assert.Equal(".jpg", game.Media[MediaFields.Cover].Extension);
             Assert.Equal("https://hfs.test/pal.mp4", game.Media[MediaFields.Video].Url);
             Assert.Equal("https://hfs.test/logo.png", game.Media[MediaFields.Logo].Url);
+            Assert.Equal("https://hfs.test/us-back.jpg", game.Media[MediaFields.BoxBack].Url);
+            Assert.Equal("https://hfs.test/disc.png", game.Media[MediaFields.Cartridge].Url);
+            Assert.Equal(".pdf", game.Media[MediaFields.Manual].Extension);
+            Assert.False(game.Media.ContainsKey(MediaFields.Bezel)); // só a de 16:9 serve
 
             var european = source.Find(new MediaQuery("ps2", "Shadow of the Colossus (Europe).iso"), new string[0]);
             Assert.Equal("https://hfs.test/pal-front.jpg", european.Media[MediaFields.Cover].Url);
@@ -234,6 +267,7 @@ namespace Retroboat.Tests
             var coverOnly = source.Find(new MediaQuery("ps2", "Shadow of the Colossus (USA).iso"), new[] { MediaFields.Cover, MediaFields.Name });
             Assert.Equal("https://cdn.test/large/boxart/front/1234-1.jpg", coverOnly.Media[MediaFields.Cover].Url);
             Assert.Equal("1", coverOnly.Texts[MediaFields.Players]);
+            Assert.Equal("https://cdn.test/large/boxart/back/1234-1.jpg", coverOnly.Media[MediaFields.BoxBack].Url);
             Assert.Single(http.Requests);
             Assert.Contains("filter%5Bplatform%5D=11", http.Requests[0]);
 

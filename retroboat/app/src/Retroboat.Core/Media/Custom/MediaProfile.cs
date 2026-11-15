@@ -53,23 +53,37 @@ namespace Retroboat.Media
         /// mais numa comparação de 50 jogos de PS2 (o ScreenScraper errou gênero e trocou estúdio e editora em vários);
         /// editora, data e jogadores: o libretro é o da edição do arquivo. Capa e vídeo: o HfsDB tem as mais limpas.
         /// Descrição: a primeira em português que tiver mais que uma frase vale (<see cref="CustomMediaSearch"/>).
+        /// Avaliação, série e mapa: só o ScreenScraper tem.
         /// </summary>
         public static readonly IReadOnlyDictionary<string, IReadOnlyList<string>> Preset = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase)
         {
             [MediaFields.Cover] = new[] { MediaSourceIds.HfsDb, MediaSourceIds.ScreenScraper, MediaSourceIds.Libretro, MediaSourceIds.TheGamesDb },
+            [MediaFields.BoxBack] = new[] { MediaSourceIds.HfsDb, MediaSourceIds.ScreenScraper, MediaSourceIds.TheGamesDb },
             [MediaFields.Screenshot] = new[] { MediaSourceIds.ScreenScraper, MediaSourceIds.Libretro, MediaSourceIds.HfsDb, MediaSourceIds.TheGamesDb },
             [MediaFields.TitleScreen] = new[] { MediaSourceIds.ScreenScraper, MediaSourceIds.Libretro, MediaSourceIds.HfsDb, MediaSourceIds.TheGamesDb },
             [MediaFields.Logo] = new[] { MediaSourceIds.ScreenScraper, MediaSourceIds.HfsDb, MediaSourceIds.TheGamesDb },
             [MediaFields.FanArt] = new[] { MediaSourceIds.ScreenScraper, MediaSourceIds.TheGamesDb, MediaSourceIds.HfsDb },
+            [MediaFields.Cartridge] = new[] { MediaSourceIds.ScreenScraper, MediaSourceIds.HfsDb },
             [MediaFields.Video] = new[] { MediaSourceIds.HfsDb, MediaSourceIds.ScreenScraper },
+            [MediaFields.Manual] = new[] { MediaSourceIds.ScreenScraper, MediaSourceIds.HfsDb },
+            [MediaFields.Map] = new[] { MediaSourceIds.ScreenScraper },
+            [MediaFields.Bezel] = new[] { MediaSourceIds.ScreenScraper, MediaSourceIds.HfsDb },
             [MediaFields.Name] = new[] { MediaSourceIds.Wikipedia, MediaSourceIds.ScreenScraper, MediaSourceIds.Libretro, MediaSourceIds.HfsDb, MediaSourceIds.TheGamesDb },
             [MediaFields.Description] = new[] { MediaSourceIds.ScreenScraper, MediaSourceIds.Wikipedia, MediaSourceIds.HfsDb, MediaSourceIds.TheGamesDb, MediaSourceIds.Libretro },
+            [MediaFields.Rating] = new[] { MediaSourceIds.ScreenScraper },
             [MediaFields.Genre] = new[] { MediaSourceIds.Wikipedia, MediaSourceIds.ScreenScraper, MediaSourceIds.Libretro, MediaSourceIds.HfsDb, MediaSourceIds.TheGamesDb },
+            [MediaFields.Family] = new[] { MediaSourceIds.ScreenScraper },
             [MediaFields.Developer] = new[] { MediaSourceIds.Wikipedia, MediaSourceIds.ScreenScraper, MediaSourceIds.Libretro, MediaSourceIds.HfsDb },
             [MediaFields.Publisher] = new[] { MediaSourceIds.Libretro, MediaSourceIds.ScreenScraper, MediaSourceIds.Wikipedia, MediaSourceIds.HfsDb },
             [MediaFields.ReleaseDate] = new[] { MediaSourceIds.Libretro, MediaSourceIds.ScreenScraper, MediaSourceIds.Wikipedia, MediaSourceIds.HfsDb, MediaSourceIds.TheGamesDb },
             [MediaFields.Players] = new[] { MediaSourceIds.Libretro, MediaSourceIds.ScreenScraper, MediaSourceIds.HfsDb, MediaSourceIds.TheGamesDb }
         };
+
+        /// <summary>
+        /// Campos que o padrão não busca (NÃO BUSCAR), mas que a pessoa pode ligar: a moldura do jogo troca a moldura do
+        /// emulador dentro do jogo, o que o RetroBat não faz sem a pessoa pedir.
+        /// </summary>
+        public static readonly IReadOnlyCollection<string> OffByDefault = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { MediaFields.Bezel };
 
         readonly Dictionary<string, IReadOnlyList<string>> _orders = new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase);
         readonly Dictionary<string, string> _changed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -77,8 +91,11 @@ namespace Retroboat.Media
         MediaProfile()
         {
             foreach (var field in MediaFields.All)
-                _orders[field.Id] = Preset[field.Id];
+                _orders[field.Id] = OffByDefault.Contains(field.Id) ? new string[0] : Preset[field.Id];
         }
+
+        /// <summary>A primeira fonte do campo no padrão, ou <see cref="Off"/> num campo que o padrão não busca.</summary>
+        public static string DefaultFirst(string field) => OffByDefault.Contains(field) ? Off : Preset[field][0];
 
         public static MediaProfile Default => new MediaProfile();
 
@@ -135,10 +152,14 @@ namespace Retroboat.Media
             if (known == null)
                 throw new ArgumentException("Campo desconhecido: " + field, nameof(field));
 
+            bool offByDefault = OffByDefault.Contains(known.Id);
             if (first.Length == 1 && string.Equals(first[0], Off, StringComparison.OrdinalIgnoreCase))
             {
                 _orders[known.Id] = new string[0];
-                _changed[known.Id] = Off;
+                if (offByDefault)
+                    _changed.Remove(known.Id);
+                else
+                    _changed[known.Id] = Off;
                 return;
             }
 
@@ -151,7 +172,7 @@ namespace Retroboat.Media
                 return;
 
             _orders[known.Id] = chosen.Concat(preset.Where(p => !chosen.Contains(p, StringComparer.OrdinalIgnoreCase))).ToList();
-            if (_orders[known.Id].SequenceEqual(preset, StringComparer.OrdinalIgnoreCase))
+            if (!offByDefault && _orders[known.Id].SequenceEqual(preset, StringComparer.OrdinalIgnoreCase))
                 _changed.Remove(known.Id);
             else
                 _changed[known.Id] = string.Join(",", chosen);

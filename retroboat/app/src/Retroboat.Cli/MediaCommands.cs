@@ -87,8 +87,9 @@ namespace Retroboat.Cli
         }
 
         /// <summary>
-        /// Para a tela PRIORIDADE DAS FONTES do ES: "source|id|NOME" por fonte e "field|id|NOME|tipo|fonte1,fonte2,..." por campo
-        /// (tipo: text, image ou video), com as fontes que têm o campo na ordem padrão (a primeira é a escolha padrão).
+        /// Para a tela PRIORIDADE DAS FONTES do ES: "source|id|NOME" por fonte e "field|id|NOME|tipo|fonte1,fonte2,...|padrão" por campo
+        /// (tipo: text, image, video ou document), com as fontes que têm o campo na ordem padrão e a escolha padrão (a primeira
+        /// fonte, ou none num campo que o padrão não busca).
         /// </summary>
         public static int Fields()
         {
@@ -96,7 +97,8 @@ namespace Retroboat.Cli
                 Console.WriteLine("source|" + source.Key + "|" + source.Value);
 
             foreach (var field in MediaFields.All)
-                Console.WriteLine("field|" + field.Id + "|" + field.Label + "|" + field.Kind.ToString().ToLowerInvariant() + "|" + string.Join(",", MediaProfile.Preset[field.Id]));
+                Console.WriteLine("field|" + field.Id + "|" + field.Label + "|" + field.Kind.ToString().ToLowerInvariant() + "|" +
+                                  string.Join(",", MediaProfile.Preset[field.Id]) + "|" + MediaProfile.DefaultFirst(field.Id));
 
             return 0;
         }

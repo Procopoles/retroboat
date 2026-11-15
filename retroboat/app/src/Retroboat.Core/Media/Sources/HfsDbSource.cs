@@ -21,11 +21,15 @@ namespace Retroboat.Media.Sources
         static readonly Dictionary<string, string[]> MediaTypes = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
         {
             [MediaFields.Cover] = new[] { "cover2d/front", "cover2d" },
+            [MediaFields.BoxBack] = new[] { "cover2d/back" },
             [MediaFields.Screenshot] = new[] { "screenshot/in game", "screenshot" },
             [MediaFields.TitleScreen] = new[] { "screenshot/title" },
             [MediaFields.Logo] = new[] { "logo", "wheel" },
             [MediaFields.FanArt] = new[] { "wallpaper", "artwork" },
-            [MediaFields.Video] = new[] { "video" }
+            [MediaFields.Cartridge] = new[] { "hardware" }, // o disco ou o cartucho (hardwaretype cd, cartridge...)
+            [MediaFields.Video] = new[] { "video" },
+            [MediaFields.Manual] = new[] { "manual" },
+            [MediaFields.Bezel] = new[] { "bezel/16/9 horizontal" }
         };
 
         readonly IMediaHttp _http;

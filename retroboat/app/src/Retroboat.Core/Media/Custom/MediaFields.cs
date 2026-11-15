@@ -13,7 +13,10 @@ namespace Retroboat.Media
         Image,
 
         /// <summary>Vídeo baixado para a pasta videos do sistema.</summary>
-        Video
+        Video,
+
+        /// <summary>Manual em PDF, baixado para a pasta manuals do sistema.</summary>
+        Document
     }
 
     /// <summary>Um campo que o PERSONALIZADO busca, com o nome que aparece no ES e os campos do gamelist que ele preenche.</summary>
@@ -53,29 +56,44 @@ namespace Retroboat.Media
     {
         public const string Name = "name";
         public const string Description = "desc";
+        public const string Rating = "rating";
         public const string Genre = "genre";
+        public const string Family = "family";
         public const string Developer = "developer";
         public const string Publisher = "publisher";
         public const string ReleaseDate = "releasedate";
         public const string Players = "players";
         public const string Cover = "thumbnail";
+        public const string BoxBack = "boxback";
         public const string Screenshot = "image";
         public const string TitleScreen = "titleshot";
         public const string Logo = "marquee";
         public const string FanArt = "fanart";
+        public const string Cartridge = "cartridge";
         public const string Video = "video";
+        public const string Manual = "manual";
+        public const string Map = "map";
+        public const string Bezel = "bezel";
 
+        /// <summary>Todos os campos do gamelist do ES que um scraper preenche e que alguma fonte tem.</summary>
         public static readonly IReadOnlyList<MediaField> All = new[]
         {
             new MediaField(Cover, "CAPA", MediaFieldKind.Image, "thumb", "thumbnail", "boxart"),
+            new MediaField(BoxBack, "CAIXA TRASEIRA", MediaFieldKind.Image, "boxback"),
             new MediaField(Screenshot, "TELA DO JOGO", MediaFieldKind.Image, "image"),
             new MediaField(TitleScreen, "TELA DE TÍTULO", MediaFieldKind.Image, "titleshot"),
             new MediaField(Logo, "LOGO", MediaFieldKind.Image, "marquee"),
             new MediaField(FanArt, "FAN ART", MediaFieldKind.Image, "fanart"),
+            new MediaField(Cartridge, "DISCO / CARTUCHO", MediaFieldKind.Image, "cartridge"),
             new MediaField(Video, "VÍDEO", MediaFieldKind.Video, "video"),
+            new MediaField(Manual, "MANUAL", MediaFieldKind.Document, "manual"),
+            new MediaField(Map, "MAPA", MediaFieldKind.Image, "map"),
+            new MediaField(Bezel, "MOLDURA (16:9)", MediaFieldKind.Image, "bezel"),
             new MediaField(Name, "NOME", MediaFieldKind.Text, null),
             new MediaField(Description, "DESCRIÇÃO", MediaFieldKind.Text, null),
+            new MediaField(Rating, "AVALIAÇÃO", MediaFieldKind.Text, null),
             new MediaField(Genre, "GÊNERO", MediaFieldKind.Text, null),
+            new MediaField(Family, "SÉRIE", MediaFieldKind.Text, null),
             new MediaField(Developer, "DESENVOLVEDORA", MediaFieldKind.Text, null),
             new MediaField(Publisher, "EDITORA", MediaFieldKind.Text, null),
             new MediaField(ReleaseDate, "LANÇAMENTO", MediaFieldKind.Text, null),
