@@ -22,7 +22,8 @@ namespace Retroboat.Launcher.SteamSwitch
                 return SwitchScreen.Other;
 
             GetWindowThreadProcessId(window, out uint pid);
-            var name = ProcessName(pid);
+            var path = ProcessPath(pid);
+            var name = path != null ? Path.GetFileNameWithoutExtension(path) : null;
 
             if (string.Equals(name, EsProcess, StringComparison.OrdinalIgnoreCase))
                 return SwitchScreen.Es;
@@ -30,7 +31,7 @@ namespace Retroboat.Launcher.SteamSwitch
             if (string.Equals(name, "steamwebhelper", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "steam", StringComparison.OrdinalIgnoreCase))
                 return IsBigPicture(window) ? SwitchScreen.BigPicture : SwitchScreen.Other;
 
-            return SwitchScreen.Other;
+            return SteamClient.IsSteamGame(path) ? SwitchScreen.SteamGame : SwitchScreen.Other;
         }
 
         /// <summary>
@@ -123,6 +124,13 @@ namespace Retroboat.Launcher.SteamSwitch
 
         static string ProcessName(uint pid)
         {
+            var path = ProcessPath(pid);
+            return path != null ? Path.GetFileNameWithoutExtension(path) : null;
+        }
+
+        /// <summary>O executável do processo, ou nulo (processo de outro usuário ou já fechado).</summary>
+        static string ProcessPath(uint pid)
+        {
             var process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
             if (process == IntPtr.Zero)
                 return null;
@@ -131,7 +139,7 @@ namespace Retroboat.Launcher.SteamSwitch
             {
                 var path = new StringBuilder(1024);
                 int size = path.Capacity;
-                return QueryFullProcessImageName(process, 0, path, ref size) ? Path.GetFileNameWithoutExtension(path.ToString()) : null;
+                return QueryFullProcessImageName(process, 0, path, ref size) ? path.ToString() : null;
             }
             finally
             {

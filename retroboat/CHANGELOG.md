@@ -181,7 +181,8 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   - ATUALIZAR LISTAS DE JOGOS mostra a etapa, a porcentagem e uma barra animada enquanto sincroniza.
   - PlayStation-X: o atraso do vídeo na lista de jogos ganhou 1.5s, 2.5s, 4s, 5s, 6s, 8s e 10s.
 - RB-040: o botão Xbox troca entre o Retroboat e a Steam (Big Picture), como um console.
-  - Um aperto pergunta no canto da tela; outro, em até 3 s, troca. Com um jogo aberto, não faz nada.
+  - Um aperto pergunta no canto da tela; outro, em até 3 s, troca. Num jogo da Steam, volta ao Big Picture com o jogo
+    aberto; num jogo do Retroboat, não faz nada.
   - Na Steam, o ES fica minimizado e dorme: sem desenhar, sem som e sem vídeos, quase sem CPU nem GPU, para não
     atrapalhar os jogos da Steam. Ao voltar, está onde estava.
   - Se a Xbox Game Bar ou a opção da Steam que abre o Big Picture também usam o botão, o aviso diz onde desligar.

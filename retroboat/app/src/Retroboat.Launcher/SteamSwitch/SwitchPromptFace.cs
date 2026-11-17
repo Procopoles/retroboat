@@ -30,6 +30,13 @@ namespace Retroboat.Launcher.SteamSwitch
             Detail = "para sair do Big Picture"
         };
 
+        public static SwitchPromptText ToBigPicture() => new SwitchPromptText
+        {
+            Caption = "VOLTAR PARA O BIG PICTURE",
+            Title = "Aperte o botão Xbox de novo",
+            Detail = "O jogo continua aberto"
+        };
+
         public static SwitchPromptText Opening() => new SwitchPromptText
         {
             Caption = "ABRINDO A STEAM",

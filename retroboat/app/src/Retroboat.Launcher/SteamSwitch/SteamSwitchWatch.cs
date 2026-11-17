@@ -15,7 +15,9 @@ namespace Retroboat.Launcher.SteamSwitch
     ///
     /// No ES: um aperto pergunta, outro confirma; o Big Picture abre e o ES é minimizado, e minimizado ele dorme (sem
     /// desenhar, sem som, sem texturas). No Big Picture: o mesmo, de volta; o ES volta para a frente e o Big Picture fecha.
-    /// Com um jogo aberto (do Retroboat ou da Steam), ou qualquer outra janela na frente, o botão não faz nada.
+    /// Num jogo aberto pela Steam: o mesmo leva de volta ao Big Picture, com o jogo aberto atrás (a Steam faria isso com a
+    /// opção "botão Guia foca a Steam", que precisa ficar desligada para a troca funcionar).
+    /// Com um jogo do Retroboat, ou qualquer outra janela na frente, o botão não faz nada.
     /// Sem a Steam instalada, também não. Com outro programa usando o botão, mostra como desligar e não troca.
     /// </summary>
     static class SteamSwitchWatch
@@ -190,6 +192,17 @@ namespace Retroboat.Launcher.SteamSwitch
 
                     case SwitchStep.AskEs:
                         _prompt.Show(SwitchPromptText.ToEs());
+                        break;
+
+                    case SwitchStep.AskBigPicture:
+                        _prompt.Show(SwitchPromptText.ToBigPicture());
+                        break;
+
+                    case SwitchStep.BigPictureOverGame:
+                        // O jogo da Steam fica aberto atrás; de lá o usuário retoma ou fecha o jogo, como na Steam.
+                        _prompt.Hide();
+                        _bigPicture = front;
+                        Log.Info("Botão Xbox: Big Picture na frente; o jogo da Steam (app " + SteamClient.RunningAppId + ") continua aberto.");
                         break;
 
                     case SwitchStep.HideAsk:

@@ -88,6 +88,32 @@ namespace Retroboat.SteamSwitch
 
         public static bool IsRunning => Process.GetProcessesByName("steam").Length > 0;
 
+        /// <summary>O jogo que a Steam diz estar rodando (<c>RunningAppID</c> no registro); 0 sem jogo.</summary>
+        public static uint RunningAppId
+        {
+            get
+            {
+                try
+                {
+                    using (var key = Registry.CurrentUser.OpenSubKey(SteamKey))
+                        return key?.GetValue("RunningAppID") is int value ? unchecked((uint)value) : 0;
+                }
+                catch (Exception ex) when (ex is System.Security.SecurityException || ex is UnauthorizedAccessException || ex is IOException)
+                {
+                    return 0;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Um jogo da Steam na frente: a Steam diz que há um jogo rodando e o executável da janela está numa biblioteca
+        /// da Steam (<c>steamapps\common</c>, em qualquer disco). Um emulador do Retroboat nunca está ali.
+        /// </summary>
+        public static bool IsSteamGame(string exePath) => RunningAppId != 0 && IsLibraryGame(exePath);
+
+        internal static bool IsLibraryGame(string exePath) =>
+            !string.IsNullOrEmpty(exePath) && exePath.IndexOf(@"\steamapps\common\", StringComparison.OrdinalIgnoreCase) >= 0;
+
         /// <summary>Abre o Big Picture (abre a Steam antes, se estiver fechada) e traz ele para a frente.</summary>
         public static bool OpenBigPicture() => Shell(OpenBigPictureUri);
 

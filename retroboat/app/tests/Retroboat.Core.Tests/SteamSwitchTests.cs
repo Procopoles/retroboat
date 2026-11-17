@@ -124,6 +124,42 @@ namespace Retroboat.Tests
         }
 
         [Fact]
+        public void In_a_steam_game_the_button_brings_the_big_picture_back_without_touching_the_es()
+        {
+            var run = new Run { Screen = SwitchScreen.SteamGame };
+
+            Assert.Equal(SwitchStep.AskBigPicture, run.At(0, pressed: true));
+            Assert.Equal(SwitchStep.OpenSteam, run.At(1, pressed: true));
+
+            run.Screen = SwitchScreen.BigPicture;
+            Assert.Equal(SwitchStep.BigPictureOverGame, run.At(1.3)); // não SteamOpened: o ES não é minimizado de novo
+            Assert.False(run.Flow.IsBusy);
+
+            // Do Big Picture, o botão volta a perguntar pelo Retroboat, como sempre.
+            Assert.Equal(SwitchStep.AskEs, run.At(5, pressed: true));
+        }
+
+        [Fact]
+        public void In_a_steam_game_the_question_goes_away_if_the_game_leaves_the_front()
+        {
+            var run = new Run { Screen = SwitchScreen.SteamGame };
+            run.At(0, pressed: true);
+
+            run.Screen = SwitchScreen.Other;
+            Assert.Equal(SwitchStep.HideAsk, run.At(0.5));
+        }
+
+        [Fact]
+        public void A_steam_game_is_an_exe_in_a_steam_library()
+        {
+            Assert.True(SteamClient.IsLibraryGame(@"C:\Program Files (x86)\Steam\steamapps\common\Hitman Contracts\HitmanContracts.exe"));
+            Assert.True(SteamClient.IsLibraryGame(@"D:\SteamLibrary\steamapps\common\SubnauticaZero\SubnauticaZero.exe"));
+            Assert.False(SteamClient.IsLibraryGame(@"C:\Stuffs\Aplicacoes\retroboat\build\emulators\pcsx2\pcsx2-qt.exe"));
+            Assert.False(SteamClient.IsLibraryGame(@"C:\Program Files (x86)\Steam\steamwebhelper.exe"));
+            Assert.False(SteamClient.IsLibraryGame(null));
+        }
+
+        [Fact]
         public void With_a_game_or_anything_else_in_front_the_button_does_nothing()
         {
             var run = new Run { Screen = SwitchScreen.Other };

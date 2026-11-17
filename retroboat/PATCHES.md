@@ -1566,8 +1566,14 @@ o histórico.
     do ES (segundo teste do usuário, 17/11). Por isso a volta só termina com o ES 1,5 s seguidos na frente (até 6 s):
     enquanto não, a cada 0,3 s o ES volta para a frente e a janela da Steam que estiver por cima é minimizada (fica na
     barra de tarefas; nada da Steam é fechado);
-  - qualquer outra janela na frente (um jogo do Retroboat ou da Steam, a área de trabalho) e o botão não faz nada. A
-    pergunta some se a janela da frente muda. O Big Picture é a janela da Steam com "Big Picture" no título ou, numa
+  - num jogo aberto pela Steam, o botão leva de volta ao Big Picture, com o jogo aberto atrás: "VOLTAR PARA O BIG
+    PICTURE · Aperte o botão Xbox de novo", e o `steam://open/bigpicture` (de lá a pessoa retoma ou fecha o jogo). A
+    Steam faria isso pela opção "botão Guia foca a Steam", que precisa ficar desligada para a troca funcionar; sem isto,
+    não havia como voltar pelo controle (pedido do usuário, 17/11). Jogo da Steam = `RunningAppID` diferente de 0 no
+    registro e o executável da janela da frente dentro de um `steamapps\common`. Em tela cheia exclusiva o aviso não
+    aparece, mas os dois apertos funcionam;
+  - qualquer outra janela na frente (um jogo do Retroboat, a área de trabalho) e o botão não faz nada. A pergunta some
+    se a janela da frente muda. O Big Picture é a janela da Steam com "Big Picture" no título ou, numa
     língua que traduz o nome, ocupando a tela inteira;
   - conflitos, lidos a cada aperto (desligar vale na hora): a Xbox Game Bar instalada sem
     `HKCU\Software\Microsoft\GameBar\UseNexusForGameBarEnabled = 0` (vem ligada), e a opção da Steam "botão Guia foca a

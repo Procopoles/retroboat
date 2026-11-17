@@ -5,12 +5,14 @@ namespace Retroboat.SteamSwitch
     /// <summary>O que está na frente quando o botão Xbox é apertado.</summary>
     public enum SwitchScreen
     {
-        /// <summary>Qualquer outra janela: um jogo (do Retroboat ou da Steam), a área de trabalho. O botão não faz nada.</summary>
+        /// <summary>Qualquer outra janela: um jogo do Retroboat (o emulador), a área de trabalho. O botão não faz nada.</summary>
         Other,
         /// <summary>O ES, nos menus (com um jogo aberto, o emulador está na frente).</summary>
         Es,
         /// <summary>A Steam no Big Picture.</summary>
-        BigPicture
+        BigPicture,
+        /// <summary>Um jogo aberto pela Steam: o botão leva de volta ao Big Picture, com o jogo aberto.</summary>
+        SteamGame
     }
 
     /// <summary>O que quem acompanha o controle deve fazer depois de cada volta.</summary>
@@ -21,6 +23,8 @@ namespace Retroboat.SteamSwitch
         AskSteam,
         /// <summary>Mostrar "Voltar para o Retroboat? Aperte o botão Xbox de novo".</summary>
         AskEs,
+        /// <summary>Num jogo da Steam: mostrar "Voltar para o Big Picture? Aperte o botão Xbox de novo".</summary>
+        AskBigPicture,
         /// <summary>Esconder a pergunta: o tempo acabou ou a janela da frente mudou.</summary>
         HideAsk,
         /// <summary>Outro programa usa o botão (<see cref="SwitchFlow.Conflict"/>): mostrar como desligar.</summary>
@@ -31,6 +35,8 @@ namespace Retroboat.SteamSwitch
         ShowOpening,
         /// <summary>O Big Picture chegou na frente: minimizar o ES, que dorme.</summary>
         SteamOpened,
+        /// <summary>O Big Picture chegou na frente por cima de um jogo da Steam, que continua aberto: nada a minimizar.</summary>
+        BigPictureOverGame,
         /// <summary>O Big Picture não apareceu a tempo.</summary>
         SteamFailed,
         /// <summary>Confirmado: trazer o ES de volta e fechar o Big Picture.</summary>
@@ -68,13 +74,14 @@ namespace Retroboat.SteamSwitch
         public static readonly TimeSpan EsTimeout = TimeSpan.FromSeconds(6);
         public static readonly TimeSpan EsFocusRetry = TimeSpan.FromMilliseconds(300);
 
-        enum Stage { Idle, AskingSteam, AskingEs, OpeningSteam, ReturningToEs }
+        enum Stage { Idle, AskingSteam, AskingEs, AskingBigPicture, OpeningSteam, ReturningToEs }
 
         Stage _stage = Stage.Idle;
         DateTime _since;
         DateTime _lastFocus;
         DateTime? _esInFrontSince;
         bool _openingShown;
+        bool _fromGame;
 
         /// <summary>O conflito do último <see cref="SwitchStep.WarnConflict"/>.</summary>
         public GuideButtonConflict Conflict { get; private set; }
@@ -95,11 +102,12 @@ namespace Retroboat.SteamSwitch
 
                 case Stage.AskingSteam:
                 case Stage.AskingEs:
+                case Stage.AskingBigPicture:
                     return WhileAsking(now, pressed, screen());
 
                 case Stage.OpeningSteam:
                     if (screen() == SwitchScreen.BigPicture)
-                        return Finish(SwitchStep.SteamOpened);
+                        return Finish(_fromGame ? SwitchStep.BigPictureOverGame : SwitchStep.SteamOpened);
                     if (now - _since > SteamTimeout)
                         return Finish(SwitchStep.SteamFailed);
                     if (!_openingShown && now - _since > OpeningNoticeAfter)
@@ -166,22 +174,43 @@ namespace Retroboat.SteamSwitch
             }
 
             _since = now;
-            _stage = front == SwitchScreen.Es ? Stage.AskingSteam : Stage.AskingEs;
-            return front == SwitchScreen.Es ? SwitchStep.AskSteam : SwitchStep.AskEs;
+            switch (front)
+            {
+                case SwitchScreen.Es:
+                    _stage = Stage.AskingSteam;
+                    return SwitchStep.AskSteam;
+                case SwitchScreen.SteamGame:
+                    _stage = Stage.AskingBigPicture;
+                    return SwitchStep.AskBigPicture;
+                default:
+                    _stage = Stage.AskingEs;
+                    return SwitchStep.AskEs;
+            }
+        }
+
+        /// <summary>A janela em que a pergunta foi feita; se outra vier para a frente, a pergunta some.</summary>
+        SwitchScreen AskedFrom()
+        {
+            switch (_stage)
+            {
+                case Stage.AskingSteam: return SwitchScreen.Es;
+                case Stage.AskingBigPicture: return SwitchScreen.SteamGame;
+                default: return SwitchScreen.BigPicture;
+            }
         }
 
         SwitchStep WhileAsking(DateTime now, bool pressed, SwitchScreen front)
         {
-            var from = _stage == Stage.AskingSteam ? SwitchScreen.Es : SwitchScreen.BigPicture;
-            if (front != from || now - _since > ConfirmWindow)
+            if (front != AskedFrom() || now - _since > ConfirmWindow)
                 return Finish(SwitchStep.HideAsk);
 
             if (!pressed)
                 return SwitchStep.None;
 
             _since = now;
-            if (_stage == Stage.AskingSteam)
+            if (_stage == Stage.AskingSteam || _stage == Stage.AskingBigPicture)
             {
+                _fromGame = _stage == Stage.AskingBigPicture;
                 _stage = Stage.OpeningSteam;
                 _openingShown = false;
                 return SwitchStep.OpenSteam;
