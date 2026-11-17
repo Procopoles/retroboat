@@ -1527,3 +1527,62 @@ o histórico.
   verdade (Shadow of the Colossus: avaliação 0.9, disco e manual do ScreenScraper, caixa traseira do HfsDB); ES isolado:
   a tela com os 20 campos e PROCURAR POR MÍDIAS DESTE JOGO do God Hand com a CLASSIFICAÇÃO em estrelas e o ícone de
   manual, e aceitar baixou caixa traseira, disco e o manual em PDF.
+
+## RB-040 — Botão Xbox troca entre o Retroboat e a Steam (Big Picture); o ES minimizado dorme
+
+- **Onde:**
+  - App, lógica: `Retroboat.Core/SteamSwitch/` (novo): `SwitchFlow` (a sequência: perguntar, confirmar, esperar o Big
+    Picture ou o ES), `SteamClient` (a Steam do registro do usuário, o `localconfig.vdf` da conta, `steam://open|close/bigpicture`),
+    `GuideButtonConflicts` (Xbox Game Bar e a opção da Steam que também usam o botão).
+  - App, lançador: `Retroboat.Launcher/SteamSwitch/` (novo): `SteamSwitchWatch` (thread do `Retroboat.exe` com o ES aberto),
+    `GuideButton` (a função 100 do XInput), `SwitchWindows` (janela da frente, minimizar sem ativar, trazer de volta),
+    `SwitchPrompt` e `SwitchPromptFace` (o aviso no canto); `Program.cs` liga a thread depois que o ES sobe; o csproj
+    inclui o `LayeredSurface.cs` do `retroboat-launch`.
+  - Fork do ES (commit `e3b3fcc7e` na branch `rb040-steam`, em cima do `master` `e69f669e7`):
+    `retroboat/RetroboatBackground.*` (novos) e, no upstream, `main.cpp` (o include e três linhas no laço principal).
+- **Pedido (17/11/2026):** um atalho no botão Xbox do controle para alternar entre o Retroboat e o Steam Big Picture, com
+  uma confirmação simples antes de trocar. O ES em segundo plano não pode pesar em processamento nem memória nos jogos
+  da Steam (opção escolhida: o ES dorme, em vez de fechar). Funcionar em qualquer PC, avisando quando outro programa já
+  usa o botão.
+- **Como funciona:**
+  - o `Retroboat.exe` lê o botão Xbox 20 vezes por segundo, só dos controles ligados (encaixes vazios a cada 2 s). O
+    botão não aparece no `XInputGetState`; aparece na função 100 sem nome do `xinput1_4.dll` (ou `xinput1_3.dll`), a
+    mesma do SDL e da Steam, com qualquer janela na frente. Só controles XInput (Xbox e compatíveis);
+  - com o ES na frente, um aperto mostra "IR PARA A STEAM · Aperte o botão Xbox de novo" no canto inferior direito
+    (janela em camadas, sem foco, como o aviso de download concluído). Outro aperto em até 3 s abre o Big Picture; com a
+    Steam fechada, depois de 1 s aparece "ABRINDO A STEAM" (espera até 60 s). Com o Big Picture na frente, o ES é
+    minimizado sem ativar outra janela. No Big Picture, o mesmo: "VOLTAR PARA O RETROBOAT"; confirmado, o ES é
+    restaurado e posto na frente (com um Alt de mentira se o Windows recusar) e só então o Big Picture fecha. A
+    confirmação é no botão Xbox, não no A: o A chegaria também ao ES ou ao Big Picture e clicaria em algo lá;
+  - saindo do Big Picture pelo menu da Steam (sem o botão), a janela dele é destruída; o vigia olha uma vez por segundo
+    e, com o ES ainda minimizado, traz o ES de volta. Um jogo da Steam aberto não destrói a janela e não engana o vigia;
+  - qualquer outra janela na frente (um jogo do Retroboat ou da Steam, a área de trabalho) e o botão não faz nada. A
+    pergunta some se a janela da frente muda. O Big Picture é a janela da Steam com "Big Picture" no título ou, numa
+    língua que traduz o nome, ocupando a tela inteira;
+  - conflitos, lidos a cada aperto (desligar vale na hora): a Xbox Game Bar instalada sem
+    `HKCU\Software\Microsoft\GameBar\UseNexusForGameBarEnabled = 0` (vem ligada), e a opção da Steam "botão Guia foca a
+    Steam" (`Controller_CheckGuideButton` no `localconfig.vdf` da conta logada, ou da última usada; sem a linha, ligada).
+    Com um deles, o aperto mostra em amarelo "BOTÃO XBOX EM USO", quem usa e onde desligar, por 7 s, e não troca. Sem a
+    Steam instalada, o botão não faz nada. Outros programas que capturam o botão (DS4Windows, reWASD...) não deixam
+    rastro confiável e não são detectados;
+  - fork: minimizado, o ES dorme no laço principal: `AudioManager::deinit` e `Window::deinit(false)` (os GUIs escondem,
+    os vídeos param, as texturas saem), como antes de um jogo, e espera eventos de 250 em 250 ms sem desenhar. Ao
+    restaurar, `Window::init(false)`, o som e a música do sistema, como na volta de um jogo. A API e os downloads
+    continuam (as funções postadas para a tela esperam o ES voltar).
+- **Classificação:** C0 no app. C1 no fork (`main.cpp`, 4 linhas marcadas `RETROBOAT RB-040`).
+- **Risco semântico:** o upstream mudar o laço principal do `main.cpp` ou o que `Window::deinit/init` soltam e refazem;
+  a Steam mudar a chave `Controller_CheckGuideButton`, os `steam://` do Big Picture ou o título da janela; o Windows
+  mudar o valor da Game Bar.
+- **Upstreamável:** a parte do ES (dormir minimizado) talvez; a troca, não.
+- **Testado em 17/11/2026:**
+  - 433 testes (12 novos: a sequência inteira, conflitos, `localconfig.vdf`);
+  - antes de implementar, neste PC: `steam://open/bigpicture` na frente em 0,2 a 0,7 s, o `SetForegroundWindow` de
+    um processo em segundo plano trouxe o ES de volta com o Big Picture na frente, `steam://close/bigpicture` fechou em
+    ~0,5 s e devolveu o foco ao ES; a janela do Big Picture deixa de existir (`IsWindow` falso) em até 0,5 s depois do
+    `close`;
+  - ES isolado (PlayStation-X, vídeo na lista, janela 1280×720), 8 s por medida, ES atual → ES novo: na frente ~130% de
+    um núcleo e 15% de GPU nos dois; minimizado, 136% → 0,6% de CPU, 5,9% → 0% de GPU, 411 → 273 MB de RAM (memória de
+    vídeo dedicada igual, 68 MB). De volta, desenha como antes (vídeo, música, navegação) e fecha com código 0;
+  - a função 100 do XInput carrega neste Windows.
+- **Não testado:** o aperto de verdade (nenhum controle ligado no teste) e a troca inteira no build do usuário; controle
+  de PlayStation (o botão PS não passa pelo XInput); a detecção da Game Bar e da Steam em outro PC.

@@ -111,6 +111,9 @@ namespace Retroboat.Launcher
                 // Um download interrompido na sessão anterior continua sozinho.
                 Retroboat.Downloads.DownloadProcess.EnsureRunning(install, AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/'));
 
+                // RB-040: o botão Xbox troca entre o Retroboat e a Steam (Big Picture) enquanto o ES estiver aberto.
+                SteamSwitch.SteamSwitchWatch.StartInBackground();
+
                 if (sync != null)
                     NotifyEs(sync);
 

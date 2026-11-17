@@ -17,6 +17,8 @@
     <Compile Include="..\Retroboat.Launch\CloudAppPrompt.cs" Link="Telas\CloudAppPrompt.cs" />
     <Compile Include="..\Retroboat.Launch\GamepadButtons.cs" Link="Telas\GamepadButtons.cs" />
     <Compile Include="..\Retroboat.Launch\Theme.cs" Link="Telas\Theme.cs" />
+    <!-- RB-040: o aviso da troca com a Steam usa a mesma janela em camadas do aviso de download concluído. -->
+    <Compile Include="..\Retroboat.Launch\LayeredSurface.cs" Link="Telas\LayeredSurface.cs" />
   </ItemGroup>
 
 </Project>
