@@ -25,8 +25,9 @@ namespace Retroboat.Launcher
     /// RetroBat abre mesmo assim com a configuração anterior: o lançador nunca impede de jogar.
     ///
     /// Argumentos próprios: --retrobat &lt;pasta&gt;, --setup (abrir o setup do RB-021: biblioteca, pasta de jogos e opções),
-    /// --no-launch (só preparar) e --refresh (só sincronizar, sem janela: o "Atualizar listas de jogos" do ES). Os demais
-    /// são repassados ao retrobat.exe.
+    /// --no-launch (só preparar), --refresh (só sincronizar, sem janela: o "Atualizar listas de jogos" do ES) e
+    /// --steam-switch (só acompanhar o botão Xbox até o ES fechar: o evento "start" do ES, RB-040). Os demais são
+    /// repassados ao retrobat.exe.
     /// </summary>
     static class Program
     {
@@ -54,11 +55,19 @@ namespace Retroboat.Launcher
             Log.Init(Path.Combine(install.RetroboatDataPath, "logs", "launcher.log"));
             Log.Info("Início: " + install.Root + (args.Length > 0 ? " | args: " + string.Join(" ", args) : ""));
 
+            // RB-040: aberto pelo evento "start" do ES, só para acompanhar o botão Xbox até o ES fechar.
+            if (own.SteamSwitch)
+                return SteamSwitch.SteamSwitchWatch.RunWhileEsIsOpen();
+
             var settingsPath = RetroboatSettings.GetPath(install);
             var settings = RetroboatSettings.Load(settingsPath);
 
             if (own.Refresh)
+            {
+                // Quem abre o RetroBat direto, sem o Retroboat.exe, passa por aqui no "Atualizar listas de jogos".
+                WriteEsScripts(install);
                 return Refresh(install, settings);
+            }
 
             bool firstRun = string.IsNullOrEmpty(settings.RomsPath);
 
@@ -87,7 +96,7 @@ namespace Retroboat.Launcher
                 return 0;
 
             ApplyThemeOverlays(install);
-            WriteUpdateGamelistsScript(install);
+            WriteEsScripts(install);
             TurnOffEsBiosCheck(install, settings, settingsPath);
 
             var sync = RunStartupSync(install, settings, adopted);
@@ -258,19 +267,24 @@ namespace Retroboat.Launcher
         }
 
         /// <summary>
-        /// O script que faz o "Atualizar listas de jogos" do ES sincronizar com a nuvem antes de reler as listas
-        /// (Retroboat.exe --refresh). Leva milissegundos; falha aqui nunca impede de jogar.
+        /// Os scripts de evento do ES: o "Atualizar listas de jogos" sincroniza com a nuvem antes de reler as listas
+        /// (Retroboat.exe --refresh), e o "start" abre o vigia do botão Xbox (RB-040, Retroboat.exe --steam-switch),
+        /// mesmo com o RetroBat aberto direto. Leva milissegundos; falha aqui nunca impede de jogar.
         /// </summary>
-        static void WriteUpdateGamelistsScript(RetroBatInstall install)
+        static void WriteEsScripts(RetroBatInstall install)
         {
+            var exeDirectory = AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/');
             try
             {
-                if (EsScripts.WriteUpdateGamelists(install, AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/')))
+                if (EsScripts.WriteUpdateGamelists(install, exeDirectory))
                     Log.Info("Script " + EsScripts.UpdateGamelistsEvent + " do ES gravado: \"Atualizar listas de jogos\" sincroniza com a nuvem.");
+
+                if (EsScripts.WriteSteamSwitch(install, exeDirectory))
+                    Log.Info("Script " + EsScripts.StartEvent + " do ES gravado: o botão Xbox troca entre o Retroboat e a Steam.");
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
-                Log.Warn("Não foi possível gravar o script " + EsScripts.UpdateGamelistsEvent + " do ES: " + ex.Message);
+                Log.Warn("Não foi possível gravar os scripts do ES: " + ex.Message);
             }
         }
 
@@ -704,6 +718,7 @@ namespace Retroboat.Launcher
                     case "--setup": own.Setup = true; break;
                     case "--no-launch": own.NoLaunch = true; break;
                     case "--refresh": own.Refresh = true; break;
+                    case "--steam-switch": own.SteamSwitch = true; break;
                     case "--retrobat" when i + 1 < args.Length: own.RetroBatPath = args[++i]; break;
                     default: passThrough.Add(args[i]); break;
                 }
@@ -716,6 +731,7 @@ namespace Retroboat.Launcher
         {
             public bool Setup;
             public bool NoLaunch;
+            public bool SteamSwitch;
             public bool Refresh;
             public string RetroBatPath;
         }

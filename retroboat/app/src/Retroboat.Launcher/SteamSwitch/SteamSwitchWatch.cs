@@ -9,6 +9,9 @@ namespace Retroboat.Launcher.SteamSwitch
     /// <summary>
     /// RB-040: o botão Xbox troca entre o Retroboat e a Steam (Big Picture). Roda numa thread própria do Retroboat.exe
     /// enquanto o ES está aberto, lendo o controle 20 vezes por segundo (nada mais acontece até o botão ser apertado).
+    /// Nasce de dois jeitos, e só um acompanha de cada vez: pelo script do evento "start" do ES
+    /// (<c>Retroboat.exe --steam-switch</c>, que vale também com o RetroBat aberto direto, sem o Retroboat.exe) e pelo
+    /// lançador, depois que o ES sobe.
     ///
     /// No ES: um aperto pergunta, outro confirma; o Big Picture abre e o ES é minimizado, e minimizado ele dorme (sem
     /// desenhar, sem som, sem texturas). No Big Picture: o mesmo, de volta; o ES volta para a frente e o Big Picture fecha.
@@ -23,19 +26,66 @@ namespace Retroboat.Launcher.SteamSwitch
         /// <summary>O aviso de conflito fica mais tempo: tem um caminho para ler.</summary>
         static readonly TimeSpan ConflictNotice = TimeSpan.FromSeconds(7);
 
+        /// <summary>
+        /// O ES recarregado pelo menu fecha e abre de novo, e o evento "start" chama outro Retroboat.exe. Ele espera
+        /// isso pelo que já acompanha: se o antigo viu o ES sumir e saiu, o novo assume; se não, o antigo continua.
+        /// </summary>
+        static readonly TimeSpan TakeOverWithin = TimeSpan.FromSeconds(15);
+
+        const int EsCheckInterval = 2000;
+        const int ChecksWithoutEs = 3;
+        static readonly TimeSpan EsToAppear = TimeSpan.FromSeconds(60);
+
         static int _started;
 
-        public static void StartInBackground()
-        {
-            if (Interlocked.Exchange(ref _started, 1) != 0)
-                return;
+        /// <summary>No lançador, depois que o ES sobe; o processo segue com o resto (nuvem, configurações).</summary>
+        public static void StartInBackground() => Start(TimeSpan.Zero);
 
-            var thread = new Thread(Run) { IsBackground = true, Name = "Retroboat botão Xbox" };
-            thread.SetApartmentState(ApartmentState.STA);
-            thread.Start();
+        /// <summary>
+        /// <c>Retroboat.exe --steam-switch</c>, pelo evento "start" do ES: o processo só acompanha o botão e fecha junto
+        /// com o ES (três verificações seguidas sem ele, como o acompanhamento do Google Drive).
+        /// </summary>
+        public static int RunWhileEsIsOpen()
+        {
+            var thread = Start(TakeOverWithin);
+            if (thread == null)
+                return 0;
+
+            var since = DateTime.UtcNow;
+            bool seen = false;
+            int without = 0;
+            while (thread.IsAlive)
+            {
+                Thread.Sleep(EsCheckInterval);
+                if (SwitchWindows.IsEsRunning())
+                {
+                    seen = true;
+                    without = 0;
+                }
+                else if (seen ? ++without >= ChecksWithoutEs : DateTime.UtcNow - since > EsToAppear)
+                {
+                    break;
+                }
+            }
+
+            // Thread parada: outro Retroboat.exe continuou acompanhando (ES recarregado), nada a dizer.
+            if (thread.IsAlive)
+                Log.Info("Botão Xbox: ES fechado, fim do acompanhamento.");
+            return 0;
         }
 
-        static void Run()
+        static Thread Start(TimeSpan waitForOther)
+        {
+            if (Interlocked.Exchange(ref _started, 1) != 0)
+                return null;
+
+            var thread = new Thread(() => Run(waitForOther)) { IsBackground = true, Name = "Retroboat botão Xbox" };
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            return thread;
+        }
+
+        static void Run(TimeSpan waitForOther)
         {
             try
             {
@@ -43,11 +93,12 @@ namespace Retroboat.Launcher.SteamSwitch
                 {
                     try
                     {
-                        if (!mutex.WaitOne(0))
+                        if (!mutex.WaitOne(waitForOther))
                             return; // Outro Retroboat.exe já acompanha o botão.
                     }
                     catch (AbandonedMutexException)
                     {
+                        // O anterior foi encerrado à força; a vez é deste.
                     }
 
                     try

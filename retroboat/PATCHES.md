@@ -1545,6 +1545,12 @@ o histórico.
   da Steam (opção escolhida: o ES dorme, em vez de fechar). Funcionar em qualquer PC, avisando quando outro programa já
   usa o botão.
 - **Como funciona:**
+  - o vigia nasce pelo evento "start" do ES: `scripts\start\retroboat-botao-xbox-nowait.bat` (gravado pelo
+    `Retroboat.exe` na abertura e no `--refresh`) abre `Retroboat.exe --steam-switch`, que só acompanha o botão e fecha
+    junto com o ES. Assim funciona também com o RetroBat aberto direto, sem o `Retroboat.exe` (o primeiro teste do
+    usuário, em 17/11, falhou por isso). O "-nowait" faz o ES rodar o script numa thread, sem esperar. O lançador também
+    liga o vigia depois que o ES sobe; um mutex deixa só um acompanhando, e um ES recarregado pelo menu é assumido pelo
+    vigia novo (espera até 15 s o antigo sair);
   - o `Retroboat.exe` lê o botão Xbox 20 vezes por segundo, só dos controles ligados (encaixes vazios a cada 2 s). O
     botão não aparece no `XInputGetState`; aparece na função 100 sem nome do `xinput1_4.dll` (ou `xinput1_3.dll`), a
     mesma do SDL e da Steam, com qualquer janela na frente. Só controles XInput (Xbox e compatíveis);
@@ -1583,6 +1589,8 @@ o histórico.
   - ES isolado (PlayStation-X, vídeo na lista, janela 1280×720), 8 s por medida, ES atual → ES novo: na frente ~130% de
     um núcleo e 15% de GPU nos dois; minimizado, 136% → 0,6% de CPU, 5,9% → 0% de GPU, 411 → 273 MB de RAM (memória de
     vídeo dedicada igual, 68 MB). De volta, desenha como antes (vídeo, música, navegação) e fecha com código 0;
-  - a função 100 do XInput carrega neste Windows.
-- **Não testado:** o aperto de verdade (nenhum controle ligado no teste) e a troca inteira no build do usuário; controle
-  de PlayStation (o botão PS não passa pelo XInput); a detecção da Game Bar e da Steam em outro PC.
+  - a função 100 do XInput carrega neste Windows; com o controle Xbox One S do usuário, 6 apertos do botão Xbox
+    chegaram (bit `0x0400`, só na função 100; o `XInputGetState` normal não mostra);
+  - 435 testes depois do script do evento "start".
+- **Não testado:** a troca inteira no build do usuário; controle de PlayStation (o botão PS não passa pelo XInput); a
+  detecção da Game Bar e da Steam em outro PC.

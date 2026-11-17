@@ -65,5 +65,33 @@ namespace Retroboat.Es
 
             return Write(install, UpdateGamelistsEvent, UpdateGamelistsFile, script, dryRun);
         }
+
+        /// <summary>O ES abrindo, por qualquer caminho (Retroboat.exe, RetroBat.exe, o próprio emulationstation.exe).</summary>
+        public const string StartEvent = "start";
+
+        /// <summary>"-nowait": o ES roda numa thread e não espera (o "start" não está na lista assíncrona do ES).</summary>
+        public const string SteamSwitchFile = "retroboat-botao-xbox-nowait.bat";
+
+        /// <summary>
+        /// RB-040: com o ES aberto, o botão Xbox troca entre o Retroboat e a Steam. O vigia precisa estar rodando mesmo com
+        /// o RetroBat aberto direto, sem o Retroboat.exe; o evento "start" do ES o abre (<c>Retroboat.exe --steam-switch</c>),
+        /// e ele fecha junto com o ES. O <c>start ""</c> devolve o controle ao ES na hora.
+        /// </summary>
+        /// <returns>true se gravou; false se já estava em dia ou se o Retroboat.exe não está em <paramref name="exeDirectory"/>.</returns>
+        public static bool WriteSteamSwitch(RetroBatInstall install, string exeDirectory, bool dryRun = false)
+        {
+            if (!File.Exists(Path.Combine(exeDirectory, "Retroboat.exe")))
+                return false;
+
+            var exe = ExeFromRoot(install, exeDirectory, "Retroboat.exe");
+            var script =
+                "@echo off\r\n" +
+                "rem Retroboat (RB-040): o botao Xbox troca entre o Retroboat e a Steam (Big Picture) enquanto o ES\r\n" +
+                "rem estiver aberto. Este script abre o vigia do botao, que fecha junto com o ES.\r\n" +
+                "rem Gravado pelo Retroboat.exe; editar aqui nao adianta.\r\n" +
+                "if exist \"" + exe + "\" start \"\" \"" + exe + "\" --steam-switch --retrobat \"" + Root + "\"\r\n";
+
+            return Write(install, StartEvent, SteamSwitchFile, script, dryRun);
+        }
     }
 }

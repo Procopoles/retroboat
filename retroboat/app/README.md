@@ -88,7 +88,8 @@ o `retrobat.exe` repassando os argumentos. Se a preparação falhar, o RetroBat 
 anterior.
 
 Argumentos próprios: `--setup` (abrir o setup), `--no-launch` (só preparar, sem perguntar
-nada e sem ficar em segundo plano) e `--retrobat <pasta>`. Log em
+nada e sem ficar em segundo plano), `--steam-switch` (só o vigia do botão Xbox, aberto pelo evento
+"start" do ES e fechado junto com ele; RB-040) e `--retrobat <pasta>`. Log em
 `<RetroBat>\retroboat\logs\launcher.log`.
 
 **Menu NUVEM (nosso ES).** Mostra o estado do Drive e da biblioteca e a pasta de jogos, e muda as quatro opções
