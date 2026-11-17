@@ -1617,6 +1617,10 @@ o histórico.
     o ES, controle ligado): ES dormindo 0,86% de um núcleo (0,11% do PC), 0% de GPU, 284 MB de RAM; vigia 0,62% de um
     núcleo (0,08% do PC), 28 MB; o `Retroboat.exe` normal (acompanhamento do Google Drive, de antes da RB-040) 0,94%;
     a Steam com o Big Picture 111% de um núcleo e 28% de GPU. A memória de vídeo dedicada do ES ficou em 158 MB nos dois
-    estados (o contador do Windows não caiu ao soltar as texturas; numa medida anterior caiu de 158 para 101 MB).
+    estados (o contador do Windows não caiu ao soltar as texturas; numa medida anterior caiu de 158 para 101 MB);
+  - jogo da Steam, testado no build com o código do app (o aperto em si não dá para simular): The Farmer Was Replaced
+    aberto por `steam://rungameid/2060160` → `RunningAppID` = 2060160 e a janela classificada como jogo da Steam;
+    `steam://open/bigpicture` pôs o Big Picture na frente em 0,5 s com o jogo aberto; o jogo fechou com WM_CLOSE e o
+    `RunningAppID` voltou a 0.
 - **Não testado:** a troca inteira no build do usuário; controle de PlayStation (o botão PS não passa pelo XInput); a
   detecção da Game Bar e da Steam em outro PC.
