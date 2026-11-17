@@ -1576,7 +1576,8 @@ o histórico.
     Steam instalada, o botão não faz nada. Outros programas que capturam o botão (DS4Windows, reWASD...) não deixam
     rastro confiável e não são detectados;
   - fork: minimizado, o ES dorme no laço principal: `AudioManager::deinit` e `Window::deinit(false)` (os GUIs escondem,
-    os vídeos param, as texturas saem), como antes de um jogo, e espera eventos de 250 em 250 ms sem desenhar. Ao
+    os vídeos param, as texturas saem), como antes de um jogo, pausa o modo de economia e espera mensagens da janela
+    de 250 em 250 ms sem desenhar (`MsgWaitForMultipleObjects`; commit `2bd801d41`). Ao
     restaurar, `Window::init(false)`, o som e a música do sistema, como na volta de um jogo. A API e os downloads
     continuam (as funções postadas para a tela esperam o ES voltar).
 - **Classificação:** C0 no app. C1 no fork (`main.cpp`, 4 linhas marcadas `RETROBOAT RB-040`).
@@ -1597,6 +1598,14 @@ o histórico.
     chegaram (bit `0x0400`, só na função 100; o `XInputGetState` normal não mostra);
   - 435 testes depois do script do evento "start"; 437 depois da volta com a janela da Steam;
   - segundo teste do usuário: ES → Steam funcionou; Steam → ES fechou o Big Picture, mas a janela normal da Steam
-    abriu por cima (reproduzido: ES na frente aos 0,23 s, a Steam aos 0,36 s). Corrigido como acima.
+    abriu por cima (reproduzido: ES na frente aos 0,23 s, a Steam aos 0,36 s). Corrigido como acima;
+  - impacto no build do usuário, com o Big Picture na frente por 20 s (8 núcleos lógicos): o ES dormindo gastava 8% de
+    um núcleo (1% do PC), 0% de GPU, 219 MB de RAM; o vigia, 2,6% de um núcleo; a própria Steam, 178% de um núcleo e
+    14% de GPU. Por thread: no ES, uma só com 4,8%; no vigia, a principal. Causas e correções:
+    - com um controle ligado, o `SDL_WaitEventTimeout` não espera, lê os controles a cada 1 ms (na cópia isolada, sem
+      controle, eram 0,6%). Dormindo, o ES agora espera com o `MsgWaitForMultipleObjects` (acorda na hora ao
+      restaurar) e pausa o modo de economia do ES, que esperava do mesmo jeito no topo do laço;
+    - o `--steam-switch` listava os processos do Windows a cada 2 s para saber se o ES continuava aberto; agora espera
+      o processo do ES terminar. A leitura do controle em si custa 5 µs (125 µs num encaixe vazio).
 - **Não testado:** a troca inteira no build do usuário; controle de PlayStation (o botão PS não passa pelo XInput); a
   detecção da Game Bar e da Steam em outro PC.

@@ -51,21 +51,29 @@ namespace Retroboat.Launcher.SteamSwitch
             if (thread == null)
                 return 0;
 
+            // Espera o processo do ES terminar, sem gastar nada; listar os processos do Windows a cada 2 s custava
+            // 1 a 5% de um núcleo (medido em 17/11/2026). Depois que ele fecha, olha mais algumas vezes: um ES
+            // recarregado pelo menu volta em seguida.
             var since = DateTime.UtcNow;
             bool seen = false;
             int without = 0;
             while (thread.IsAlive)
             {
-                Thread.Sleep(EsCheckInterval);
-                if (SwitchWindows.IsEsRunning())
+                using (var es = SwitchWindows.FindEsProcess())
                 {
-                    seen = true;
-                    without = 0;
+                    if (es != null)
+                    {
+                        seen = true;
+                        without = 0;
+                        es.WaitForExit();
+                        continue;
+                    }
                 }
-                else if (seen ? ++without >= ChecksWithoutEs : DateTime.UtcNow - since > EsToAppear)
-                {
+
+                if (seen ? ++without >= ChecksWithoutEs : DateTime.UtcNow - since > EsToAppear)
                     break;
-                }
+
+                Thread.Sleep(EsCheckInterval);
             }
 
             // Thread parada: outro Retroboat.exe continuou acompanhando (ES recarregado), nada a dizer.

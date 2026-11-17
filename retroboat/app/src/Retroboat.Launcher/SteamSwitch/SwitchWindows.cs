@@ -51,12 +51,13 @@ namespace Retroboat.Launcher.SteamSwitch
             return rect.Left <= screen.Left && rect.Top <= screen.Top && rect.Right >= screen.Right && rect.Bottom >= screen.Bottom;
         }
 
-        public static bool IsEsRunning()
+        /// <summary>O processo do ES, ou nulo; quem chama descarta.</summary>
+        public static Process FindEsProcess()
         {
             var processes = Process.GetProcessesByName(EsProcess);
-            foreach (var p in processes)
-                p.Dispose();
-            return processes.Length > 0;
+            for (int i = 1; i < processes.Length; i++)
+                processes[i].Dispose();
+            return processes.Length > 0 ? processes[0] : null;
         }
 
         /// <summary>A janela do ES, mesmo minimizada; zero se o ES não está aberto.</summary>
