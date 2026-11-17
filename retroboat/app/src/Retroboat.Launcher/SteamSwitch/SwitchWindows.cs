@@ -74,6 +74,18 @@ namespace Retroboat.Launcher.SteamSwitch
             }
         }
 
+        /// <summary>Uma janela da Steam que não é o Big Picture (a janela normal do cliente).</summary>
+        public static bool IsSteamWindow(IntPtr window)
+        {
+            if (window == IntPtr.Zero)
+                return false;
+
+            GetWindowThreadProcessId(window, out uint pid);
+            var name = ProcessName(pid);
+            bool steam = string.Equals(name, "steamwebhelper", StringComparison.OrdinalIgnoreCase) || string.Equals(name, "steam", StringComparison.OrdinalIgnoreCase);
+            return steam && !IsBigPicture(window);
+        }
+
         /// <summary>A janela foi destruída. O Big Picture é destruído ao fechar; com um jogo da Steam aberto, continua lá.</summary>
         public static bool IsGone(IntPtr window) => window == IntPtr.Zero || !IsWindow(window);
 

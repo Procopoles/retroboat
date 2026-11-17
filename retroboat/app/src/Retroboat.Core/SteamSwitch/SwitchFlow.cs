@@ -35,7 +35,7 @@ namespace Retroboat.SteamSwitch
         SteamFailed,
         /// <summary>Confirmado: trazer o ES de volta e fechar o Big Picture.</summary>
         ReturnToEs,
-        /// <summary>O ES ainda não está na frente: pedir o foco de novo.</summary>
+        /// <summary>O ES não está na frente (a janela normal da Steam abriu por cima): minimizar a da Steam e pedir o foco de novo.</summary>
         FocusEsAgain,
         /// <summary>O ES voltou para a frente.</summary>
         EsReturned,
@@ -59,14 +59,21 @@ namespace Retroboat.SteamSwitch
         /// <summary>O Big Picture com a Steam aberta chega em menos de 1 s; passou disso, o usuário vê que está abrindo.</summary>
         public static readonly TimeSpan OpeningNoticeAfter = TimeSpan.FromSeconds(1);
 
-        public static readonly TimeSpan EsTimeout = TimeSpan.FromSeconds(3);
-        public static readonly TimeSpan EsFocusRetry = TimeSpan.FromMilliseconds(500);
+        /// <summary>
+        /// Saindo do Big Picture, a Steam abre a janela normal dela uns 0,4 s depois e toma o foco do ES (visto em
+        /// 17/11/2026). Por isso o ES só conta como de volta depois de ficar na frente esse tempo seguido.
+        /// </summary>
+        public static readonly TimeSpan EsSettle = TimeSpan.FromSeconds(1.5);
+
+        public static readonly TimeSpan EsTimeout = TimeSpan.FromSeconds(6);
+        public static readonly TimeSpan EsFocusRetry = TimeSpan.FromMilliseconds(300);
 
         enum Stage { Idle, AskingSteam, AskingEs, OpeningSteam, ReturningToEs }
 
         Stage _stage = Stage.Idle;
         DateTime _since;
         DateTime _lastFocus;
+        DateTime? _esInFrontSince;
         bool _openingShown;
 
         /// <summary>O conflito do último <see cref="SwitchStep.WarnConflict"/>.</summary>
@@ -103,19 +110,47 @@ namespace Retroboat.SteamSwitch
                     return SwitchStep.None;
 
                 case Stage.ReturningToEs:
-                    if (screen() == SwitchScreen.Es)
-                        return Finish(SwitchStep.EsReturned);
-                    if (now - _since > EsTimeout)
-                        return Finish(SwitchStep.EsReturnFailed);
-                    if (now - _lastFocus >= EsFocusRetry)
-                    {
-                        _lastFocus = now;
-                        return SwitchStep.FocusEsAgain;
-                    }
-                    return SwitchStep.None;
+                    return WhileReturning(now, screen());
             }
 
             return SwitchStep.None;
+        }
+
+        /// <summary>
+        /// O Big Picture fechou pelo menu da própria Steam, com o ES minimizado: quem acompanha já pediu o ES de volta,
+        /// e daqui em diante é como a volta pelo botão (a janela normal da Steam também aparece).
+        /// </summary>
+        public void ReturnAfterSteamClosed(DateTime now)
+        {
+            StartReturn(now);
+        }
+
+        void StartReturn(DateTime now)
+        {
+            _stage = Stage.ReturningToEs;
+            _since = now;
+            _lastFocus = now;
+            _esInFrontSince = null;
+        }
+
+        SwitchStep WhileReturning(DateTime now, SwitchScreen front)
+        {
+            if (front == SwitchScreen.Es)
+            {
+                if (_esInFrontSince == null)
+                    _esInFrontSince = now;
+                return now - _esInFrontSince.Value >= EsSettle ? Finish(SwitchStep.EsReturned) : SwitchStep.None;
+            }
+
+            _esInFrontSince = null;
+            if (now - _since > EsTimeout)
+                return Finish(SwitchStep.EsReturnFailed);
+
+            if (now - _lastFocus < EsFocusRetry)
+                return SwitchStep.None;
+
+            _lastFocus = now;
+            return SwitchStep.FocusEsAgain;
         }
 
         SwitchStep Ask(DateTime now, SwitchScreen front, Func<bool> hasSteam, Func<GuideButtonConflict> conflict)
@@ -152,8 +187,7 @@ namespace Retroboat.SteamSwitch
                 return SwitchStep.OpenSteam;
             }
 
-            _stage = Stage.ReturningToEs;
-            _lastFocus = now;
+            StartReturn(now);
             return SwitchStep.ReturnToEs;
         }
 

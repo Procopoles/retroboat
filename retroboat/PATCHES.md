@@ -1562,6 +1562,10 @@ o histórico.
     confirmação é no botão Xbox, não no A: o A chegaria também ao ES ou ao Big Picture e clicaria em algo lá;
   - saindo do Big Picture pelo menu da Steam (sem o botão), a janela dele é destruída; o vigia olha uma vez por segundo
     e, com o ES ainda minimizado, traz o ES de volta. Um jogo da Steam aberto não destrói a janela e não engana o vigia;
+  - ao sair do Big Picture (pelo botão ou pelo menu), a Steam abre a janela normal dela uns 0,4 s depois e toma o foco
+    do ES (segundo teste do usuário, 17/11). Por isso a volta só termina com o ES 1,5 s seguidos na frente (até 6 s):
+    enquanto não, a cada 0,3 s o ES volta para a frente e a janela da Steam que estiver por cima é minimizada (fica na
+    barra de tarefas; nada da Steam é fechado);
   - qualquer outra janela na frente (um jogo do Retroboat ou da Steam, a área de trabalho) e o botão não faz nada. A
     pergunta some se a janela da frente muda. O Big Picture é a janela da Steam com "Big Picture" no título ou, numa
     língua que traduz o nome, ocupando a tela inteira;
@@ -1591,6 +1595,8 @@ o histórico.
     vídeo dedicada igual, 68 MB). De volta, desenha como antes (vídeo, música, navegação) e fecha com código 0;
   - a função 100 do XInput carrega neste Windows; com o controle Xbox One S do usuário, 6 apertos do botão Xbox
     chegaram (bit `0x0400`, só na função 100; o `XInputGetState` normal não mostra);
-  - 435 testes depois do script do evento "start".
+  - 435 testes depois do script do evento "start"; 437 depois da volta com a janela da Steam;
+  - segundo teste do usuário: ES → Steam funcionou; Steam → ES fechou o Big Picture, mas a janela normal da Steam
+    abriu por cima (reproduzido: ES na frente aos 0,23 s, a Steam aos 0,36 s). Corrigido como acima.
 - **Não testado:** a troca inteira no build do usuário; controle de PlayStation (o botão PS não passa pelo XInput); a
   detecção da Game Bar e da Steam em outro PC.

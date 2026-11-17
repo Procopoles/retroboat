@@ -67,10 +67,49 @@ namespace Retroboat.Tests
             Assert.Equal(SwitchStep.AskEs, run.At(0, pressed: true));
             Assert.Equal(SwitchStep.ReturnToEs, run.At(1, pressed: true));
             Assert.Equal(SwitchStep.None, run.At(1.2));
-            Assert.Equal(SwitchStep.FocusEsAgain, run.At(1.6));
+            Assert.Equal(SwitchStep.FocusEsAgain, run.At(1.4));
+
+            // Só conta como de volta depois de ficar na frente um tempo seguido.
+            run.Screen = SwitchScreen.Es;
+            Assert.Equal(SwitchStep.None, run.At(1.5));
+            Assert.Equal(SwitchStep.None, run.At(2.5));
+            Assert.Equal(SwitchStep.EsReturned, run.At(1.5 + SwitchFlow.EsSettle.TotalSeconds));
+            Assert.False(run.Flow.IsBusy);
+        }
+
+        [Fact]
+        public void The_steam_window_that_opens_over_the_es_after_the_big_picture_is_pushed_back()
+        {
+            // Visto em 17/11/2026: o ES chega na frente e, 0,4 s depois, a janela normal da Steam toma o foco.
+            var run = new Run { Screen = SwitchScreen.BigPicture };
+            run.At(0, pressed: true);
+            run.At(1, pressed: true);
 
             run.Screen = SwitchScreen.Es;
-            Assert.Equal(SwitchStep.EsReturned, run.At(1.7));
+            Assert.Equal(SwitchStep.None, run.At(1.1));
+
+            run.Screen = SwitchScreen.Other; // a janela da Steam
+            Assert.Equal(SwitchStep.FocusEsAgain, run.At(1.4));
+            Assert.True(run.Flow.IsBusy);
+
+            run.Screen = SwitchScreen.Es;
+            Assert.Equal(SwitchStep.None, run.At(1.5));
+            Assert.Equal(SwitchStep.EsReturned, run.At(1.5 + SwitchFlow.EsSettle.TotalSeconds));
+        }
+
+        [Fact]
+        public void Leaving_the_big_picture_from_the_steam_menu_also_keeps_the_es_in_front()
+        {
+            var run = new Run { Screen = SwitchScreen.Other };
+            run.Flow.ReturnAfterSteamClosed(T0);
+            Assert.True(run.Flow.IsBusy);
+
+            Assert.Equal(SwitchStep.FocusEsAgain, run.At(0.4));
+            Assert.Equal(SwitchStep.None, run.At(0.5, pressed: true)); // apertos na volta não perguntam nada
+
+            run.Screen = SwitchScreen.Es;
+            run.At(0.6);
+            Assert.Equal(SwitchStep.EsReturned, run.At(0.6 + SwitchFlow.EsSettle.TotalSeconds));
         }
 
         [Fact]

@@ -228,11 +228,19 @@ namespace Retroboat.Launcher.SteamSwitch
                         break;
 
                     case SwitchStep.FocusEsAgain:
+                        // Saindo do Big Picture, a Steam abre a janela normal dela por cima do ES. Primeiro o ES volta
+                        // para a frente; depois a janela da Steam vai para a barra de tarefas (minimizada, sem fechar
+                        // nada da Steam). Na ordem contrária, minimizar sem ativar deixaria a da Steam ativa.
                         SwitchWindows.BringBack(_es);
+                        if (SwitchWindows.IsSteamWindow(front))
+                        {
+                            SwitchWindows.MinimizeQuietly(front);
+                            Log.Info("Botão Xbox: janela da Steam aberta por cima do ES minimizada.");
+                        }
                         break;
 
                     case SwitchStep.EsReturned:
-                        Log.Info("Botão Xbox: de volta ao Retroboat; Big Picture fechado.");
+                        Log.Info("Botão Xbox: de volta ao Retroboat (ES na frente há " + SwitchFlow.EsSettle.TotalSeconds + " s).");
                         break;
 
                     case SwitchStep.EsReturnFailed:
@@ -259,8 +267,10 @@ namespace Retroboat.Launcher.SteamSwitch
                 if (!SwitchWindows.IsMinimized(es))
                     return; // O usuário já trouxe o ES de volta (ou ele fechou).
 
+                _es = es;
                 SwitchWindows.BringBack(es);
-                Log.Info("Botão Xbox: Big Picture fechado pela Steam; ES de volta.");
+                _flow.ReturnAfterSteamClosed(now);
+                Log.Info("Botão Xbox: Big Picture fechado pela Steam; trazendo o ES de volta.");
             }
 
             /// <summary>Lida a cada aperto que perguntaria (com os conflitos): instalar a Steam ou desligar a Game Bar vale na hora.</summary>
