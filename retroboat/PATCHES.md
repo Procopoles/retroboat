@@ -1607,5 +1607,10 @@ o histórico.
       restaurar) e pausa o modo de economia do ES, que esperava do mesmo jeito no topo do laço;
     - o `--steam-switch` listava os processos do Windows a cada 2 s para saber se o ES continuava aberto; agora espera
       o processo do ES terminar. A leitura do controle em si custa 5 µs (125 µs num encaixe vazio).
+  - medido de novo no build do usuário depois das correções (Big Picture na frente por 20 s, 15 s depois de minimizar
+    o ES, controle ligado): ES dormindo 0,86% de um núcleo (0,11% do PC), 0% de GPU, 284 MB de RAM; vigia 0,62% de um
+    núcleo (0,08% do PC), 28 MB; o `Retroboat.exe` normal (acompanhamento do Google Drive, de antes da RB-040) 0,94%;
+    a Steam com o Big Picture 111% de um núcleo e 28% de GPU. A memória de vídeo dedicada do ES ficou em 158 MB nos dois
+    estados (o contador do Windows não caiu ao soltar as texturas; numa medida anterior caiu de 158 para 101 MB).
 - **Não testado:** a troca inteira no build do usuário; controle de PlayStation (o botão PS não passa pelo XInput); a
   detecção da Game Bar e da Steam em outro PC.
