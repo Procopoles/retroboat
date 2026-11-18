@@ -29,6 +29,27 @@ namespace Retroboat.Tests
         }
 
         [Fact]
+        public void Start_script_resumes_background_media_only_when_the_queue_exists()
+        {
+            using (var dir = new TempDir())
+            {
+                dir.WriteText("retrobat.exe", "");
+                dir.WriteText(Path.Combine("retroboat", "Retroboat.exe"), "");
+                var install = new RetroBatInstall(dir.Path);
+
+                Assert.True(EsScripts.WriteBackgroundMedia(install, dir.Combine("retroboat")));
+                Assert.False(EsScripts.WriteBackgroundMedia(install, dir.Combine("retroboat")));
+
+                var path = Path.Combine(install.UserEmulationStationPath, "scripts", "start", "retroboat-midias-nowait.bat");
+                var script = File.ReadAllText(path);
+
+                // A fila vazia apaga o arquivo: o script não abre nada sem mídias pendentes.
+                Assert.Contains("if exist \"%~dp0..\\..\\..\\..\\retroboat\\estado\\midias-em-segundo-plano.xml\"", script);
+                Assert.Contains("start \"\" \"%~dp0..\\..\\..\\..\\retroboat\\Retroboat.exe\" --media --retrobat \"%~dp0..\\..\\..\\..\"", script);
+            }
+        }
+
+        [Fact]
         public void Start_script_is_not_written_without_the_launcher()
         {
             using (var dir = new TempDir())

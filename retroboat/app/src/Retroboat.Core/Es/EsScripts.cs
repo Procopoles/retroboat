@@ -93,5 +93,31 @@ namespace Retroboat.Es
 
             return Write(install, StartEvent, SteamSwitchFile, script, dryRun);
         }
+
+        /// <summary>"-nowait", como o do botão Xbox: o ES não espera.</summary>
+        public const string BackgroundMediaFile = "retroboat-midias-nowait.bat";
+
+        /// <summary>
+        /// RB-041: mídias secundárias (vídeos, manuais) que ficaram na fila de uma sessão anterior (o PC desligou no meio)
+        /// continuam quando o ES abre, por qualquer caminho. Sem fila (o arquivo não existe), o script não abre nada.
+        /// </summary>
+        /// <returns>true se gravou; false se já estava em dia ou se o Retroboat.exe não está em <paramref name="exeDirectory"/>.</returns>
+        public static bool WriteBackgroundMedia(RetroBatInstall install, string exeDirectory, bool dryRun = false)
+        {
+            if (!File.Exists(Path.Combine(exeDirectory, "Retroboat.exe")))
+                return false;
+
+            var exe = ExeFromRoot(install, exeDirectory, "Retroboat.exe");
+            var queue = Root + @"\retroboat\" + CloudStatusFolder + @"\" + Media.Background.BackgroundMediaQueue.FileName;
+            var script =
+                "@echo off\r\n" +
+                "rem Retroboat (RB-041): videos, manuais e imagens extras que ficaram na fila continuam em segundo plano.\r\n" +
+                "rem Sem fila, nada abre. Gravado pelo Retroboat.exe; editar aqui nao adianta.\r\n" +
+                "if exist \"" + queue + "\" if exist \"" + exe + "\" start \"\" \"" + exe + "\" --media --retrobat \"" + Root + "\"\r\n";
+
+            return Write(install, StartEvent, BackgroundMediaFile, script, dryRun);
+        }
+
+        const string CloudStatusFolder = Cloud.CloudStatusFile.Folder;
     }
 }

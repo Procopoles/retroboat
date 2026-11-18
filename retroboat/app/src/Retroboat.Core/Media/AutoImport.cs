@@ -5,6 +5,7 @@ using System.Linq;
 using System.Xml.Linq;
 using Retroboat.Cloud;
 using Retroboat.Library;
+using Retroboat.Media.Background;
 using Retroboat.Media.Sources;
 
 namespace Retroboat.Media
@@ -14,7 +15,13 @@ namespace Retroboat.Media
         /// <summary>Jogos que ganharam algum campo (texto ou mídia).</summary>
         public int GamesFilled { get; set; }
 
-        public int FilesDownloaded { get; set; }
+        public int FilesDownloaded { get => DownloadedCount; set => DownloadedCount = value; }
+
+        /// <summary>Os downloads de um jogo correm em paralelo (<see cref="AutoImport"/>).</summary>
+        internal int DownloadedCount;
+
+        /// <summary>RB-041: mídias secundárias (vídeo, manual, imagens extras) que ficaram para o segundo plano.</summary>
+        public int FilesQueued { get; set; }
 
         /// <summary>Jogos que nenhuma fonte conhece (nome fora do padrão No-Intro/Redump, jogo obscuro).</summary>
         public List<string> NotFound { get; } = new List<string>();
@@ -32,24 +39,35 @@ namespace Retroboat.Media
     /// buscados (inclusive pela regra antiga, só libretro e Wikipédia) ficam como estão. Um jogo que a pessoa procurou no ES
     /// não é mais tocado. Mídia só entra onde não há arquivo; texto troca o que a fonte tiver. Se uma fonte não respondeu, o
     /// jogo é buscado de novo na próxima sincronização.
+    ///
+    /// RB-041: a pessoa só espera o essencial (<see cref="MediaPriority"/>): textos, capa, tela, logo e fan art, baixados em
+    /// paralelo, um por vez de cada servidor. Vídeo, manual e imagens extras vão para a fila de segundo plano
+    /// (<see cref="BackgroundMediaQueue"/>) e aparecem no ES quando chegarem.
     /// </summary>
     public sealed class AutoImport
     {
+        /// <summary>Servidores diferentes ao mesmo tempo; cada um recebe um pedido por vez (o ScreenScraper limita).</summary>
+        const int ParallelHosts = 4;
+
         readonly RetroBatInstall _install;
         readonly string _romsRoot;
         readonly CustomMediaSearch _search;
         readonly MediaImportLog _log;
         readonly IMediaHttp _http;
+        readonly BackgroundMediaQueue _background;
 
         /// <param name="log">O que já foi buscado, de todos os PCs (<see cref="MediaImportLog.InCloud"/>). Sem ele, só o deste PC.</param>
         /// <param name="http">Quem baixa as imagens e os vídeos (os testes trocam).</param>
-        public AutoImport(RetroBatInstall install, string romsRoot, CustomMediaSearch search, MediaImportLog log = null, IMediaHttp http = null)
+        /// <param name="background">Para onde vão as mídias secundárias; nulo = baixar tudo agora.</param>
+        public AutoImport(RetroBatInstall install, string romsRoot, CustomMediaSearch search, MediaImportLog log = null, IMediaHttp http = null,
+                          BackgroundMediaQueue background = null)
         {
             _install = install;
             _romsRoot = romsRoot;
             _search = search;
             _log = log ?? MediaImportLog.Local(install);
             _http = http ?? new MediaHttp();
+            _background = background;
             _log.ImportLegacy(MediaImportLog.LegacyInfoFile(install));
         }
 
@@ -250,45 +268,136 @@ namespace Retroboat.Media
             return filled;
         }
 
-        /// <summary>Baixa as mídias que faltam para a pasta de mídia do sistema e aponta o gamelist para elas.</summary>
+        /// <summary>
+        /// Baixa as mídias essenciais que faltam para a pasta de mídia do sistema e aponta o gamelist para elas; as secundárias
+        /// vão para a fila de segundo plano (RB-041).
+        /// </summary>
         bool FillMedia(SystemWork work, GameWork game, string stem, CustomMediaResult found, AutoImportResult result)
         {
+            var missing = MediaFields.Medias
+                .Where(f => found.Media.ContainsKey(f.Id) && !HasFile(game.Element, f.GamelistFields[0], work.RomFolder))
+                .ToList();
+            var now = missing.Where(f => _background == null || MediaPriority.IsEssential(f.Id)).ToList();
+            var later = missing.Except(now).ToList();
+
+            // A capa que também serve de tela do jogo é o mesmo arquivo: um download, com o nome do primeiro campo.
+            var files = new Dictionary<string, (MediaField Field, MediaUrl Media)>(StringComparer.OrdinalIgnoreCase);
+            foreach (var field in now.Where(f => !files.ContainsKey(found.Media[f.Id].Url)))
+                files[found.Media[field.Id].Url] = (field, found.Media[field.Id]);
+
+            var paths = DownloadAll(work.SystemName, stem, files.Values.ToList(), result, out var failure);
+
             bool filled = false;
-            var downloaded = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var field in MediaFields.Medias)
+            foreach (var field in now)
             {
-                if (!found.Media.TryGetValue(field.Id, out var media) || HasFile(game.Element, field.GamelistFields[0], work.RomFolder))
+                if (paths.TryGetValue(found.Media[field.Id].Url, out var path) && path != null)
+                    filled |= Point(game.Element, field.GamelistFields, path, work.RomFolder);
+            }
+
+            var queued = new List<BackgroundMediaItem>();
+            foreach (var field in later)
+            {
+                var media = found.Media[field.Id];
+                var target = MediaFile(work.SystemName, stem, field, media);
+
+                // Já no PC (uma importação interrompida): entra agora, sem fila.
+                if (File.Exists(target) && new FileInfo(target).Length > 0)
+                {
+                    filled |= Point(game.Element, field.GamelistFields, target, work.RomFolder);
                     continue;
-
-                // A capa que também serve de tela do jogo é o mesmo arquivo.
-                if (!downloaded.TryGetValue(media.Url, out var path))
-                {
-                    path = Download(work.SystemName, stem, field, media, result);
-                    if (path == null)
-                        continue;
-                    downloaded[media.Url] = path;
                 }
 
-                foreach (var gamelistField in field.GamelistFields)
+                queued.Add(new BackgroundMediaItem
                 {
-                    if (HasFile(game.Element, gamelistField, work.RomFolder))
-                        continue;
+                    System = work.SystemName,
+                    RomFolder = work.RomFolder,
+                    Game = game.File,
+                    Fields = field.GamelistFields.ToList(),
+                    Url = media.Url,
+                    Target = target,
+                    Replaces = (string)game.Element.Element(field.GamelistFields[0])
+                });
+            }
 
-                    game.Element.SetElementValue(gamelistField, GameMedia.ToHomeRelative(path, _install));
-                    filled = true;
-                }
+            if (queued.Count > 0)
+                result.FilesQueued += _background.Add(queued);
+
+            if (failure != null)
+            {
+                // O que chegou fica; o jogo é buscado de novo na próxima vez (Import).
+                work.Changed |= filled;
+                throw failure;
             }
 
             return filled;
         }
 
+        bool Point(XElement game, IEnumerable<string> gamelistFields, string path, string romFolder)
+        {
+            bool filled = false;
+            foreach (var gamelistField in gamelistFields)
+            {
+                if (HasFile(game, gamelistField, romFolder))
+                    continue;
+
+                game.SetElementValue(gamelistField, GameMedia.ToHomeRelative(path, _install));
+                filled = true;
+            }
+
+            return filled;
+        }
+
+        /// <summary>
+        /// Os arquivos de um jogo, em paralelo: um servidor por vez cada (o ScreenScraper limita os pedidos simultâneos), até
+        /// <see cref="ParallelHosts"/> servidores ao mesmo tempo. Um arquivo que falhou não impede os outros.
+        /// </summary>
+        /// <returns>Endereço → arquivo no PC (nulo se a fonte não tinha mais o arquivo).</returns>
+        Dictionary<string, string> DownloadAll(string systemName, string stem, List<(MediaField Field, MediaUrl Media)> files, AutoImportResult result, out Exception failure)
+        {
+            var paths = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            Exception first = null;
+            var hosts = files.GroupBy(f => Uri.TryCreate(f.Media.Url, UriKind.Absolute, out var uri) ? uri.Host : f.Media.Url, StringComparer.OrdinalIgnoreCase).ToList();
+
+            System.Threading.Tasks.Parallel.ForEach(hosts, new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = ParallelHosts }, host =>
+            {
+                foreach (var (field, media) in host)
+                {
+                    string path = null;
+                    try
+                    {
+                        path = Download(systemName, stem, field, media, result);
+                    }
+                    catch (Exception ex) when (ex is System.Net.WebException || ex is IOException || ex is UnauthorizedAccessException)
+                    {
+                        lock (paths)
+                            first = first ?? ex;
+                        continue;
+                    }
+
+                    lock (paths)
+                        paths[media.Url] = path;
+                }
+            });
+
+            failure = first;
+            return paths;
+        }
+
+        string MediaFile(string systemName, string stem, MediaField field, MediaUrl media)
+        {
+            var kind = KindOf(field);
+            var extension = media.Extension ?? (kind == MediaKind.Video ? ".mp4" : kind == MediaKind.Manual ? ".pdf" : ".png");
+            var folder = Path.Combine(GameMedia.LocalMediaRoot(_install, systemName), GameMedia.LocalFolder(kind));
+            return Path.Combine(folder, stem + "-" + field.Suffix + extension);
+        }
+
+        static MediaKind KindOf(MediaField field) =>
+            field.Kind == MediaFieldKind.Video ? MediaKind.Video : field.Kind == MediaFieldKind.Document ? MediaKind.Manual : MediaKind.Image;
+
         /// <returns>O arquivo no PC, ou nulo se a fonte não tinha mais o arquivo.</returns>
         string Download(string systemName, string stem, MediaField field, MediaUrl media, AutoImportResult result)
         {
-            var kind = field.Kind == MediaFieldKind.Video ? MediaKind.Video : field.Kind == MediaFieldKind.Document ? MediaKind.Manual : MediaKind.Image;
-            var extension = media.Extension ?? (kind == MediaKind.Video ? ".mp4" : kind == MediaKind.Manual ? ".pdf" : ".png");
-            var folder = Path.Combine(GameMedia.LocalMediaRoot(_install, systemName), GameMedia.LocalFolder(kind));
-            var file = Path.Combine(folder, stem + "-" + field.Suffix + extension);
+            var file = MediaFile(systemName, stem, field, media);
             if (File.Exists(file) && new FileInfo(file).Length > 0)
                 return file;
 
@@ -296,12 +405,12 @@ namespace Retroboat.Media
             if (data == null || data.Length == 0)
                 return null;
 
-            Directory.CreateDirectory(folder);
+            Directory.CreateDirectory(Path.GetDirectoryName(file));
             File.WriteAllBytes(file + ".retroboat-part", data);
             if (File.Exists(file))
                 File.Delete(file);
             File.Move(file + ".retroboat-part", file);
-            result.FilesDownloaded++;
+            System.Threading.Interlocked.Increment(ref result.DownloadedCount);
             return file;
         }
 

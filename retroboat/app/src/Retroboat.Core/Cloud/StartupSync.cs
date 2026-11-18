@@ -7,6 +7,7 @@ using Retroboat.Bios;
 using Retroboat.Config;
 using Retroboat.Library;
 using Retroboat.Media;
+using Retroboat.Media.Background;
 using Retroboat.Media.Sources;
 using Retroboat.Profile;
 using Retroboat.Saves;
@@ -46,11 +47,16 @@ namespace Retroboat.Cloud
         /// <param name="mediaSearch">A busca PERSONALIZADO dos jogos novos; nulo = a deste PC (<see cref="CustomMediaSearch.ForInstall"/>).</param>
         /// <param name="mediaHttp">Quem baixa as mídias dos jogos novos (os testes trocam).</param>
         /// <param name="progress">Andamento (0 a 100) e a etapa, para a barra do "Atualizar listas de jogos" do ES (RB-038).</param>
+        /// <param name="backgroundMedia">
+        /// RB-041: para onde vão as mídias secundárias (vídeo, manual, imagens extras), que ninguém precisa esperar; nulo = a
+        /// fila deste PC. Quem chama abre o <c>Retroboat.exe --media</c> depois (<see cref="BackgroundMediaProcess"/>).
+        /// </param>
         public static StartupSyncReport Run(RetroBatInstall install, string configuredCloudPath, string romsPath, CloudMediaOptions mediaOptions = null,
                                             CustomMediaSearch mediaSearch = null, IMediaHttp mediaHttp = null, string libraryId = null,
-                                            Action<int, string> progress = null)
+                                            Action<int, string> progress = null, BackgroundMediaQueue backgroundMedia = null)
         {
             void Step(int percent, string text) => progress?.Invoke(percent, text);
+            var background = backgroundMedia ?? new BackgroundMediaQueue(install);
 
             Step(2, "Procurando o Google Drive");
             var report = new StartupSyncReport { Cloud = CloudLocator.Locate(configuredCloudPath, libraryId) };
@@ -172,7 +178,8 @@ namespace Retroboat.Cloud
                     report.PartialDownloads.Errors.AddRange(partial.Errors);
 
                     Step(48, "Sincronizando capas e descrições");
-                    report.Media = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();
+                    report.Media = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions, background: background)
+                        .Apply((done, total) => Step(48 + 9 * done / Math.Max(1, total), "Baixando capas da nuvem (" + done + " de " + total + ")"));
                     var media = report.Media;
                     if (media.GamesFilled > 0 || media.GamesShared > 0)
                     {
@@ -205,13 +212,13 @@ namespace Retroboat.Cloud
                 Step(64, "Procurando mídias dos jogos novos");
                 var log = MediaImportLog.InCloud(report.Cloud.RetroboatPath);
                 var search = mediaSearch ?? CustomMediaSearch.ForInstall(install);
-                report.AutoImport = new AutoImport(install, romsPath, search, log, mediaHttp).Apply((done, total, game) =>
+                report.AutoImport = new AutoImport(install, romsPath, search, log, mediaHttp, background).Apply((done, total, game) =>
                     Step(64 + 28 * (done - 1) / Math.Max(1, total), "Buscando mídias (" + done + " de " + total + "): " + game));
                 if (report.AutoImport.GamesFilled > 0)
                 {
                     report.Messages.Add("Mídias automáticas: " + report.AutoImport.GamesFilled + " jogo(s)");
                     Step(93, "Enviando as mídias novas para a nuvem");
-                    var shared = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions).Apply();
+                    var shared = new CloudMediaSync(install, romsPath, report.Cloud.RetroboatPath, options: mediaOptions, background: background).Apply();
                     report.Media = report.Media ?? shared;
                     if (report.Media != shared)
                     {
@@ -257,6 +264,8 @@ namespace Retroboat.Cloud
                 report.HasWarnings = true;
             }
 
+            // O ES relê as listas logo depois: as mídias de segundo plano esperam ele terminar para aparecer (EsLiveMedia).
+            SyncLock.MarkSynced(install);
             Step(100, "Sincronização concluída");
             return report;
         }
@@ -266,7 +275,9 @@ namespace Retroboat.Cloud
         /// hora, sem esperar a próxima abertura: a mídia que o scraper do ES deixou na pasta de jogos sai de lá e sobe com os
         /// textos, e o que outro PC mudou enquanto este jogava chega. Falha aqui fica nela.
         /// </summary>
-        public static CloudMediaSyncResult SyncMediaAfterEs(RetroBatInstall install, string cloudRetroboatPath, string romsPath, CloudMediaOptions options)
+        /// <param name="background">Para onde vão as mídias secundárias que chegaram à nuvem (RB-041); nulo = copiar agora.</param>
+        public static CloudMediaSyncResult SyncMediaAfterEs(RetroBatInstall install, string cloudRetroboatPath, string romsPath, CloudMediaOptions options,
+                                                            BackgroundMediaQueue background = null)
         {
             if (string.IsNullOrEmpty(romsPath))
                 return new CloudMediaSyncResult();
@@ -274,7 +285,7 @@ namespace Retroboat.Cloud
             try
             {
                 var relocation = new MediaRelocator(install).Apply(romsPath);
-                var result = new CloudMediaSync(install, romsPath, cloudRetroboatPath, options: options).Apply();
+                var result = new CloudMediaSync(install, romsPath, cloudRetroboatPath, options: options, background: background).Apply();
                 result.Errors.InsertRange(0, relocation.Errors);
                 return result;
             }

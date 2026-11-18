@@ -6,6 +6,7 @@ using System.Linq;
 using System.Xml.Linq;
 using Retroboat.Cloud;
 using Retroboat.Library;
+using Retroboat.Media.Background;
 
 namespace Retroboat.Media
 {
@@ -29,6 +30,9 @@ namespace Retroboat.Media
         public int FilesUploaded { get; set; }
         public int GamesFilled { get; set; }
         public int FilesDownloaded { get; set; }
+
+        /// <summary>RB-041: mídias secundárias da nuvem (vídeo, manual, imagens extras) que ficaram para o segundo plano.</summary>
+        public int FilesQueued { get; set; }
         public List<string> Errors { get; } = new List<string>();
     }
 
@@ -44,6 +48,9 @@ namespace Retroboat.Media
     /// chega aos outros. No PC, cada campo acompanha a nuvem, a não ser que tenha mudado neste PC desde a última sincronização
     /// (midia-sync): aí é a mudança deste PC que vai para a nuvem. Num arquivo de mídia com o mesmo nome dos dois lados, vale o
     /// mais novo, então um PC desatualizado não regrava a capa velha por cima da nova.
+    ///
+    /// RB-041: num PC sem nenhuma mídia (a primeira abertura), a espera é só pelo essencial (<see cref="MediaPriority"/>), com
+    /// várias cópias do Drive ao mesmo tempo; vídeo, manual e imagens extras vão para a fila de segundo plano.
     /// </summary>
     public sealed class CloudMediaSync
     {
@@ -55,9 +62,16 @@ namespace Retroboat.Media
         readonly string _cloudRoot;
         readonly string _pcName;
         readonly CloudMediaOptions _options;
+        readonly BackgroundMediaQueue _background;
 
-        public CloudMediaSync(RetroBatInstall install, string romsRoot, string cloudRetroboatPath, string pcName = null, CloudMediaOptions options = null)
+        /// <summary>Cópias do Drive ao mesmo tempo. Cada arquivo do Drive para computador demora pela ida e volta, não pelo tamanho.</summary>
+        const int ParallelCopies = 6;
+
+        /// <param name="background">Para onde vão as mídias secundárias (RB-041); nulo = copiar tudo agora.</param>
+        public CloudMediaSync(RetroBatInstall install, string romsRoot, string cloudRetroboatPath, string pcName = null, CloudMediaOptions options = null,
+                              BackgroundMediaQueue background = null)
         {
+            _background = background;
             _install = install;
             _romsRoot = romsRoot;
             _cloudRoot = cloudRetroboatPath;
@@ -65,18 +79,21 @@ namespace Retroboat.Media
             _options = options ?? new CloudMediaOptions();
         }
 
-        public CloudMediaSyncResult Apply()
+        /// <param name="progress">Arquivos essenciais copiados da nuvem e o total, para a barra da atualização (RB-041).</param>
+        public CloudMediaSyncResult Apply(Action<int, int> progress = null)
         {
             var result = new CloudMediaSyncResult();
             var index = CloudIndex.Load(CloudLibrarySync.IndexPath(_install));
             var systemNames = GameMedia.SystemNamesByFolder(_install);
 
+            // 1. Cada sistema recebe da nuvem os textos e diz quais arquivos faltam.
+            var systems = new List<SystemSync>();
             foreach (var group in index.Entries.GroupBy(e => e.System, StringComparer.OrdinalIgnoreCase))
             {
                 var systemName = systemNames.TryGetValue(group.Key, out var name) ? name : group.Key;
                 try
                 {
-                    SyncSystem(group.Key, systemName, group.ToList(), result);
+                    systems.Add(Begin(group.Key, systemName, group.ToList()));
                 }
                 catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
                 {
@@ -84,86 +101,170 @@ namespace Retroboat.Media
                 }
             }
 
+            // 2. Os arquivos essenciais de todos os sistemas, vários ao mesmo tempo: o Drive demora por arquivo, não por byte.
+            CopyAll(systems.SelectMany(s => s.Copies).ToList(), result, progress);
+
+            // 3. O gamelist aponta para o que chegou, e o que este PC tem vai para a nuvem.
+            foreach (var system in systems)
+            {
+                try
+                {
+                    Finish(system, result);
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is System.Xml.XmlException)
+                {
+                    result.Errors.Add(system.SystemName + ": " + ex.Message);
+                }
+            }
+
             return result;
         }
 
-        void SyncSystem(string folder, string systemName, List<CloudIndexEntry> games, CloudMediaSyncResult result)
+        /// <summary>Uma cópia da nuvem para este PC, feita junto com as outras (<see cref="CopyAll"/>).</summary>
+        sealed class PendingCopy
         {
-            var gamelistPath = Path.Combine(_install.GamelistsPath, systemName, "gamelist.xml");
-            var gamelist = File.Exists(gamelistPath) ? XDocument.Load(gamelistPath) : new XDocument(new XElement("gameList"));
-            var gamelistBefore = gamelist.ToString();
+            public string Source;
+            public string Target;
+            public XElement Game;
+            public string GameKey;
 
-            var cloudSystem = Path.Combine(_cloudRoot, "midia", folder);
-            var metadataDir = Path.Combine(cloudSystem, "metadados");
-            var ownPath = Path.Combine(metadataDir, SafeFileName(_pcName) + ".xml");
-            var lastSyncPath = LastSyncPath(_install, folder);
-            var romFolder = Path.Combine(_romsRoot, folder);
-            var mediaRoot = GameMedia.LocalMediaRoot(_install, systemName);
+            /// <summary>Campo do gamelist que passa a apontar para o arquivo; nulo quando ele já aponta (só o conteúdo muda).</summary>
+            public string Field;
 
-            var own = ReadEntries(ownPath);
-            var ownBefore = Serialize(own).ToString();
-            var lastSync = ReadEntries(lastSyncPath);
-            var lastSyncBefore = Serialize(lastSync).ToString();
-            var winners = ReadWinners(metadataDir);
-            var synced = new Dictionary<string, MediaEntry>(StringComparer.OrdinalIgnoreCase);
+            public bool Copied;
+        }
+
+        sealed class SyncedGame
+        {
+            public CloudIndexEntry Entry;
+            public XElement Element;
+            public MediaEntry Winner;
+        }
+
+        /// <summary>Um sistema no meio da sincronização: o gamelist e os registros da nuvem abertos, e o que falta copiar.</summary>
+        sealed class SystemSync
+        {
+            public string SystemName;
+            public string GamelistPath;
+            public XDocument Gamelist;
+            public string GamelistBefore;
+            public string CloudSystem;
+            public string MetadataDir;
+            public string OwnPath;
+            public string LastSyncPath;
+            public string RomFolder;
+            public string MediaRoot;
+            public Dictionary<string, MediaEntry> Own;
+            public string OwnBefore;
+            public Dictionary<string, MediaEntry> LastSync;
+            public string LastSyncBefore;
+            public readonly List<SyncedGame> Games = new List<SyncedGame>();
+            public readonly List<PendingCopy> Copies = new List<PendingCopy>();
+            public readonly List<BackgroundMediaItem> Later = new List<BackgroundMediaItem>();
+            public readonly HashSet<string> Filled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+
+        SystemSync Begin(string folder, string systemName, List<CloudIndexEntry> games)
+        {
+            var sys = new SystemSync
+            {
+                SystemName = systemName,
+                GamelistPath = Path.Combine(_install.GamelistsPath, systemName, "gamelist.xml"),
+                CloudSystem = Path.Combine(_cloudRoot, "midia", folder),
+                LastSyncPath = LastSyncPath(_install, folder),
+                RomFolder = Path.Combine(_romsRoot, folder),
+                MediaRoot = GameMedia.LocalMediaRoot(_install, systemName)
+            };
+
+            sys.Gamelist = File.Exists(sys.GamelistPath) ? XDocument.Load(sys.GamelistPath) : new XDocument(new XElement("gameList"));
+            sys.GamelistBefore = sys.Gamelist.ToString();
+            sys.MetadataDir = Path.Combine(sys.CloudSystem, "metadados");
+            sys.OwnPath = Path.Combine(sys.MetadataDir, SafeFileName(_pcName) + ".xml");
+            sys.Own = ReadEntries(sys.OwnPath);
+            sys.OwnBefore = Serialize(sys.Own).ToString();
+            sys.LastSync = ReadEntries(sys.LastSyncPath);
+            sys.LastSyncBefore = Serialize(sys.LastSync).ToString();
+            var winners = ReadWinners(sys.MetadataDir);
 
             foreach (var game in games)
             {
                 winners.TryGetValue(game.LocalName, out var winner);
-                var element = CloudLibrarySync.FindGame(gamelist, game.LocalName);
+                var element = CloudLibrarySync.FindGame(sys.Gamelist, game.LocalName);
                 if (element == null)
                 {
                     if (winner == null)
                         continue;
 
                     element = new XElement("game", new XElement("path", "./" + game.LocalName));
-                    gamelist.Root.Add(element);
+                    sys.Gamelist.Root.Add(element);
                 }
+
+                sys.Games.Add(new SyncedGame { Entry = game, Element = element, Winner = winner });
 
                 // O que este PC tinha na última sincronização. Antes desta versão não havia esse registro: o que ele enviou da
                 // última vez serve (era o que ele tinha).
-                if (!lastSync.TryGetValue(game.LocalName, out var baseline))
-                    own.TryGetValue(game.LocalName, out baseline);
+                if (!sys.LastSync.TryGetValue(game.LocalName, out var baseline))
+                    sys.Own.TryGetValue(game.LocalName, out baseline);
 
-                // 1. Recebe o que mudou na nuvem e não mudou aqui: um PROCURAR MÍDIAS em outro PC chega a este.
-                if (winner != null && Receive(element, winner, baseline, cloudSystem, mediaRoot, romFolder, result))
-                    result.GamesFilled++;
+                // Recebe o que mudou na nuvem e não mudou aqui: um PROCURAR MÍDIAS em outro PC chega a este.
+                if (winner != null && Receive(sys, game.LocalName, element, winner, baseline))
+                    sys.Filled.Add(game.LocalName);
+            }
 
-                // 2. Envia o que este PC tem e a nuvem não: a mídia nova vai junto.
-                var fields = Share(element, romFolder, cloudSystem, result);
-                lastSync.TryGetValue(game.LocalName, out var previousSync);
-                synced[game.LocalName] = previousSync != null && SameFields(previousSync.Fields, fields)
+            return sys;
+        }
+
+        void Finish(SystemSync sys, CloudMediaSyncResult result)
+        {
+            foreach (var copy in sys.Copies.Where(c => c.Copied))
+            {
+                if (copy.Field != null)
+                    SetMediaField(copy.Game, copy.Field, copy.Target);
+                sys.Filled.Add(copy.GameKey);
+            }
+
+            result.GamesFilled += sys.Filled.Count;
+            if (sys.Later.Count > 0)
+                result.FilesQueued += _background.Add(sys.Later);
+
+            var synced = new Dictionary<string, MediaEntry>(StringComparer.OrdinalIgnoreCase);
+            foreach (var game in sys.Games)
+            {
+                // Envia o que este PC tem e a nuvem não: a mídia nova vai junto.
+                var fields = Share(game.Element, sys.RomFolder, sys.CloudSystem, result);
+                sys.LastSync.TryGetValue(game.Entry.LocalName, out var previousSync);
+                synced[game.Entry.LocalName] = previousSync != null && SameFields(previousSync.Fields, fields)
                     ? previousSync
-                    : new MediaEntry { Key = game.LocalName, Updated = DateTime.UtcNow, Fields = fields };
+                    : new MediaEntry { Key = game.Entry.LocalName, Updated = DateTime.UtcNow, Fields = fields };
 
-                if (fields.Count == 0 || (winner != null && SameFields(winner.Fields, fields)))
+                if (fields.Count == 0 || (game.Winner != null && SameFields(game.Winner.Fields, fields)))
                     continue; // A nuvem já tem isso (talvez veio dela mesma).
 
-                own.TryGetValue(game.LocalName, out var previous);
+                sys.Own.TryGetValue(game.Entry.LocalName, out var previous);
                 if (previous != null && SameFields(previous.Fields, fields))
                     continue; // Já enviado; a data continua a do envio, para não passar na frente do que veio depois.
 
-                own[game.LocalName] = new MediaEntry { Key = game.LocalName, Updated = DateTime.UtcNow, Fields = fields };
+                sys.Own[game.Entry.LocalName] = new MediaEntry { Key = game.Entry.LocalName, Updated = DateTime.UtcNow, Fields = fields };
                 result.GamesShared++;
             }
 
-            if (Serialize(own).ToString() != ownBefore)
+            if (Serialize(sys.Own).ToString() != sys.OwnBefore)
             {
-                Directory.CreateDirectory(metadataDir);
-                Save(ownPath, own);
+                Directory.CreateDirectory(sys.MetadataDir);
+                Save(sys.OwnPath, sys.Own);
             }
 
-            if (gamelist.ToString() != gamelistBefore)
+            if (sys.Gamelist.ToString() != sys.GamelistBefore)
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(gamelistPath));
-                gamelist.Save(gamelistPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(sys.GamelistPath));
+                sys.Gamelist.Save(sys.GamelistPath);
             }
 
             // Por último: se algo acima falhar, a próxima vez compara com o estado antigo e refaz.
-            if (Serialize(synced).ToString() != lastSyncBefore)
+            if (Serialize(synced).ToString() != sys.LastSyncBefore)
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(lastSyncPath));
-                Save(lastSyncPath, synced);
+                Directory.CreateDirectory(Path.GetDirectoryName(sys.LastSyncPath));
+                Save(sys.LastSyncPath, synced);
             }
         }
 
@@ -177,11 +278,12 @@ namespace Retroboat.Media
         /// <summary>
         /// Traz da nuvem cada campo que lá mudou e aqui não, desde a última sincronização. Um campo vazio aqui sempre vem. Sem
         /// a última sincronização (um PC que nunca sincronizou o jogo), só o que está vazio: nada que a pessoa ou o scraper
-        /// deste PC escreveu é trocado. Retorna true se mudou algo.
+        /// deste PC escreveu é trocado. Os textos entram agora; os arquivos, depois da cópia (<see cref="CopyAll"/>) ou em
+        /// segundo plano. Retorna true se mudou algo agora.
         /// </summary>
-        bool Receive(XElement game, MediaEntry winner, MediaEntry baseline, string cloudSystem, string mediaRoot, string romFolder, CloudMediaSyncResult result)
+        bool Receive(SystemSync sys, string gameKey, XElement game, MediaEntry winner, MediaEntry baseline)
         {
-            var local = LocalFields(game, romFolder, out var files);
+            var local = LocalFields(game, sys.RomFolder, out var files);
             bool changed = false;
             foreach (var field in winner.Fields)
             {
@@ -190,7 +292,7 @@ namespace Retroboat.Media
                 {
                     // O mesmo arquivo dos dois lados: o PROCURAR MÍDIAS regrava com o mesmo nome, então o conteúdo mais novo vale.
                     if (GameMedia.MediaFields.TryGetValue(field.Key, out var kind) && _options.Allows(kind))
-                        changed |= Download(Path.Combine(cloudSystem, field.Value.Replace('/', '\\')), files[field.Key], result);
+                        changed |= Fetch(sys, gameKey, game, field.Key, Path.Combine(sys.CloudSystem, field.Value.Replace('/', '\\')), files[field.Key], replaces: null);
 
                     continue;
                 }
@@ -198,14 +300,14 @@ namespace Retroboat.Media
                 bool unchangedHere = mine == null ||
                                      (baseline != null && baseline.Fields.TryGetValue(field.Key, out var before) && before == mine);
                 if (unchangedHere)
-                    changed |= Take(game, field.Key, field.Value, cloudSystem, mediaRoot, result);
+                    changed |= Take(sys, gameKey, game, field.Key, field.Value);
             }
 
             return changed;
         }
 
-        /// <summary>Põe no jogo o valor da nuvem; a mídia é baixada para a pasta de mídia do ES. Retorna true se mudou algo.</summary>
-        bool Take(XElement game, string field, string value, string cloudSystem, string mediaRoot, CloudMediaSyncResult result)
+        /// <summary>Põe no jogo o valor da nuvem; a mídia vem para a pasta de mídia do ES. Retorna true se mudou algo agora.</summary>
+        bool Take(SystemSync sys, string gameKey, XElement game, string field, string value)
         {
             if (field.StartsWith("@", StringComparison.Ordinal))
             {
@@ -226,17 +328,8 @@ namespace Retroboat.Media
                     return false;
 
                 var fileName = Path.GetFileName(value.Replace('/', '\\'));
-                var target = Path.Combine(mediaRoot, GameMedia.LocalFolder(kind), fileName);
-                Download(Path.Combine(cloudSystem, GameMedia.CloudFolder(kind), fileName), target, result);
-                if (!File.Exists(target))
-                    return false;
-
-                var relative = GameMedia.ToHomeRelative(target, _install);
-                if ((string)game.Element(field) == relative)
-                    return true; // O arquivo foi trocado, o caminho é o mesmo.
-
-                game.SetElementValue(field, relative);
-                return true;
+                var target = Path.Combine(sys.MediaRoot, GameMedia.LocalFolder(kind), fileName);
+                return Fetch(sys, gameKey, game, field, Path.Combine(sys.CloudSystem, GameMedia.CloudFolder(kind), fileName), target, replaces: (string)game.Element(field) ?? "");
             }
 
             if (field == "desc")
@@ -258,24 +351,99 @@ namespace Retroboat.Media
         }
 
         /// <summary>
-        /// Baixa o arquivo da nuvem se este PC não tem, ou se o da nuvem é outro (outro tamanho) e mais novo. Retorna true se
-        /// baixou.
+        /// Um arquivo da nuvem para este PC, se ele não tem ou se o da nuvem é outro (outro tamanho) e mais novo. Já em dia, o
+        /// campo aponta para ele agora. O essencial entra na cópia em paralelo (<see cref="CopyAll"/>); o secundário (vídeo,
+        /// manual, imagens extras), na fila de segundo plano (RB-041).
         /// </summary>
-        static bool Download(string source, string target, CloudMediaSyncResult result)
+        /// <param name="replaces">O valor do campo agora, que o arquivo substitui; nulo quando o campo já aponta para ele.</param>
+        /// <returns>true se o jogo mudou agora (o campo passou a apontar para um arquivo que já estava aqui).</returns>
+        bool Fetch(SystemSync sys, string gameKey, XElement game, string field, string source, string target, string replaces)
         {
             if (!File.Exists(source))
                 return false;
 
             if (File.Exists(target) && !Newer(source, than: target))
-                return false;
+            {
+                if (replaces == null)
+                    return false;
 
-            Directory.CreateDirectory(Path.GetDirectoryName(target));
-            File.Copy(source, target + ".retroboat-part", true);
-            if (File.Exists(target))
-                File.Delete(target);
-            File.Move(target + ".retroboat-part", target);
-            result.FilesDownloaded++;
-            return true;
+                SetMediaField(game, field, target);
+                return true;
+            }
+
+            if (_background != null && MediaPriority.IsSecondary(field))
+            {
+                sys.Later.Add(new BackgroundMediaItem
+                {
+                    System = sys.SystemName,
+                    RomFolder = sys.RomFolder,
+                    Game = gameKey,
+                    Fields = new[] { field },
+                    CloudFile = source,
+                    Target = target,
+                    Replaces = replaces
+                });
+                return false;
+            }
+
+            sys.Copies.Add(new PendingCopy { Source = source, Target = target, Game = game, GameKey = gameKey, Field = replaces == null ? null : field });
+            return false;
+        }
+
+        void SetMediaField(XElement game, string field, string target)
+        {
+            var relative = GameMedia.ToHomeRelative(target, _install);
+            if ((string)game.Element(field) != relative)
+                game.SetElementValue(field, relative);
+        }
+
+        /// <summary>
+        /// Até <see cref="ParallelCopies"/> cópias do Drive ao mesmo tempo: num PC novo, as capas de centenas de jogos chegam
+        /// em segundos, não em minutos. Uma que falhou fica para a próxima sincronização; as outras seguem.
+        /// </summary>
+        static void CopyAll(List<PendingCopy> copies, CloudMediaSyncResult result, Action<int, int> progress)
+        {
+            if (copies.Count == 0)
+                return;
+
+            int done = 0, copied = 0;
+            var errors = new List<string>();
+            var report = new object();
+
+            // Dois campos podem querer o mesmo arquivo (a capa que é também a caixa): uma cópia por arquivo, as duas apontam.
+            var byTarget = copies.GroupBy(c => c.Target, StringComparer.OrdinalIgnoreCase).ToList();
+            progress?.Invoke(0, byTarget.Count);
+            System.Threading.Tasks.Parallel.ForEach(byTarget, new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = ParallelCopies }, group =>
+            {
+                var copy = group.First();
+                try
+                {
+                    if (!File.Exists(copy.Target) || Newer(copy.Source, than: copy.Target))
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(copy.Target));
+                        File.Copy(copy.Source, copy.Target + ".retroboat-part", true);
+                        if (File.Exists(copy.Target))
+                            File.Delete(copy.Target);
+                        File.Move(copy.Target + ".retroboat-part", copy.Target);
+                        System.Threading.Interlocked.Increment(ref copied);
+                    }
+
+                    foreach (var same in group)
+                        same.Copied = true;
+                }
+                catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+                {
+                    lock (errors)
+                        errors.Add(Path.GetFileName(copy.Target) + ": " + ex.Message);
+                }
+
+                int now = System.Threading.Interlocked.Increment(ref done);
+                lock (report)
+                    progress?.Invoke(now, byTarget.Count);
+            });
+
+            result.FilesDownloaded += copied;
+            result.Errors.AddRange(errors);
         }
 
         /// <summary>

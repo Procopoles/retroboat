@@ -89,8 +89,8 @@ anterior.
 
 Argumentos próprios: `--setup` (abrir o setup), `--no-launch` (só preparar, sem perguntar
 nada e sem ficar em segundo plano), `--steam-switch` (só o vigia do botão Xbox, aberto pelo evento
-"start" do ES e fechado junto com ele; RB-040) e `--retrobat <pasta>`. Log em
-`<RetroBat>\retroboat\logs\launcher.log`.
+"start" do ES e fechado junto com ele; RB-040), `--media` (só baixar as mídias secundárias em segundo plano; RB-041)
+e `--retrobat <pasta>`. Log em `<RetroBat>\retroboat\logs\launcher.log` (o `--media`, em `midias.log`).
 
 **Menu NUVEM (nosso ES).** Mostra o estado do Drive e da biblioteca e a pasta de jogos, e muda as quatro opções
 principais pelo `retroboat-cli settings`. O `Retroboat.exe` em segundo plano percebe a mudança na hora; ligar vídeos,
@@ -168,6 +168,24 @@ As capas automáticas não precisam de conta: o lançador procura o nome do arqu
 No-Intro/Redump) nos thumbnails do libretro, guarda a lista de nomes de cada sistema por uma semana
 em `retroboat\cache\libretro` e envia as imagens para o Drive. Descrição e vídeo vêm do scraper do
 ES, que precisa de uma conta gratuita no ScreenScraper (menu Procurar mídias de jogo, aba Contas).
+
+### Mídias em segundo plano (RB-041)
+
+A abertura e o ATUALIZAR LISTAS DE JOGOS só esperam o essencial: os textos e as imagens que aparecem na lista de jogos
+de qualquer tema (capa, tela do jogo, logo e fan art), baixados vários ao mesmo tempo (um por vez de cada servidor; do
+Drive, até 6 cópias juntas). O resto vai para a fila `<RetroBat>\retroboat\estado\midias-em-segundo-plano.xml` (só neste
+PC): vídeo, manual e as imagens da página do jogo (caixa traseira, disco, tela de título, mapa, moldura). Vale para os
+jogos novos (fontes da internet) e para um PC sem nenhuma mídia (cópia do Drive na primeira abertura). A divisão fica em
+`Retroboat.Core/Media/Background/MediaPriority.cs`.
+
+O `Retroboat.exe --media` baixa a fila sem janela, com prioridade baixa e sem aviso: espera enquanto há uma
+sincronização, um jogo baixando ou um jogo aberto; o vídeo vai direto para o disco e continua de onde parou. A cada
+poucos segundos, o que chegou entra no gamelist e, com o ES aberto e livre, aparece nele na hora (POST `/addgames` só
+com os campos novos; o que o ES tem na memória, como partidas e favoritos, fica). Um campo que a pessoa mudou nesse
+meio-tempo (PROCURAR MÍDIAS) vale mais. Sem internet, tenta de novo em 1, 5, 15 e 60 minutos e depois em 4 horas, e
+desiste na sexta vez. Ele abre depois de cada sincronização e, se sobrou fila (o PC desligou no meio), pelo script
+`scripts\start\retroboat-midias-nowait.bat` quando o ES abre. O que veio da internet vai para o Drive quando o ES fecha
+(ou na próxima sincronização). Log em `retroboat\logs\midias.log`.
 
 ## Emuladores (RB-033)
 

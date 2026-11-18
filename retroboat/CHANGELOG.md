@@ -186,6 +186,11 @@ Mudanças do fork em relação ao RetroBat oficial. O changelog do upstream cont
   - Na Steam, o ES fica minimizado e dorme: sem desenhar, sem som e sem vídeos, quase sem CPU nem GPU, para não
     atrapalhar os jogos da Steam. Ao voltar, está onde estava.
   - Se a Xbox Game Bar ou a opção da Steam que abre o Big Picture também usam o botão, o aviso diz onde desligar.
+- RB-041: a atualização da biblioteca só espera o essencial; vídeos, manuais e imagens extras chegam em segundo plano.
+  - Jogos novos e a primeira abertura num PC sem mídia: textos, capa, tela, logo e fan art na hora, vários ao mesmo
+    tempo; o resto baixa depois, sem aviso, e aparece no ES aberto quando chega.
+  - Medido com as APIs de verdade num jogo novo (Burnout 3, vídeo de 47,8 MB): a espera caiu de 75,6 s para 15,2 s.
+  - Espera enquanto há um jogo baixando ou aberto; um vídeo interrompido continua de onde parou.
 
 - RB-021 (passo 1): a biblioteca da nuvem ganha identidade (`retroboat\biblioteca.xml`, criado uma vez e nunca
   reescrito) e cada PC guarda o id em `[Cloud] Library`. O Retroboat só usa a pasta com esse id, em qualquer letra e

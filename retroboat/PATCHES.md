@@ -1624,3 +1624,77 @@ o histórico.
     `RunningAppID` voltou a 0.
 - **Não testado:** a troca inteira no build do usuário; controle de PlayStation (o botão PS não passa pelo XInput); a
   detecção da Game Bar e da Steam em outro PC.
+
+## RB-041 — Atualização da biblioteca só espera o essencial; vídeos, manuais e imagens extras em segundo plano
+
+- **Onde:**
+  - App, lógica: `Retroboat.Core/Media/Background/` (novo): `MediaPriority` (o que é essencial e o que é secundário),
+    `BackgroundMediaItem` e `BackgroundMediaQueue` (a fila em `estado\midias-em-segundo-plano.xml`), `BackgroundMediaFetcher`
+    (internet direto para o disco, continuando de onde parou; ou cópia do Drive), `BackgroundMediaGamelists` (o que chegou
+    entra no gamelist), `EsLiveMedia` (aparece no ES aberto), `BackgroundMediaWorker` (o laço) e `BackgroundMediaProcess`
+    (abrir o `Retroboat.exe --media`). `Retroboat.Core/Cloud/SyncLock.cs` (novo: a vez de sincronizar, que estava no
+    `Program.cs` do lançador, e a marca do fim da última sincronização). `Retroboat.Core/Es/EsGames.cs` (novo: os jogos do ES
+    aberto pela API) e `EsApi.AddGames`/`EsApi.Get`. `IMediaHttp.DownloadTo` (com `Range`).
+  - `AutoImport`: o essencial em paralelo (um pedido por vez de cada servidor, até 4 servidores), o secundário na fila.
+    `CloudMediaSync`: em três fases (receber os textos e listar os arquivos; copiar o essencial de todos os sistemas, até 6
+    cópias do Drive juntas, com andamento; apontar o gamelist e enviar), o secundário na fila. `StartupSync`: a fila nos
+    dois, "Baixando capas da nuvem (n de total)" na barra do ATUALIZAR LISTAS DE JOGOS e a marca do fim.
+  - App, lançador: `Retroboat.Launcher/BackgroundMedia/BackgroundMediaHost.cs` (novo: `--media`, um processo só, prioridade
+    baixa, log `midias.log`); `Program.cs` abre o `--media` depois de toda sincronização (abertura, `--refresh`,
+    CloudWatcher, depois do ES) e grava o script `scripts\start\retroboat-midias-nowait.bat` (`EsScripts.WriteBackgroundMedia`).
+  - Fork do ES: nada (usa o POST `/addgames` e o GET `/systems/.../games`, que o ES oficial também tem).
+- **Pedido (17/11/2026):** na tela de atualização da biblioteca, deixar os arquivos grandes (vídeos) baixando em segundo
+  plano, de forma otimizada; a pessoa só espera as mídias essenciais e as informações. Sem aviso de download concluído: o
+  vídeo aparece na interface quando chegar. Valer para os jogos novos e para a primeira abertura do ES num PC sem nenhuma
+  mídia.
+- **Como funciona:**
+  - essencial = os textos e o que a lista de jogos de qualquer tema mostra (capa em `thumbnail`/`boxart`, `image`,
+    `marquee`, `fanart`, `wheel`, `mix`); secundário = vídeo, manual e as imagens da página do jogo (caixa traseira,
+    disco/cartucho, tela de título, mapa, moldura). O log do 17/11 no build do usuário mostrou o motivo: as imagens do
+    Burnout 3 chegaram em segundos e o vídeo de 47 MB mais o manual seguraram a atualização por 2 minutos;
+  - jogos novos (`AutoImport`): a busca continua pedindo todos os campos de uma vez (o endereço do vídeo vem na mesma
+    resposta); só o download do secundário vai para a fila. O jogo conta como buscado (`MediaImportLog`) e a fila guarda
+    o endereço, então nenhum PC volta às fontes por ele;
+  - primeira abertura num PC sem mídia (`CloudMediaSync`): os textos entram na hora; o essencial é copiado do Drive com 6
+    cópias ao mesmo tempo (o Drive para computador demora por arquivo, não por byte); vídeos e manuais (se ligados em
+    `[Cloud]`) e as imagens extras vão para a fila como cópias do Drive. O que já está no PC não entra na fila;
+  - `Retroboat.exe --media`: um só (mutex `Local\RetroboatBackgroundMedia`), sem janela, prioridade abaixo do normal.
+    Espera enquanto outra sincronização roda (a pessoa está esperando por ela), um jogo baixa (vem primeiro) ou um jogo
+    está aberto (como a Steam). Um download por vez de cada servidor e o Drive como um servidor, até 3 juntos; imagens
+    primeiro, depois vídeos, por último manuais. O arquivo entra pelo nome final só inteiro (`.retroboat-part` até lá).
+    Sem internet, a mídia volta em 1, 5, 15 e 60 minutos e 4 horas; na sexta falha, desiste. Uma fonte que responde 404
+    tira a mídia da fila. Fecha quando a fila esvazia (esperando até 5 minutos por uma nova tentativa próxima);
+  - a cada 3 s, o que chegou entra no gamelist (com a vez da sincronização; o arquivo é trocado de uma vez). Um campo só
+    muda se ainda está como quando a mídia entrou na fila, vazio ou apontando para um arquivo que não existe; senão o
+    arquivo baixado é apagado. Com o ES aberto e livre (`/isIdle`), e 15 s depois da última sincronização (o ES relendo
+    as listas), o jogo vai ao ES pelo POST `/addgames` só com `path`, os campos novos e os `<scrap>` (o ES os apaga da
+    memória ao receber um jogo). Antes, o GET `/systems/<sistema>/games/<id>?localpaths=true` diz o que o ES tem: um campo
+    que a pessoa mudou nesta sessão não é trocado. O jogo é achado pelo caminho e, se o ES o escreve de outro jeito (nome
+    curto 8.3), pelo nome do arquivo. Se o ES fechar antes de receber, ele regravou o gamelist com o que tinha na memória:
+    o que faltou volta ao gamelist depois que o processo dele termina;
+  - o que veio da internet vai para o Drive (`StartupSync.SyncMediaAfterEs`) quando o ES não está aberto: na hora, ou
+    esperando o ES fechar (`WaitForExit` de 5 em 5 s, voltando à fila se chegarem mídias novas); se o PC desligar antes, a
+    próxima sincronização envia;
+  - se sobrou fila (o PC desligou no meio), o script `start` do ES abre o `--media` quando o ES abre, por qualquer caminho
+    (o usuário abre o `retrobat.exe` direto); sem o arquivo da fila, o script não abre nada.
+- **Classificação:** C0 (só o app).
+- **Risco semântico:** o ES mudar o POST `/addgames` (hoje ele marca todos os jogos do sistema como alterados e regrava o
+  gamelist da memória, como já acontece no `RefreshGameList` dos downloads) ou o id dos jogos na API (md5 do caminho).
+- **Upstreamável:** não.
+- **Testado em 17/11/2026:**
+  - 453 testes (13 novos: jogo novo esperando só o essencial e o resto chegando; primeira abertura sem mídia copiando só o
+    essencial, a fila do Drive e a sincronização seguinte sem nada a fazer; vídeos desligados fora da fila; a escolha da
+    pessoa vence e o arquivo baixado sai; 404; tentativas espaçadas e desistência; a fonte nova substitui a antiga na fila;
+    nada baixa durante sincronização, download de jogo ou jogo aberto; ES aberto recebendo só os campos novos e os
+    `<scrap>`; vídeo escolhido nesta sessão do ES mantido; ES fechando antes de receber; script `start`);
+  - ES do build (RB-038 + RB-040) numa cópia isolada, aberto: o `Retroboat.exe --media` pôs o vídeo na memória do ES em
+    menos de 1 s, sem recarregar; o favorito marcado só na memória do ES, as partidas e o `<scrap>` continuaram, e o
+    gamelist que o ES regravou ficou com tudo. A captura da janela não mostra o vídeo tocando nem com ele no gamelist
+    desde a abertura (o mesmo quadro nos dois casos);
+  - APIs de verdade, cópias isoladas, mesmo jogo novo (Burnout 3 - Takedown, vídeo de 47,8 MB), ATUALIZAR LISTAS DE
+    JOGOS pelo `Retroboat.exe --refresh`: build atual (`0f2dbca`) 75,6 s de espera com 9 arquivos; esta versão 15,2 s
+    com 4 arquivos, e os outros 5 (47,8 MB) chegaram 7 s depois, em segundo plano, e foram para a nuvem;
+  - primeira abertura de um PC sem mídia com essa nuvem: 4,4 s de espera (textos e 4 imagens); caixa traseira, disco,
+    tela de título, vídeo e manual chegaram 2 s depois.
+- **Não testado:** no build do usuário com o Google Drive de verdade (a primeira abertura acima copiou de uma pasta local,
+  sem a demora por arquivo do Drive); muitos jogos novos de uma vez; o ES oficial.

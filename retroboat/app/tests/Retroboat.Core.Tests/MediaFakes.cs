@@ -122,6 +122,24 @@ namespace Retroboat.Tests
 
             return new byte[] { 1, 2, 3, (byte)url.Length };
         }
+
+        /// <summary>Endereços que respondem 404.</summary>
+        public HashSet<string> Missing = new HashSet<string>();
+
+        public bool DownloadTo(string url, string file)
+        {
+            if (Missing.Contains(url))
+            {
+                lock (this)
+                    Downloads.Add(url);
+                return false;
+            }
+
+            var data = Download(url);
+            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(file));
+            System.IO.File.WriteAllBytes(file, data);
+            return true;
+        }
     }
 
     static class MediaTest

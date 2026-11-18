@@ -86,6 +86,48 @@ namespace Retroboat.Es
             }
         }
 
+        /// <summary>
+        /// RB-041: manda ao ES jogos de um sistema no formato do gamelist (POST /addgames, no ES oficial e no nosso): ele põe
+        /// na memória só os campos que vieram, regrava o gamelist e redesenha a lista sem mexer na posição da pessoa. Só
+        /// com <see cref="IsIdle"/>.
+        /// </summary>
+        public static bool AddGames(string systemName, string gamelistXml)
+        {
+            try
+            {
+                using (var client = CreateClient(15000))
+                {
+                    client.Headers[HttpRequestHeader.ContentType] = "text/xml; charset=utf-8";
+                    client.UploadString(BaseUrl + "/addgames/" + Uri.EscapeDataString(systemName), "POST", gamelistXml);
+                }
+
+                return true;
+            }
+            catch (WebException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// GET na API (ex.: "/systems/ps2/games"). O corpo; nulo sem resposta ou com erro, e <paramref name="notFound"/> quando o
+        /// ES respondeu 404 (sistema ou jogo que ele não tem).
+        /// </summary>
+        public static string Get(string path, out bool notFound, int timeoutMs = 5000)
+        {
+            notFound = false;
+            try
+            {
+                using (var client = CreateClient(timeoutMs))
+                    return client.DownloadString(BaseUrl + path);
+            }
+            catch (WebException ex)
+            {
+                notFound = (ex.Response as HttpWebResponse)?.StatusCode == HttpStatusCode.NotFound;
+                return null;
+            }
+        }
+
         /// <summary>Espera o ES subir (a intro do RetroBat pode levar alguns segundos).</summary>
         public static bool WaitUntilRunning(TimeSpan timeout)
         {

@@ -9,8 +9,10 @@ using System.Windows.Forms;
 using Retroboat.Cloud;
 using Retroboat.Es;
 using Retroboat.Launch;
+using Retroboat.Launcher.BackgroundMedia;
 using Retroboat.Library;
 using Retroboat.Logging;
+using Retroboat.Media.Background;
 using Retroboat.Saves;
 using Retroboat.Settings;
 using Retroboat.Themes;
@@ -26,8 +28,8 @@ namespace Retroboat.Launcher
     ///
     /// Argumentos próprios: --retrobat &lt;pasta&gt;, --setup (abrir o setup do RB-021: biblioteca, pasta de jogos e opções),
     /// --no-launch (só preparar), --refresh (só sincronizar, sem janela: o "Atualizar listas de jogos" do ES) e
-    /// --steam-switch (só acompanhar o botão Xbox até o ES fechar: o evento "start" do ES, RB-040). Os demais são
-    /// repassados ao retrobat.exe.
+    /// --steam-switch (só acompanhar o botão Xbox até o ES fechar: o evento "start" do ES, RB-040) e --media (só baixar as
+    /// mídias secundárias em segundo plano, RB-041). Os demais são repassados ao retrobat.exe.
     /// </summary>
     static class Program
     {
@@ -52,8 +54,13 @@ namespace Retroboat.Launcher
                 return 1;
             }
 
-            Log.Init(Path.Combine(install.RetroboatDataPath, "logs", "launcher.log"));
+            // As mídias de segundo plano têm o próprio log: rodam ao mesmo tempo que tudo o mais.
+            Log.Init(Path.Combine(install.RetroboatDataPath, "logs", own.Media ? "midias.log" : "launcher.log"));
             Log.Info("Início: " + install.Root + (args.Length > 0 ? " | args: " + string.Join(" ", args) : ""));
+
+            // RB-041: vídeos, manuais e imagens extras, sem janela e sem ninguém esperando.
+            if (own.Media)
+                return BackgroundMediaHost.Run(install);
 
             // RB-040: aberto pelo evento "start" do ES, só para acompanhar o botão Xbox até o ES fechar.
             if (own.SteamSwitch)
@@ -192,11 +199,13 @@ namespace Retroboat.Launcher
                     LogStats(StartupSync.SyncStats(install, cloud.RetroboatPath, settings.RomsPath));
 
                     var options = new Retroboat.Media.CloudMediaOptions { Videos = settings.CloudVideos, Manuals = settings.CloudManuals, Automatic = settings.AutoMedia };
-                    var media = StartupSync.SyncMediaAfterEs(install, cloud.RetroboatPath, settings.RomsPath, options);
+                    var media = StartupSync.SyncMediaAfterEs(install, cloud.RetroboatPath, settings.RomsPath, options, new BackgroundMediaQueue(install));
                     Log.Info(string.Format("Mídias depois do ES: {0} jogo(s) enviados ({1} arquivo(s)), {2} recebidos ({3} arquivo(s))",
                         media.GamesShared, media.FilesUploaded, media.GamesFilled, media.FilesDownloaded));
                     foreach (var problem in media.Errors) Log.Warn("Mídias depois do ES: " + problem);
                 });
+
+                StartBackgroundMedia(install);
             }
             catch (Exception ex)
             {
@@ -281,6 +290,9 @@ namespace Retroboat.Launcher
 
                 if (EsScripts.WriteSteamSwitch(install, exeDirectory))
                     Log.Info("Script " + EsScripts.StartEvent + " do ES gravado: o botão Xbox troca entre o Retroboat e a Steam.");
+
+                if (EsScripts.WriteBackgroundMedia(install, exeDirectory))
+                    Log.Info("Script " + EsScripts.StartEvent + " do ES gravado: mídias que ficaram na fila continuam em segundo plano.");
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
             {
@@ -390,13 +402,6 @@ namespace Retroboat.Launcher
             return 0;
         }
 
-        /// <summary>
-        /// Abertura, CloudWatcher e o "Atualizar listas de jogos" do ES (outro processo) podem querer sincronizar ao mesmo
-        /// tempo: um de cada vez, senão dois mexem nos mesmos memory cards, configurações do Drive, índice e gamelists.
-        /// </summary>
-        const string SyncMutexName = @"Local\RetroboatSync";
-        static readonly TimeSpan SyncWait = TimeSpan.FromMinutes(2);
-
         /// <param name="progress">Andamento (0 a 100) e etapa, para a barra do "Atualizar listas de jogos" do ES (RB-038).</param>
         internal static StartupSyncReport SyncWithCloud(RetroBatInstall install, RetroboatSettings settings, string leadingMessage = null, Action<int, string> progress = null)
         {
@@ -412,36 +417,22 @@ namespace Retroboat.Launcher
                     report.Messages.Insert(0, message);
             });
 
+            // RB-041: vídeos, manuais e imagens extras chegam depois, sem ninguém esperar por eles.
+            StartBackgroundMedia(install);
             return report;
         }
 
-        static void WithSyncLock(Action work)
+        static void StartBackgroundMedia(RetroBatInstall install)
         {
-            using (var mutex = new Mutex(false, SyncMutexName))
-            {
-                bool acquired;
-                try
-                {
-                    acquired = mutex.WaitOne(SyncWait);
-                }
-                catch (AbandonedMutexException)
-                {
-                    acquired = true; // Quem sincronizava foi encerrado à força; a vez é desta.
-                }
-
-                if (!acquired)
-                    throw new TimeoutException("outra sincronização com a nuvem não terminou em " + SyncWait.TotalMinutes + " minutos");
-
-                try
-                {
-                    work();
-                }
-                finally
-                {
-                    mutex.ReleaseMutex();
-                }
-            }
+            if (BackgroundMediaProcess.EnsureRunning(install, AppDomain.CurrentDomain.BaseDirectory.TrimEnd('\\', '/')))
+                Log.Info("Mídias secundárias (vídeos, manuais, imagens extras) baixando em segundo plano: retroboat\\logs\\midias.log.");
         }
+
+        /// <summary>
+        /// Abertura, CloudWatcher, o "Atualizar listas de jogos" do ES e as mídias de segundo plano (outros processos) podem
+        /// querer mexer nos gamelists ao mesmo tempo: um de cada vez (<see cref="SyncLock"/>).
+        /// </summary>
+        static void WithSyncLock(Action work) => SyncLock.Run(work);
 
         /// <summary>
         /// RB-021: com uma biblioteca só no Drive, este PC passa a usá-la pelo id, sem perguntar. Nos outros casos nada é
@@ -521,15 +512,16 @@ namespace Retroboat.Launcher
 
             if (report.AutoImport != null)
             {
-                Log.Info(string.Format("Mídias automáticas (PERSONALIZADO): {0} jogo(s), {1} arquivo(s) baixado(s)", report.AutoImport.GamesFilled, report.AutoImport.FilesDownloaded));
+                Log.Info(string.Format("Mídias automáticas (PERSONALIZADO): {0} jogo(s), {1} arquivo(s) baixado(s), {2} em segundo plano",
+                    report.AutoImport.GamesFilled, report.AutoImport.FilesDownloaded, report.AutoImport.FilesQueued));
                 foreach (var game in report.AutoImport.NotFound) Log.Info("Mídias automáticas não encontradas: " + game);
                 foreach (var problem in report.AutoImport.Errors) Log.Warn("Mídias automáticas: " + problem);
             }
 
             if (report.Media != null)
             {
-                Log.Info(string.Format("Capas e descrições: {0} jogo(s) enviados ({1} arquivos), {2} recebidos ({3} arquivos)",
-                    report.Media.GamesShared, report.Media.FilesUploaded, report.Media.GamesFilled, report.Media.FilesDownloaded));
+                Log.Info(string.Format("Capas e descrições: {0} jogo(s) enviados ({1} arquivos), {2} recebidos ({3} arquivos, {4} em segundo plano)",
+                    report.Media.GamesShared, report.Media.FilesUploaded, report.Media.GamesFilled, report.Media.FilesDownloaded, report.Media.FilesQueued));
                 foreach (var problem in report.Media.Errors) Log.Warn("Mídia: " + problem);
             }
 
@@ -719,6 +711,7 @@ namespace Retroboat.Launcher
                     case "--no-launch": own.NoLaunch = true; break;
                     case "--refresh": own.Refresh = true; break;
                     case "--steam-switch": own.SteamSwitch = true; break;
+                    case "--media": own.Media = true; break;
                     case "--retrobat" when i + 1 < args.Length: own.RetroBatPath = args[++i]; break;
                     default: passThrough.Add(args[i]); break;
                 }
@@ -732,6 +725,7 @@ namespace Retroboat.Launcher
             public bool Setup;
             public bool NoLaunch;
             public bool SteamSwitch;
+            public bool Media;
             public bool Refresh;
             public string RetroBatPath;
         }

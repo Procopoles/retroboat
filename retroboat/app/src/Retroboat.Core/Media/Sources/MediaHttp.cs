@@ -33,6 +33,13 @@ namespace Retroboat.Media.Sources
 
         /// <summary>O arquivo (imagem, vídeo); nulo se não existe (404). Lança WebException sem resposta.</summary>
         byte[] Download(string url);
+
+        /// <summary>
+        /// RB-041: o arquivo direto no disco, sem passar inteiro pela memória (um vídeo tem até 50 MB). Se
+        /// <paramref name="file"/> já tem um pedaço de uma tentativa anterior, continua de onde parou quando o servidor
+        /// aceita. False se não existe (404). Lança WebException sem resposta ou com outro erro.
+        /// </summary>
+        bool DownloadTo(string url, string file);
     }
 
     public sealed class MediaHttp : IMediaHttp
@@ -59,6 +66,40 @@ namespace Retroboat.Media.Sources
             catch (WebException ex) when ((ex.Response as HttpWebResponse)?.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;
+            }
+        }
+
+        public bool DownloadTo(string url, string file)
+        {
+            long existing = File.Exists(file) ? new FileInfo(file).Length : 0;
+            var request = Create(url, 120000);
+            request.AutomaticDecompression = DecompressionMethods.None; // Pedaços de um arquivo compactado não se emendam.
+            if (existing > 0)
+                request.AddRange(existing);
+
+            try
+            {
+                using (var response = (HttpWebResponse)request.GetResponse())
+                using (var stream = response.GetResponseStream())
+                {
+                    // 206: o servidor manda só o que falta. 200: ele não sabe continuar, então começa do zero.
+                    bool resume = existing > 0 && response.StatusCode == HttpStatusCode.PartialContent;
+                    Directory.CreateDirectory(Path.GetDirectoryName(file));
+                    using (var output = new FileStream(file, resume ? FileMode.Append : FileMode.Create, FileAccess.Write, FileShare.None, 81920))
+                        stream.CopyTo(output, 81920);
+                }
+
+                return true;
+            }
+            catch (WebException ex) when ((ex.Response as HttpWebResponse)?.StatusCode == HttpStatusCode.NotFound)
+            {
+                return false;
+            }
+            catch (WebException ex) when (existing > 0 && (ex.Response as HttpWebResponse)?.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
+            {
+                // O pedaço não serve mais (o arquivo mudou na fonte): do zero.
+                File.Delete(file);
+                return DownloadTo(url, file);
             }
         }
 
